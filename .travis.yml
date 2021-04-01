@@ -26,8 +26,10 @@ jobs:
       script: ./gradlew check
     - # headless
       name: "Headless Tests"
-      env: _JAVA_OPTIONS="-Djava.awt.headless=true -Dtestfx.robot=glass -Dtestfx.headless=true -Dglass.platform=Monocle -Dmonocle.platform=Headless -Dprism.order=sw"
-      script: ./gradlew check
+      env:
+        - _JAVA_OPTIONS="-Djava.awt.headless=true -Dtestfx.robot=glass -Dtestfx.headless=true -Dglass.platform=Monocle -Dmonocle.platform=Headless -Dprism.order=sw"
+        - REPORT="report"
+      script: ./gradlew check jacocoTestReport
     - stage: snapshot
       script: echo "snapshot build"
     - stage: release
@@ -44,3 +46,12 @@ cache:
     - $HOME/.gradle/caches/
     - $HOME/.gradle/wrapper/
     - $HOME/.m2
+
+deploy:
+  provider: pages
+  skip_cleanup: true
+  github_token: $GITHUB_TOKEN
+  local_dir: ./build/reports/jacoco/test/html
+  on:
+    all_branches: true
+    condition: env(REPORT) IS present

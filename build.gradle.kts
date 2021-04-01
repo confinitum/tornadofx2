@@ -10,6 +10,7 @@ plugins {
     `maven-publish`
     id("org.jetbrains.dokka") version "1.4.20"
     signing
+    id("jacoco")
 }
 //see gradle.properties
 val tornado_version: String by project
