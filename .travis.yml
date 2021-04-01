@@ -49,7 +49,7 @@ cache:
     - $HOME/.m2
 
 deploy:
-  provider: pages:git
+  provider: pages
   token: $GITHUB_TOKEN
   local_dir: ./build/reports/jacoco/test/html
   on:
