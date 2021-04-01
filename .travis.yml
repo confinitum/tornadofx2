@@ -17,6 +17,7 @@ stages:
     if: branch = master AND tag IS blank
   - name: release
     if: branch IN (master, release) AND tag =~ /^[Vv]{0,1}\d+\.\d+\.\d+.*/
+  - name: deploy
 
 jobs:
   include:
@@ -48,10 +49,9 @@ cache:
     - $HOME/.m2
 
 deploy:
-  provider: pages
-  skip_cleanup: true
-  github_token: $GITHUB_TOKEN
+  provider: pages:git
+  token: $GITHUB_TOKEN
   local_dir: ./build/reports/jacoco/test/html
   on:
     all_branches: true
-    condition: env(REPORT) IS present
+    condition: $REPORT = report
