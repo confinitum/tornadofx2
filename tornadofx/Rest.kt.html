@@ -1,0 +1,676 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Rest.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Rest.kt</span></div><h1>Rest.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.application.Platform
+import javafx.collections.FXCollections
+import javafx.collections.ListChangeListener
+import javafx.collections.ObservableList
+import javafx.scene.control.ProgressBar.INDETERMINATE_PROGRESS
+import javafx.scene.control.Tooltip
+import org.apache.http.HttpEntity
+import org.apache.http.HttpHost
+import org.apache.http.auth.AuthScope
+import org.apache.http.auth.UsernamePasswordCredentials
+import org.apache.http.client.config.RequestConfig
+import org.apache.http.client.methods.*
+import org.apache.http.client.protocol.HttpClientContext
+import org.apache.http.entity.InputStreamEntity
+import org.apache.http.entity.StringEntity
+import org.apache.http.impl.auth.BasicScheme
+import org.apache.http.impl.client.*
+import org.apache.http.util.EntityUtils
+import tornadofx.Rest.Request.Method.*
+import java.io.Closeable
+import java.io.InputStream
+import java.io.StringReader
+import java.net.*
+import java.nio.charset.StandardCharsets
+import java.nio.charset.StandardCharsets.UTF_8
+import java.security.MessageDigest
+import java.util.*
+import java.util.concurrent.atomic.AtomicLong
+import java.util.zip.DeflaterInputStream
+import java.util.zip.GZIPInputStream
+import javax.json.Json
+import javax.json.JsonArray
+import javax.json.JsonObject
+import javax.json.JsonValue
+import kotlin.collections.HashMap
+
+<span class="fc" id="L39">open class Rest : Controller() {</span>
+    companion object {
+<span class="pc" id="L41">        var engineProvider: (Rest) -&gt; Engine = ::HttpURLEngine</span>
+<span class="fc" id="L42">        val ongoingRequests = FXCollections.observableArrayList&lt;Request&gt;()</span>
+<span class="pc" id="L43">        val atomicseq = AtomicLong()</span>
+
+        fun useApacheHttpClient() {
+<span class="nc" id="L46">            engineProvider = ::HttpClientEngine</span>
+<span class="nc" id="L47">        }</span>
+    }
+
+<span class="pc" id="L50">    var engine = engineProvider(this)</span>
+<span class="pc" id="L51">    var baseURI: String? = null</span>
+<span class="pc" id="L52">    var proxy: Proxy? = null</span>
+<span class="pc" id="L53">    var authContext: AuthContext? = null</span>
+
+    fun setBasicAuth(username: String, password: String) {
+<span class="nc" id="L56">        engine.setBasicAuth(username, password)</span>
+<span class="nc" id="L57">    }</span>
+
+    fun setDigestAuth(username: String, password: String) {
+<span class="nc" id="L60">        engine.setDigestAuth(username, password)</span>
+<span class="nc" id="L61">    }</span>
+
+<span class="nc" id="L63">    fun reset() = engine.reset()</span>
+
+<span class="fc" id="L65">    fun get(path: String, data: JsonValue? = null, processor: (Request) -&gt; Unit = {}) = execute(GET, path, data, processor)</span>
+<span class="nc" id="L66">    fun get(path: String, data: JsonModel, processor: (Request) -&gt; Unit = {}) = get(path, JsonBuilder().apply { data.toJSON(this) }.build(), processor)</span>
+
+<span class="nc" id="L68">    fun put(path: String, data: JsonValue? = null, processor: (Request) -&gt; Unit = {}) = execute(PUT, path, data, processor)</span>
+<span class="nc" id="L69">    fun put(path: String, data: JsonModel, processor: (Request) -&gt; Unit = {}) = put(path, JsonBuilder().apply { data.toJSON(this) }.build(), processor)</span>
+<span class="nc" id="L70">    fun put(path: String, data: InputStream, processor: (Request) -&gt; Unit = {}) = execute(PUT, path, data, processor)</span>
+
+<span class="nc" id="L72">    fun patch(path: String, data: JsonValue? = null, processor: (Request) -&gt; Unit = {}) = execute(PATCH, path, data, processor)</span>
+<span class="nc" id="L73">    fun patch(path: String, data: JsonModel, processor: (Request) -&gt; Unit = {}) = patch(path, JsonBuilder().apply { data.toJSON(this) }.build(), processor)</span>
+<span class="nc" id="L74">    fun patch(path: String, data: InputStream, processor: (Request) -&gt; Unit = {}) = execute(PATCH, path, data, processor)</span>
+
+<span class="pc" id="L76">    fun post(path: String, data: JsonValue? = null, processor: (Request) -&gt; Unit = {}) = execute(POST, path, data, processor)</span>
+<span class="nc" id="L77">    fun post(path: String, data: JsonModel, processor: (Request) -&gt; Unit = {}) = post(path, JsonBuilder().apply { data.toJSON(this) }.build(), processor)</span>
+<span class="nc" id="L78">    fun post(path: String, data: InputStream, processor: (Request) -&gt; Unit = {}) = execute(POST, path, data, processor)</span>
+
+<span class="nc" id="L80">    fun delete(path: String, data: JsonValue? = null, processor: (Request) -&gt; Unit = {}) = execute(DELETE, path, data, processor)</span>
+<span class="nc" id="L81">    fun delete(path: String, data: JsonModel, processor: (Request) -&gt; Unit = {}) = delete(path, JsonBuilder().apply { data.toJSON(this) }.build(), processor)</span>
+
+    fun getURI(path: String): URI {
+<span class="fc" id="L84">        try {</span>
+<span class="fc" id="L85">            val asURI = URI.create(path.replace(&quot; &quot;, &quot;%20&quot;))</span>
+<span class="pc bpc" id="L86" title="1 of 2 branches missed.">            if (asURI.isAbsolute) return asURI</span>
+
+<span class="fc" id="L88">            val uri = StringBuilder()</span>
+
+<span class="pc bpc" id="L90" title="1 of 2 branches missed.">            if (baseURI != null)</span>
+<span class="fc" id="L91">                uri.append(baseURI)</span>
+
+<span class="pc bpc" id="L93" title="3 of 4 branches missed.">            if (uri.toString().endsWith(&quot;/&quot;) &amp;&amp; path.startsWith(&quot;/&quot;))</span>
+<span class="nc" id="L94">                uri.append(path.substring(1))</span>
+<span class="pc bpc" id="L95" title="1 of 4 branches missed.">            else if (!uri.toString().endsWith(&quot;/&quot;) &amp;&amp; !path.startsWith(&quot;/&quot;))</span>
+<span class="fc" id="L96">                uri.append(&quot;/&quot;).append(path)</span>
+            else
+<span class="fc" id="L98">                uri.append(path)</span>
+
+<span class="fc" id="L100">            return URI(uri.toString().replace(&quot; &quot;, &quot;%20&quot;))</span>
+<span class="nc" id="L101">        } catch (ex: URISyntaxException) {</span>
+<span class="nc" id="L102">            throw RuntimeException(ex)</span>
+        }
+
+    }
+
+<span class="nc" id="L107">    fun execute(method: Request.Method, target: String, data: Any? = null, processor: (Request) -&gt; Unit = {}): Response {</span>
+<span class="fc" id="L108">        var request: Rest.Request? = null</span>
+<span class="fc" id="L109">        try {</span>
+<span class="fc" id="L110">            request = engine.request(atomicseq.addAndGet(1), method, getURI(target), data)</span>
+
+<span class="fc" id="L112">            processor(request)</span>
+
+<span class="fc" id="L114">            Platform.runLater { ongoingRequests.add(request) }</span>
+<span class="fc" id="L115">            return request.execute()</span>
+<span class="nc" id="L116">        } catch (t: Throwable) {</span>
+<span class="nc" id="L117">            throw RestException(&quot;Failed to execute request&quot;, request, null, t)</span>
+        }
+    }
+
+<span class="fc" id="L121">    abstract class Engine {</span>
+<span class="pc" id="L122">        var requestInterceptor: ((Request) -&gt; Unit)? = null</span>
+        @Deprecated(&quot;Renamed to requestInterceptor&quot;, ReplaceWith(&quot;requestInterceptor&quot;))
+<span class="nc" id="L124">        var authInterceptor: ((Request) -&gt; Unit)? get() = requestInterceptor; set(value) {</span>
+<span class="nc" id="L125">            requestInterceptor = value</span>
+<span class="nc" id="L126">        }</span>
+<span class="pc" id="L127">        var responseInterceptor: ((Response) -&gt; Unit)? = null</span>
+<span class="nc" id="L128">        abstract fun request(seq: Long, method: Request.Method, uri: URI, entity: Any? = null): Request</span>
+        abstract fun reset()
+        abstract fun setBasicAuth(username: String, password: String)
+        abstract fun setDigestAuth(username: String, password: String)
+    }
+
+    interface Request {
+        enum class Method { GET, PUT, POST, DELETE, PATCH }
+
+        val seq: Long
+        val method: Method
+        val uri: URI
+        val entity: Any?
+        var properties: MutableMap&lt;Any, Any&gt;
+        fun addHeader(name: String, value: String)
+        fun getHeader(name: String): String?
+        fun execute(): Response
+        fun reset()
+    }
+
+    interface Response : Closeable {
+<span class="nc" id="L149">        enum class Status(val code: Int) {</span>
+<span class="nc" id="L150">            Continue(100), SwitchingProtocols(101), Processing(102),</span>
+<span class="nc" id="L151">            OK(200), Created(201), Accepted(202), NonAuthoritativeInformation(203), NoContent(204), ResetContent(205), PartialContent(206), MultiStatus(207), AlreadyReported(208), IMUsed(226),</span>
+<span class="nc" id="L152">            MultipleChoices(300), MovedPermanently(301), Found(302), SeeOther(303), NotModified(304), UseProxy(305), TemporaryRedirect(307), PermanentRedirect(308),</span>
+<span class="nc" id="L153">            BadRequest(400), Unauthorized(401), PaymentRequired(402), Forbidden(403), NotFound(404), MethodNotAllowed(405), NotAcceptable(406), ProxyAuthenticationRequired(407), RequestTimeout(408), Conflict(409), Gone(410), LengthRequired(411), PreconditionFailed(412), PayloadTooLarge(413), URITooLong(414), UnsupportedMediaType(415), RangeNotSatisfiable(416), ExpectationFailed(417), IAmATeapot(418), MisdirectedRequest(421), UnprocessableEntity(422), Locked(423), FailedDependency(424), UpgradeRequired(426), PreconditionRequired(428), TooManyRequests(429), RequestHeaderFieldsTooLarge(431), UnavailableForLegalReasons(451),</span>
+<span class="nc" id="L154">            InternalServerError(500), NotImplemented(501), BadGateway(502), ServiceUnavailable(503), GatewayTimeout(504), HTTPVersionNotSupported(505), VariantAlsoNegotiates(506), InsufficientStorage(507), LoopDetected(508), NotExtended(510), NetworkAuthenticationRequired(511),</span>
+<span class="nc" id="L155">            Unknown(0)</span>
+        }
+
+        val request: Request
+        val statusCode: Int
+<span class="nc bnc" id="L160" title="All 8 branches missed.">        val status: Status get() = Status.values().find { it.code == statusCode } ?: Status.Unknown</span>
+        val reason: String
+        fun text(): String?
+        fun consume(): Response
+        val headers: Map&lt;String, List&lt;String&gt;&gt;
+<span class="nc bnc" id="L165" title="All 2 branches missed.">        fun header(name: String): String? = headers.get(name)?.first()</span>
+        fun list(): JsonArray {
+<span class="fc" id="L167">            try {</span>
+<span class="fc" id="L168">                val content = text()</span>
+
+<span class="pc bpc" id="L170" title="3 of 6 branches missed.">                if (content.isNullOrEmpty())</span>
+<span class="nc" id="L171">                    return Json.createArrayBuilder().build()</span>
+
+<span class="pc" id="L173">                return when (val json = Json.createReader(StringReader(content)).use { it.read() }) {</span>
+<span class="pc bpc" id="L174" title="1 of 2 branches missed.">                    is JsonArray -&gt; json</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">                    is JsonObject -&gt; Json.createArrayBuilder().add(json).build()</span>
+<span class="nc" id="L176">                    else -&gt; throw IllegalArgumentException(&quot;Unknown json result value&quot;)</span>
+                }
+<span class="nc" id="L178">            } catch (t: Throwable) {</span>
+<span class="nc" id="L179">                throw RestException(&quot;JsonArray parsing failed&quot;, request, this, t)</span>
+            } finally {
+<span class="pc" id="L181">                consume()</span>
+            }
+        }
+
+        fun one(): JsonObject {
+<span class="fc" id="L186">            try {</span>
+<span class="fc" id="L187">                val content = text()</span>
+
+<span class="pc bpc" id="L189" title="3 of 6 branches missed.">                if (content.isNullOrEmpty())</span>
+<span class="nc" id="L190">                    return Json.createObjectBuilder().build()</span>
+
+<span class="pc" id="L192">                return when (val json = Json.createReader(StringReader(content)).use { it.read() }) {</span>
+<span class="pc bpc" id="L193" title="1 of 2 branches missed.">                    is JsonArray -&gt; {</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">                        if (json.isEmpty())</span>
+<span class="nc" id="L195">                            return Json.createObjectBuilder().build()</span>
+                        else
+<span class="nc" id="L197">                            return json.getJsonObject(0)</span>
+                    }
+<span class="pc bpc" id="L199" title="1 of 2 branches missed.">                    is JsonObject -&gt; json</span>
+<span class="nc" id="L200">                    else -&gt; throw IllegalArgumentException(&quot;Unknown json result value&quot;)</span>
+                }
+<span class="nc" id="L202">            } catch (t: Throwable) {</span>
+<span class="nc" id="L203">                throw RestException(&quot;JsonObject parsing failed&quot;, request, this, t)</span>
+            } finally {
+<span class="pc" id="L205">                consume()</span>
+            }
+        }
+
+        fun content(): InputStream
+        fun bytes(): ByteArray
+<span class="nc bnc" id="L211" title="All 2 branches missed.">        fun ok() = statusCode == 200</span>
+    }
+}
+
+<span class="fc" id="L215">open class HttpURLEngine(val rest: Rest) : Rest.Engine() {</span>
+    override fun reset() {
+<span class="nc" id="L217">        requestInterceptor = null</span>
+<span class="nc" id="L218">    }</span>
+
+    override fun request(seq: Long, method: Rest.Request.Method, uri: URI, entity: Any?) =
+<span class="fc" id="L221">            HttpURLRequest(this, seq, method, uri, entity)</span>
+
+    override fun setBasicAuth(username: String, password: String) {
+<span class="nc" id="L224">        rest.authContext = HttpURLBasicAuthContext(username, password)</span>
+<span class="nc" id="L225">    }</span>
+
+    override fun setDigestAuth(username: String, password: String) {
+<span class="nc" id="L228">        rest.authContext = DigestAuthContext(username, password)</span>
+<span class="nc" id="L229">    }</span>
+}
+
+internal fun MessageDigest.concat(vararg values: String): String {
+<span class="nc" id="L233">    reset()</span>
+<span class="nc bnc" id="L234" title="All 2 branches missed.">    update(values.joinToString(&quot;:&quot;).toByteArray(StandardCharsets.ISO_8859_1))</span>
+<span class="nc" id="L235">    return digest().hex</span>
+}
+
+val Rest.Response.digestParams: Map&lt;String, String&gt;? get() {
+<span class="nc" id="L239">    fun String.clean() = trim('\t', ' ', '&quot;')</span>
+<span class="nc bnc" id="L240" title="All 4 branches missed.">    return headers[&quot;WWW-Authenticate&quot;]?.first { it.startsWith(&quot;Digest &quot;) }</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">            ?.substringAfter(&quot;Digest &quot;)</span>
+<span class="nc bnc" id="L242" title="All 2 branches missed.">            ?.split(&quot;,&quot;)</span>
+<span class="nc" id="L243">            ?.associate {</span>
+<span class="nc" id="L244">                val (name, value) = it.split(&quot;=&quot;, limit = 2)</span>
+<span class="nc" id="L245">                name.clean() to value.clean()</span>
+            }
+}
+
+<span class="fc" id="L249">private val HexChars = &quot;0123456789abcdef&quot;.toCharArray()</span>
+
+<span class="nc" id="L251">val ByteArray.hex get() = map(Byte::toInt).joinToString(&quot;&quot;) { &quot;${HexChars[(it and 0xF0).ushr(4)]}${HexChars[it and 0x0F]}&quot; }</span>
+
+<span class="pc" id="L253">class HttpURLRequest(val engine: HttpURLEngine, override val seq: Long, override val method: Rest.Request.Method, override val uri: URI, override val entity: Any?) : Rest.Request {</span>
+<span class="pc" id="L254">    lateinit var connection: HttpURLConnection</span>
+<span class="pc" id="L255">    val headers = mutableMapOf&lt;String, String&gt;()</span>
+
+<span class="fc" id="L257">    init {</span>
+<span class="fc" id="L258">        reset()</span>
+<span class="fc" id="L259">    }</span>
+
+    override fun reset() {
+<span class="fc" id="L262">        val url = uri.toURL()</span>
+<span class="pc bpc" id="L263" title="2 of 4 branches missed.">        connection = (if (engine.rest.proxy != null) url.openConnection(engine.rest.proxy) else url.openConnection()) as HttpURLConnection</span>
+<span class="fc" id="L264">        headers += &quot;Accept-Encoding&quot; to &quot;gzip, deflate&quot;</span>
+<span class="fc" id="L265">        headers += &quot;Content-Type&quot; to &quot;application/json&quot;</span>
+<span class="fc" id="L266">        headers += &quot;Accept&quot; to &quot;application/json&quot;</span>
+<span class="fc" id="L267">        headers += &quot;User-Agent&quot; to &quot;TornadoFX/Java ${System.getProperty(&quot;java.version&quot;)}&quot;</span>
+<span class="fc" id="L268">        headers += &quot;Connection&quot; to &quot;Keep-Alive&quot;</span>
+<span class="fc" id="L269">    }</span>
+
+    override fun execute(): Rest.Response {
+<span class="pc bpc" id="L272" title="1 of 2 branches missed.">        engine.rest.authContext?.interceptRequest(this)</span>
+<span class="pc bpc" id="L273" title="1 of 2 branches missed.">        engine.requestInterceptor?.invoke(this)</span>
+
+<span class="fc bfc" id="L275" title="All 2 branches covered.">        for ((key, value) in headers)</span>
+<span class="fc" id="L276">            connection.addRequestProperty(key, value)</span>
+
+<span class="fc" id="L278">        connection.requestMethod = method.toString()</span>
+
+<span class="fc bfc" id="L280" title="All 2 branches covered.">        if (entity != null) {</span>
+<span class="pc bpc" id="L281" title="1 of 2 branches missed.">            if (headers[&quot;Content-Type&quot;] == null)</span>
+<span class="nc" id="L282">                connection.addRequestProperty(&quot;Content-Type&quot;, &quot;application/json&quot;)</span>
+
+<span class="fc" id="L284">            connection.doOutput = true</span>
+
+<span class="fc" id="L286">            val data = when (entity) {</span>
+<span class="pc bpc" id="L287" title="3 of 4 branches missed.">                is JsonModel -&gt; entity.toJSON().toString().toByteArray(UTF_8)</span>
+<span class="pc bpc" id="L288" title="2 of 4 branches missed.">                is JsonValue -&gt; entity.toString().toByteArray(UTF_8)</span>
+<span class="nc bnc" id="L289" title="All 2 branches missed.">                is InputStream -&gt; entity.readBytes()</span>
+<span class="nc" id="L290">                else -&gt; throw IllegalArgumentException(&quot;Don't know how to handle entity of type ${entity.javaClass}&quot;)</span>
+            }
+<span class="fc" id="L292">            connection.addRequestProperty(&quot;Content-Length&quot;, data.size.toString())</span>
+<span class="fc" id="L293">            connection.connect()</span>
+<span class="fc" id="L294">            connection.outputStream.write(data)</span>
+<span class="fc" id="L295">            connection.outputStream.flush()</span>
+<span class="fc" id="L296">            connection.outputStream.close()</span>
+        } else {
+<span class="fc" id="L298">            connection.connect()</span>
+        }
+
+<span class="fc" id="L301">        val response = HttpURLResponse(this)</span>
+<span class="fc bfc" id="L302" title="All 2 branches covered.">        if (connection.doOutput) response.bytes()</span>
+
+<span class="pc bpc" id="L304" title="3 of 4 branches missed.">        val modifiedResponse = engine.rest.authContext?.interceptResponse(response) ?: response</span>
+
+<span class="pc bpc" id="L306" title="1 of 2 branches missed.">        engine.responseInterceptor?.invoke(modifiedResponse)</span>
+
+<span class="fc" id="L308">        return modifiedResponse</span>
+    }
+
+    override fun addHeader(name: String, value: String) {
+<span class="nc" id="L312">        headers[name] = value</span>
+<span class="nc" id="L313">    }</span>
+
+<span class="nc" id="L315">    override fun getHeader(name: String) = headers[name]</span>
+
+<span class="pc" id="L317">    override var properties: MutableMap&lt;Any, Any&gt; = HashMap()</span>
+}
+
+<span class="pc" id="L320">class HttpURLResponse(override val request: HttpURLRequest) : Rest.Response {</span>
+<span class="nc" id="L321">    override val statusCode: Int get() = request.connection.responseCode</span>
+    private var bytesRead: ByteArray? = null
+
+    override fun close() {
+<span class="fc" id="L325">        consume()</span>
+<span class="fc" id="L326">    }</span>
+
+<span class="fc" id="L328">    override fun consume(): Rest.Response = apply{</span>
+<span class="fc" id="L329">        try {</span>
+<span class="fc bfc" id="L330" title="All 2 branches covered.">            if (bytesRead == null) {</span>
+<span class="fc" id="L331">                bytes()</span>
+<span class="fc" id="L332">                return this</span>
+            }
+
+<span class="fc" id="L335">            with(request.connection) {</span>
+<span class="pc bpc" id="L336" title="1 of 2 branches missed.">                if (doInput) content().close()</span>
+<span class="fc" id="L337">            }</span>
+<span class="nc" id="L338">        } catch (_: Throwable) { // ignored</span>
+//            ignored.printStackTrace()
+        }
+<span class="fc" id="L341">        Platform.runLater { Rest.ongoingRequests.remove(request) }</span>
+<span class="fc" id="L342">    }</span>
+
+<span class="nc" id="L344">    override val reason: String get() = request.connection.responseMessage</span>
+
+<span class="fc" id="L346">    override fun text() = bytes().toString(UTF_8)</span>
+
+<span class="pc bpc" id="L348" title="1 of 2 branches missed.">    override fun content() = request.connection.errorStream ?: request.connection.inputStream</span>
+
+    override fun bytes(): ByteArray {
+<span class="fc bfc" id="L351" title="All 2 branches covered.">        bytesRead?.let { return it }</span>
+
+<span class="fc" id="L353">        try {</span>
+<span class="pc bpc" id="L354" title="4 of 5 branches missed.">            val unwrapped = when (request.connection.contentEncoding) {</span>
+<span class="nc bnc" id="L355" title="All 2 branches missed.">                &quot;gzip&quot; -&gt; GZIPInputStream(content())</span>
+<span class="nc bnc" id="L356" title="All 2 branches missed.">                &quot;deflate&quot; -&gt; DeflaterInputStream(content())</span>
+<span class="fc" id="L357">                else -&gt; content()</span>
+            }
+<span class="fc" id="L359">            bytesRead = unwrapped.readBytes()</span>
+<span class="nc" id="L360">        } catch (error: Exception) {</span>
+<span class="nc" id="L361">            bytesRead = ByteArray(0)</span>
+<span class="nc" id="L362">            throw error</span>
+        } finally {
+<span class="fc" id="L364">            consume()</span>
+        }
+<span class="fc" id="L366">        return bytesRead!!</span>
+    }
+
+<span class="nc" id="L369">    override val headers get() = request.connection.headerFields</span>
+}
+
+<span class="nc" id="L372">open class HttpClientEngine(val rest: Rest) : Rest.Engine() {</span>
+<span class="nc" id="L373">    lateinit var client: CloseableHttpClient</span>
+<span class="nc" id="L374">    lateinit var context: HttpClientContext</span>
+
+<span class="nc" id="L376">    init {</span>
+<span class="nc" id="L377">        reset()</span>
+<span class="nc" id="L378">    }</span>
+
+    override fun request(seq: Long, method: Rest.Request.Method, uri: URI, entity: Any?) =
+<span class="nc" id="L381">            HttpClientRequest(this, client, seq, method, uri, entity)</span>
+
+    override fun setBasicAuth(username: String, password: String) {
+<span class="nc bnc" id="L384" title="All 2 branches missed.">        requireNotNull(rest.baseURI){&quot;You must configure the baseURI first.&quot;}</span>
+
+<span class="nc" id="L386">        val uri = URI.create(rest.baseURI)</span>
+
+<span class="nc bnc" id="L388" title="All 2 branches missed.">        val scheme = if (uri.scheme == null) &quot;http&quot; else uri.scheme</span>
+<span class="nc bnc" id="L389" title="All 4 branches missed.">        val port = if (uri.port &gt; -1) uri.port else if (scheme == &quot;http&quot;) 80 else 443</span>
+<span class="nc" id="L390">        val host = HttpHost(uri.host, port, scheme)</span>
+
+<span class="nc" id="L392">        val credsProvider = BasicCredentialsProvider().apply {</span>
+<span class="nc" id="L393">            setCredentials(AuthScope(host), UsernamePasswordCredentials(username, password))</span>
+<span class="nc" id="L394">        }</span>
+
+<span class="nc" id="L396">        context.authCache = BasicAuthCache()</span>
+<span class="nc" id="L397">        context.authCache.put(host, BasicScheme())</span>
+
+<span class="nc" id="L399">        client = HttpClients.custom().setDefaultCredentialsProvider(credsProvider).build()</span>
+<span class="nc" id="L400">    }</span>
+
+    override fun setDigestAuth(username: String, password: String) {
+<span class="nc" id="L403">        rest.authContext = DigestAuthContext(username, password)</span>
+<span class="nc" id="L404">    }</span>
+
+    override fun reset() {
+<span class="nc" id="L407">        client = HttpClientBuilder.create().build()</span>
+<span class="nc" id="L408">        context = HttpClientContext.create()</span>
+<span class="nc" id="L409">    }</span>
+}
+
+<span class="nc" id="L412">class HttpClientRequest(val engine: HttpClientEngine, val client: CloseableHttpClient, override val seq: Long, override val method: Rest.Request.Method, override val uri: URI, override val entity: Any?) : Rest.Request {</span>
+<span class="nc" id="L413">    lateinit var request: HttpRequestBase</span>
+
+<span class="nc" id="L415">    init {</span>
+<span class="nc" id="L416">        reset()</span>
+<span class="nc" id="L417">    }</span>
+
+    override fun reset() {
+<span class="nc bnc" id="L420" title="All 6 branches missed.">        when (method) {</span>
+<span class="nc" id="L421">            GET -&gt; request = HttpGet(uri)</span>
+<span class="nc" id="L422">            PUT -&gt; request = HttpPut(uri)</span>
+<span class="nc" id="L423">            POST -&gt; request = HttpPost(uri)</span>
+<span class="nc" id="L424">            DELETE -&gt; request = HttpDelete(uri)</span>
+<span class="nc" id="L425">            PATCH -&gt; request = HttpPatch(uri)</span>
+        }
+<span class="nc" id="L427">        addHeader(&quot;Accept-Encoding&quot;, &quot;gzip, deflate&quot;)</span>
+<span class="nc" id="L428">        addHeader(&quot;Content-Type&quot;, &quot;application/json&quot;)</span>
+<span class="nc" id="L429">        addHeader(&quot;Accept&quot;, &quot;application/json&quot;)</span>
+<span class="nc" id="L430">    }</span>
+
+    override fun execute(): Rest.Response {
+<span class="nc bnc" id="L433" title="All 2 branches missed.">        if (engine.rest.proxy != null) {</span>
+<span class="nc bnc" id="L434" title="All 2 branches missed.">            val hp = engine.rest.proxy as Proxy</span>
+<span class="nc bnc" id="L435" title="All 2 branches missed.">            val sa = hp.address() as? InetSocketAddress</span>
+<span class="nc bnc" id="L436" title="All 2 branches missed.">            if (sa != null) {</span>
+<span class="nc bnc" id="L437" title="All 4 branches missed.">                val scheme = if (engine.rest.baseURI?.startsWith(&quot;https&quot;) ?: false) &quot;https&quot; else &quot;http&quot;</span>
+<span class="nc" id="L438">                val proxy = HttpHost(sa.address, sa.port, scheme)</span>
+<span class="nc" id="L439">                request.config = RequestConfig.custom().setProxy(proxy).build()</span>
+            }
+        }
+<span class="nc bnc" id="L442" title="All 2 branches missed.">        engine.requestInterceptor?.invoke(this)</span>
+
+<span class="nc bnc" id="L444" title="All 4 branches missed.">        if (entity != null &amp;&amp; request is HttpEntityEnclosingRequestBase) {</span>
+
+<span class="nc bnc" id="L446" title="All 2 branches missed.">            val r = request as HttpEntityEnclosingRequestBase</span>
+
+<span class="nc" id="L448">            when (entity) {</span>
+<span class="nc bnc" id="L449" title="All 2 branches missed.">                is JsonModel -&gt; r.entity = StringEntity(entity.toJSON().toString(), UTF_8)</span>
+<span class="nc bnc" id="L450" title="All 2 branches missed.">                is JsonValue -&gt; r.entity = StringEntity(entity.toString(), UTF_8)</span>
+<span class="nc bnc" id="L451" title="All 2 branches missed.">                is InputStream -&gt; r.entity = InputStreamEntity(entity)</span>
+<span class="nc bnc" id="L452" title="All 2 branches missed.">                is HttpEntity -&gt; r.entity = entity</span>
+<span class="nc" id="L453">                else -&gt; throw IllegalArgumentException(&quot;Don't know how to handle entity of type ${entity.javaClass}&quot;)</span>
+            }
+        }
+
+<span class="nc" id="L457">        val httpResponse = client.execute(request, engine.context)</span>
+
+<span class="nc" id="L459">        val response = HttpClientResponse(this, httpResponse)</span>
+<span class="nc bnc" id="L460" title="All 2 branches missed.">        engine.responseInterceptor?.invoke(response)</span>
+<span class="nc" id="L461">        return response</span>
+    }
+
+<span class="nc" id="L464">    override fun addHeader(name: String, value: String) = request.addHeader(name, value)</span>
+<span class="nc bnc" id="L465" title="All 2 branches missed.">    override fun getHeader(name: String) = request.getFirstHeader(&quot;name&quot;)?.value</span>
+<span class="nc" id="L466">    override var properties: MutableMap&lt;Any, Any&gt; = HashMap()</span>
+}
+
+<span class="nc" id="L469">class HttpClientResponse(override val request: HttpClientRequest, val response: CloseableHttpResponse) : Rest.Response {</span>
+<span class="nc" id="L470">    override val statusCode: Int get() = response.statusLine.statusCode</span>
+<span class="nc" id="L471">    override val reason: String get() = response.statusLine.reasonPhrase</span>
+
+    override fun close() {
+<span class="nc" id="L474">        consume()</span>
+<span class="nc" id="L475">    }</span>
+
+    override fun text(): String {
+<span class="nc" id="L478">        try {</span>
+<span class="nc" id="L479">            return EntityUtils.toString(response.entity, UTF_8)</span>
+        } finally {
+<span class="nc" id="L481">            consume()</span>
+        }
+    }
+
+
+<span class="nc" id="L486">    override fun consume() = apply {</span>
+<span class="nc" id="L487">        EntityUtils.consumeQuietly(response.entity)</span>
+<span class="nc" id="L488">        try {</span>
+<span class="nc bnc" id="L489" title="All 4 branches missed.">            (response as? CloseableHttpResponse)?.close()</span>
+        } finally {
+<span class="nc" id="L491">            Platform.runLater { Rest.ongoingRequests.remove(request) }</span>
+        }
+<span class="nc" id="L493">    }</span>
+
+<span class="nc" id="L495">    override fun content() = response.entity.content</span>
+
+    override fun bytes(): ByteArray {
+<span class="nc" id="L498">        try {</span>
+<span class="nc" id="L499">            return EntityUtils.toByteArray(response.entity)</span>
+        } finally {
+<span class="nc" id="L501">            consume()</span>
+        }
+    }
+
+<span class="nc" id="L505">    override val headers get() = response.allHeaders.associate { it.name to listOf(it.value) }</span>
+}
+
+inline fun &lt;reified T : JsonModel&gt; JsonObject.toModel(): T {
+    val model = T::class.java.newInstance()
+    model.updateModel(this)
+    return model
+}
+
+inline fun &lt;reified T : JsonModel&gt; JsonArray.toModel(): ObservableList&lt;T&gt; {
+    return FXCollections.observableArrayList(map { (it as JsonObject).toModel&lt;T&gt;() })
+}
+
+<span class="nc" id="L518">class RestProgressBar : Fragment() {</span>
+<span class="nc" id="L519">    override val root = progressbar {</span>
+<span class="nc" id="L520">        prefWidth = 75.0</span>
+<span class="nc" id="L521">        isVisible = false</span>
+<span class="nc" id="L522">    }</span>
+
+<span class="nc" id="L524">    init {</span>
+<span class="nc" id="L525">        Rest.ongoingRequests.addListener(ListChangeListener&lt;Rest.Request&gt; { c -&gt;</span>
+<span class="nc" id="L526">            val size = c.list.size</span>
+
+<span class="nc" id="L528">            Platform.runLater {</span>
+<span class="nc" id="L529">                val tooltip = c.list.joinToString(&quot;\n&quot;) { r -&gt; &quot;%s %s&quot;.format(r.method, r.uri) }</span>
+
+<span class="nc" id="L531">                root.tooltip = Tooltip(tooltip)</span>
+<span class="nc bnc" id="L532" title="All 2 branches missed.">                root.isVisible = size &gt; 0</span>
+
+<span class="nc bnc" id="L534" title="All 2 branches missed.">                if (size == 0) {</span>
+<span class="nc" id="L535">                    root.progress = 100.0</span>
+<span class="nc bnc" id="L536" title="All 2 branches missed.">                } else if (size == 1) {</span>
+<span class="nc" id="L537">                    root.progress = INDETERMINATE_PROGRESS</span>
+                } else {
+<span class="nc" id="L539">                    val pct = 1.0 / size.toDouble()</span>
+<span class="nc" id="L540">                    root.progress = pct</span>
+                }
+<span class="nc" id="L542">            }</span>
+<span class="nc" id="L543">        })</span>
+<span class="nc" id="L544">    }</span>
+}
+
+<span class="fc" id="L547">val String.urlEncoded: String get() = URLEncoder.encode(this, StandardCharsets.UTF_8.name())</span>
+
+val Map&lt;*, *&gt;.queryString: String get() {
+<span class="fc" id="L550">    val q = StringBuilder()</span>
+<span class="fc" id="L551">    forEach { k, v -&gt;</span>
+<span class="pc bpc" id="L552" title="1 of 2 branches missed.">        if (k != null) {</span>
+<span class="fc bfc" id="L553" title="All 4 branches covered.">            q.append(if (q.isEmpty()) &quot;?&quot; else &quot;&amp;&quot;)</span>
+<span class="fc" id="L554">            q.append(k.toString().urlEncoded)</span>
+<span class="pc bpc" id="L555" title="1 of 2 branches missed.">            if (v != null) q.append(&quot;=${v.toString().urlEncoded}&quot;)</span>
+        }
+<span class="fc" id="L557">    }</span>
+<span class="fc" id="L558">    return q.toString()</span>
+}
+
+interface AuthContext {
+    fun interceptRequest(request: Rest.Request)
+    fun interceptResponse(response: Rest.Response): Rest.Response
+}
+
+<span class="nc" id="L566">class DigestAuthContext(val username: String, val password: String) : AuthContext {</span>
+<span class="nc" id="L567">    val nonceCounter = AtomicLong(0)</span>
+<span class="nc" id="L568">    var nonce: String = &quot;&quot;</span>
+<span class="nc" id="L569">    var realm: String = &quot;&quot;</span>
+<span class="nc" id="L570">    var qop: String = &quot;&quot;</span>
+<span class="nc" id="L571">    var opaque: String = &quot;&quot;</span>
+<span class="nc" id="L572">    var algorithm: String = &quot;&quot;</span>
+<span class="nc" id="L573">    var digest = MessageDigest.getInstance(&quot;MD5&quot;)</span>
+
+    companion object {
+<span class="nc" id="L576">        val QuotedStringParameters = listOf(&quot;username&quot;, &quot;realm&quot;, &quot;nonce&quot;, &quot;uri&quot;, &quot;response&quot;, &quot;cnonce&quot;, &quot;opaque&quot;)</span>
+    }
+
+    override fun interceptRequest(request: Rest.Request) {
+<span class="nc bnc" id="L580" title="All 6 branches missed.">        if (nonce.isNotBlank() &amp;&amp; request.getHeader(&quot;Authorization&quot;) == null) {</span>
+<span class="nc" id="L581">            request.addHeader(&quot;Authorization&quot;, generateAuthHeader(request, null))</span>
+        }
+<span class="nc" id="L583">    }</span>
+
+<span class="nc" id="L585">    private fun generateCnonce(digest: MessageDigest) = digest.concat(System.nanoTime().toString())</span>
+
+    override fun interceptResponse(response: Rest.Response): Rest.Response {
+<span class="nc" id="L588">        extractNextNonce(response)</span>
+<span class="nc bnc" id="L589" title="All 4 branches missed.">        if (response.statusCode != 401 || response.request.properties[&quot;Authorization-Retried&quot;] != null) return response</span>
+<span class="nc" id="L590">        val params = response.digestParams</span>
+<span class="nc bnc" id="L591" title="All 6 branches missed.">        if (params != null &amp;&amp; params[&quot;stale&quot;]?.toBoolean() != false) {</span>
+<span class="nc" id="L592">            FX.log.fine { &quot;Digest Challenge: $params&quot; }</span>
+<span class="nc bnc" id="L593" title="All 2 branches missed.">            algorithm = params[&quot;algorithm&quot;] ?: &quot;MD5&quot;</span>
+<span class="nc" id="L594">            digest = MessageDigest.getInstance(algorithm.removeSuffix(&quot;-sess&quot;))</span>
+<span class="nc bnc" id="L595" title="All 2 branches missed.">            realm = params[&quot;realm&quot;] ?: kotlin.error(&quot;Realm is not present in response digest parameters&quot;)</span>
+<span class="nc bnc" id="L596" title="All 2 branches missed.">            nonce = params[&quot;nonce&quot;] ?: kotlin.error(&quot;Nonce is not present in response digest parameters&quot;)</span>
+<span class="nc bnc" id="L597" title="All 2 branches missed.">            opaque = params[&quot;opaque&quot;] ?: &quot;&quot;</span>
+<span class="nc" id="L598">            nonceCounter.set(0)</span>
+<span class="nc bnc" id="L599" title="All 4 branches missed.">            qop = (params[&quot;qop&quot;] ?: &quot;&quot;).split(&quot;,&quot;).map(String::trim).sortedBy { it.length }.last()</span>
+
+<span class="nc" id="L601">            val request = response.request</span>
+<span class="nc" id="L602">            request.reset()</span>
+<span class="nc" id="L603">            request.addHeader(&quot;Authorization&quot;, generateAuthHeader(request, response))</span>
+<span class="nc" id="L604">            request.properties[&quot;Authorization-Retried&quot;] = true</span>
+<span class="nc" id="L605">            return request.execute()</span>
+        }
+<span class="nc" id="L607">        return response</span>
+    }
+
+    private fun extractNextNonce(response: Rest.Response) {
+<span class="nc" id="L611">        val authInfo = response.header(&quot;Authentication-Info&quot;)</span>
+<span class="nc bnc" id="L612" title="All 2 branches missed.">        if (authInfo != null) {</span>
+<span class="nc" id="L613">            val params = authInfo.split(&quot;,&quot;).associate {</span>
+<span class="nc" id="L614">                val (name, value) = it.split(&quot;=&quot;, limit = 2)</span>
+<span class="nc" id="L615">                name to value</span>
+            }
+<span class="nc" id="L617">            val nextNonce = params[&quot;nextnonce&quot;]</span>
+<span class="nc bnc" id="L618" title="All 2 branches missed.">            if (nextNonce != null) {</span>
+<span class="nc" id="L619">                nonceCounter.set(0)</span>
+<span class="nc" id="L620">                nonce = nextNonce</span>
+            }
+        }
+<span class="nc" id="L623">    }</span>
+
+    private fun generateAuthHeader(request: Rest.Request, response: Rest.Response?): String {
+<span class="nc" id="L626">        val cnonce = generateCnonce(digest)</span>
+<span class="nc" id="L627">        val path = request.uri.path</span>
+<span class="nc" id="L628">        val nc = Integer.toHexString(nonceCounter.incrementAndGet().toInt()).padStart(8, '0')</span>
+
+<span class="nc bnc" id="L630" title="All 2 branches missed.">        val ha1 = when (algorithm) {</span>
+<span class="nc bnc" id="L631" title="All 2 branches missed.">            &quot;MD5-sess&quot; -&gt; digest.concat(digest.concat(username, realm, password), nonce, cnonce)</span>
+<span class="nc" id="L632">            else -&gt; digest.concat(username, realm, password)</span>
+        }
+<span class="nc bnc" id="L634" title="All 2 branches missed.">        val ha2 = when (qop) {</span>
+<span class="nc bnc" id="L635" title="All 6 branches missed.">            &quot;auth-int&quot; -&gt; digest.concat(request.method.name, path, digest.concat(response?.text() ?: &quot;&quot;))</span>
+<span class="nc" id="L636">            else -&gt; digest.concat(request.method.name, path)</span>
+        }
+<span class="nc bnc" id="L638" title="All 3 branches missed.">        val encoded = when (qop) {</span>
+<span class="nc bnc" id="L639" title="All 4 branches missed.">            &quot;auth&quot;, &quot;auth-int&quot; -&gt; digest.concat(ha1, nonce, nonceCounter.incrementAndGet().toString(), cnonce, qop, ha2)</span>
+<span class="nc" id="L640">            else -&gt; digest.concat(ha1, nonce, ha2)</span>
+        }
+<span class="nc" id="L642">        val authParams = mapOf(</span>
+<span class="nc" id="L643">                &quot;username&quot; to username,</span>
+<span class="nc" id="L644">                &quot;realm&quot; to realm,</span>
+<span class="nc" id="L645">                &quot;nonce&quot; to nonce,</span>
+<span class="nc" id="L646">                &quot;uri&quot; to path,</span>
+<span class="nc" id="L647">                &quot;response&quot; to encoded,</span>
+<span class="nc" id="L648">                &quot;opaque&quot; to opaque,</span>
+<span class="nc" id="L649">                &quot;algorithm&quot; to algorithm,</span>
+<span class="nc" id="L650">                &quot;nc&quot; to nc</span>
+        )
+
+<span class="nc" id="L653">        val header = &quot;Digest &quot; + authParams.map {</span>
+<span class="nc bnc" id="L654" title="All 2 branches missed.">            val q = if (it.key in QuotedStringParameters) &quot;\&quot;&quot; else &quot;&quot;</span>
+<span class="nc" id="L655">            &quot;${it.key}=$q${it.value}$q&quot;</span>
+<span class="nc" id="L656">        }.joinToString()</span>
+
+<span class="nc" id="L658">        FX.log.fine { &quot;Digest Response: $header&quot; }</span>
+
+<span class="nc" id="L660">        return header</span>
+    }
+}
+
+<span class="nc" id="L664">class HttpURLBasicAuthContext(val username: String, val password: String) : AuthContext {</span>
+    override fun interceptRequest(request: Rest.Request) {
+<span class="nc bnc" id="L666" title="All 2 branches missed.">        val b64 = Base64.getEncoder().encodeToString(&quot;$username:$password&quot;.toByteArray(UTF_8))</span>
+<span class="nc" id="L667">        request.addHeader(&quot;Authorization&quot;, &quot;Basic $b64&quot;)</span>
+<span class="nc" id="L668">    }</span>
+
+    override fun interceptResponse(response: Rest.Response): Rest.Response {
+<span class="nc" id="L671">        return response</span>
+    }
+}
+
+<span class="nc" id="L675">class RestException(message: String, val request: Rest.Request?, val response: Rest.Response?, cause: Throwable) : RuntimeException(message, cause)</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

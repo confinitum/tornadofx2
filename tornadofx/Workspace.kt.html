@@ -1,0 +1,481 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Workspace.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Workspace.kt</span></div><h1>Workspace.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.property.ObjectProperty
+import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.property.SimpleIntegerProperty
+import javafx.beans.property.SimpleObjectProperty
+import javafx.beans.value.ChangeListener
+import javafx.collections.FXCollections
+import javafx.geometry.Pos
+import javafx.geometry.Side
+import javafx.scene.Node
+import javafx.scene.Parent
+import javafx.scene.control.Button
+import javafx.scene.control.TabPane
+import javafx.scene.control.ToolBar
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyCodeCombination
+import javafx.scene.input.KeyCombination
+import javafx.scene.layout.BorderPane
+import javafx.scene.layout.HBox
+import javafx.scene.layout.StackPane
+import tornadofx.Workspace.NavigationMode.Stack
+import tornadofx.Workspace.NavigationMode.Tabs
+import kotlin.reflect.KClass
+import kotlin.reflect.full.isSubclassOf
+
+<span class="nc" id="L27">class HeadingContainer : HBox() {</span>
+<span class="nc" id="L28">    init {</span>
+<span class="nc" id="L29">        addClass(&quot;heading-container&quot;)</span>
+<span class="nc" id="L30">    }</span>
+}
+
+<span class="nc" id="L33">class WorkspaceArea : BorderPane() {</span>
+<span class="nc" id="L34">    internal var dynamicComponentMode: Boolean = false</span>
+<span class="nc" id="L35">    internal val dynamicComponents = FXCollections.observableArrayList&lt;Node&gt;()</span>
+<span class="nc" id="L36">    var header: ToolBar by singleAssign()</span>
+
+<span class="nc" id="L38">    init {</span>
+<span class="nc" id="L39">        addClass(&quot;workspace&quot;)</span>
+<span class="nc" id="L40">    }</span>
+}
+
+<span class="nc" id="L43">open class Workspace(title: String = &quot;Workspace&quot;, navigationMode: NavigationMode = Stack) : View(title) {</span>
+<span class="nc" id="L44">    var refreshButton: Button by singleAssign()</span>
+<span class="nc" id="L45">    var saveButton: Button by singleAssign()</span>
+<span class="nc" id="L46">    var createButton: Button by singleAssign()</span>
+<span class="nc" id="L47">    var deleteButton: Button by singleAssign()</span>
+<span class="nc" id="L48">    var backButton: Button by singleAssign()</span>
+<span class="nc" id="L49">    var forwardButton: Button by singleAssign()</span>
+
+    enum class NavigationMode { Stack, Tabs }
+
+<span class="nc" id="L53">    val navigationModeProperty: ObjectProperty&lt;NavigationMode&gt; = SimpleObjectProperty(navigationMode)</span>
+<span class="nc" id="L54">    var navigationMode by navigationModeProperty</span>
+
+<span class="nc" id="L56">    val viewStack = FXCollections.observableArrayList&lt;UIComponent&gt;()</span>
+
+<span class="nc" id="L58">    val maxViewStackDepthProperty = SimpleIntegerProperty(DefaultViewStackDepth)</span>
+<span class="nc" id="L59">    var maxViewStackDepth by maxViewStackDepthProperty</span>
+
+<span class="nc" id="L61">    val headingContainer = HeadingContainer()</span>
+<span class="nc" id="L62">    val tabContainer = TabPane().addClass(&quot;editor-container&quot;)</span>
+<span class="nc" id="L63">    val stackContainer = StackPane().addClass(&quot;editor-container&quot;)</span>
+
+<span class="nc" id="L65">    val contentContainerProperty = SimpleObjectProperty&lt;Parent&gt;(stackContainer)</span>
+<span class="nc" id="L66">    var contentContainer by contentContainerProperty</span>
+
+<span class="nc" id="L68">    val showHeadingLabelProperty = SimpleBooleanProperty(true)</span>
+<span class="nc" id="L69">    var showHeadingLabel by showHeadingLabelProperty</span>
+
+<span class="nc" id="L71">    val dockedComponentProperty: ObjectProperty&lt;UIComponent&gt; = SimpleObjectProperty()</span>
+<span class="nc" id="L72">    val dockedComponent: UIComponent? get() = dockedComponentProperty.value</span>
+
+<span class="nc" id="L74">    private val viewPos = integerBinding(viewStack, dockedComponentProperty) { viewStack.indexOf(dockedComponent) }</span>
+
+    val leftDrawer: Drawer
+<span class="nc bnc" id="L77" title="All 4 branches missed.">        get() = (root.left as? Drawer) ?: Drawer(Side.LEFT, false, false).also {</span>
+<span class="nc" id="L78">            root.left = it</span>
+<span class="nc" id="L79">            it.toFront()</span>
+<span class="nc" id="L80">        }</span>
+
+    val rightDrawer: Drawer
+<span class="nc bnc" id="L83" title="All 4 branches missed.">        get() = (root.right as? Drawer) ?: Drawer(Side.RIGHT, false, false).also {</span>
+<span class="nc" id="L84">            root.right = it</span>
+<span class="nc" id="L85">            it.toFront()</span>
+<span class="nc" id="L86">        }</span>
+
+    val bottomDrawer: Drawer
+<span class="nc bnc" id="L89" title="All 4 branches missed.">        get() = (root.bottom as? Drawer) ?: Drawer(Side.BOTTOM, false, false).also {</span>
+<span class="nc" id="L90">            root.bottom = it</span>
+<span class="nc" id="L91">            it.toFront()</span>
+<span class="nc" id="L92">        }</span>
+
+    companion object {
+<span class="nc" id="L95">        val activeWorkspaces = FXCollections.observableArrayList&lt;Workspace&gt;()</span>
+<span class="nc" id="L96">        val DefaultViewStackDepth = 10</span>
+
+        fun closeAll() {
+<span class="nc" id="L99">            activeWorkspaces.forEach(Workspace::close)</span>
+<span class="nc" id="L100">        }</span>
+
+<span class="nc" id="L102">        var defaultSavable = true</span>
+<span class="nc" id="L103">        var defaultDeletable = true</span>
+<span class="nc" id="L104">        var defaultRefreshable = true</span>
+<span class="nc" id="L105">        var defaultCloseable = true</span>
+<span class="nc" id="L106">        var defaultComplete = true</span>
+<span class="nc" id="L107">        var defaultCreatable = true</span>
+
+<span class="nc" id="L109">        init {</span>
+<span class="nc" id="L110">            importStylesheet(&quot;/tornadofx/workspace.css&quot;)</span>
+<span class="nc" id="L111">        }</span>
+
+    }
+
+    fun disableNavigation() {
+<span class="nc" id="L116">        viewStack.clear()</span>
+<span class="nc" id="L117">        maxViewStackDepth = 0</span>
+<span class="nc" id="L118">    }</span>
+
+    private fun registerWorkspaceAccelerators() {
+<span class="nc" id="L121">        accelerators[KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN)] = {</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">            if (!saveButton.isDisable) onSave()</span>
+<span class="nc" id="L123">        }</span>
+<span class="nc" id="L124">        accelerators[KeyCodeCombination(KeyCode.N, KeyCombination.SHORTCUT_DOWN)] = {</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">            if (!createButton.isDisable) onCreate()</span>
+<span class="nc" id="L126">        }</span>
+<span class="nc" id="L127">        accelerators[KeyCodeCombination(KeyCode.R, KeyCombination.SHORTCUT_DOWN)] = {</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">            if (!refreshButton.isDisable) onRefresh()</span>
+<span class="nc" id="L129">        }</span>
+<span class="nc" id="L130">        accelerators[KeyCombination.valueOf(&quot;F5&quot;)] = {</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">            if (!refreshButton.isDisable) onRefresh()</span>
+<span class="nc" id="L132">        }</span>
+<span class="nc" id="L133">    }</span>
+
+    override fun onDock() {
+<span class="nc" id="L136">        activeWorkspaces += this</span>
+<span class="nc" id="L137">    }</span>
+
+    override fun onUndock() {
+<span class="nc" id="L140">        activeWorkspaces -= this</span>
+<span class="nc" id="L141">    }</span>
+
+<span class="nc" id="L143">    override val root = WorkspaceArea().apply {</span>
+<span class="nc" id="L144">        top {</span>
+<span class="nc" id="L145">            vbox {</span>
+<span class="nc" id="L146">                header = toolbar {</span>
+<span class="nc" id="L147">                    addClass(&quot;header&quot;)</span>
+                    // Force the container to retain pos center even when it's resized (hack to make ToolBar behave)
+<span class="nc" id="L149">                    skinProperty().onChange {</span>
+<span class="nc bnc" id="L150" title="All 4 branches missed.">                        (lookup(&quot;.container&quot;) as? HBox)?.apply {</span>
+<span class="nc" id="L151">                            alignment = Pos.CENTER_LEFT</span>
+<span class="nc" id="L152">                            alignmentProperty().onChange {</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">                                if (it != Pos.CENTER_LEFT) alignment = Pos.CENTER_LEFT</span>
+<span class="nc" id="L154">                            }</span>
+<span class="nc" id="L155">                        }</span>
+<span class="nc" id="L156">                    }</span>
+<span class="nc" id="L157">                    button {</span>
+<span class="nc" id="L158">                        addClass(&quot;icon-only&quot;)</span>
+<span class="nc" id="L159">                        backButton = this</span>
+<span class="nc" id="L160">                        graphic = label { addClass(&quot;icon&quot;, &quot;back&quot;) }</span>
+<span class="nc" id="L161">                        action {</span>
+<span class="nc bnc" id="L162" title="All 4 branches missed.">                            if (dockedComponent?.onNavigateBack() ?: true) {</span>
+<span class="nc" id="L163">                                navigateBack()</span>
+                            }
+<span class="nc" id="L165">                        }</span>
+<span class="nc bnc" id="L166" title="All 2 branches missed.">                        disableProperty().bind(booleanBinding(viewPos, viewStack) { value &lt; 1 })</span>
+<span class="nc" id="L167">                    }</span>
+<span class="nc" id="L168">                    button {</span>
+<span class="nc" id="L169">                        addClass(&quot;icon-only&quot;)</span>
+<span class="nc" id="L170">                        forwardButton = this</span>
+<span class="nc" id="L171">                        graphic = label { addClass(&quot;icon&quot;, &quot;forward&quot;) }</span>
+<span class="nc" id="L172">                        action {</span>
+<span class="nc bnc" id="L173" title="All 4 branches missed.">                            if (dockedComponent?.onNavigateForward() ?: true) {</span>
+<span class="nc" id="L174">                                navigateForward()</span>
+                            }
+<span class="nc" id="L176">                        }</span>
+<span class="nc bnc" id="L177" title="All 4 branches missed.">                        disableProperty().bind(booleanBinding(viewPos, viewStack) { value == viewStack.size - 1 })</span>
+<span class="nc" id="L178">                    }</span>
+<span class="nc" id="L179">                    button {</span>
+<span class="nc" id="L180">                        addClass(&quot;icon-only&quot;)</span>
+<span class="nc" id="L181">                        refreshButton = this</span>
+<span class="nc" id="L182">                        isDisable = true</span>
+<span class="nc" id="L183">                        graphic = label {</span>
+<span class="nc" id="L184">                            addClass(&quot;icon&quot;, &quot;refresh&quot;)</span>
+<span class="nc" id="L185">                        }</span>
+<span class="nc" id="L186">                        action {</span>
+<span class="nc" id="L187">                            onRefresh()</span>
+<span class="nc" id="L188">                        }</span>
+<span class="nc" id="L189">                    }</span>
+<span class="nc" id="L190">                    button {</span>
+<span class="nc" id="L191">                        addClass(&quot;icon-only&quot;)</span>
+<span class="nc" id="L192">                        saveButton = this</span>
+<span class="nc" id="L193">                        isDisable = true</span>
+<span class="nc" id="L194">                        graphic = label { addClass(&quot;icon&quot;, &quot;save&quot;) }</span>
+<span class="nc" id="L195">                        action {</span>
+<span class="nc" id="L196">                            onSave()</span>
+<span class="nc" id="L197">                        }</span>
+<span class="nc" id="L198">                    }</span>
+<span class="nc" id="L199">                    button {</span>
+<span class="nc" id="L200">                        addClass(&quot;icon-only&quot;)</span>
+<span class="nc" id="L201">                        createButton = this</span>
+<span class="nc" id="L202">                        isDisable = true</span>
+<span class="nc" id="L203">                        graphic = label { addClass(&quot;icon&quot;, &quot;create&quot;) }</span>
+<span class="nc" id="L204">                        action {</span>
+<span class="nc" id="L205">                            onCreate()</span>
+<span class="nc" id="L206">                        }</span>
+<span class="nc" id="L207">                    }</span>
+<span class="nc" id="L208">                    button {</span>
+<span class="nc" id="L209">                        addClass(&quot;icon-only&quot;)</span>
+<span class="nc" id="L210">                        deleteButton = this</span>
+<span class="nc" id="L211">                        isDisable = true</span>
+<span class="nc" id="L212">                        graphic = label { addClass(&quot;icon&quot;, &quot;delete&quot;) }</span>
+<span class="nc" id="L213">                        action {</span>
+<span class="nc" id="L214">                            onDelete()</span>
+<span class="nc" id="L215">                        }</span>
+<span class="nc" id="L216">                    }</span>
+<span class="nc" id="L217">                    add(headingContainer)</span>
+<span class="nc" id="L218">                    spacer()</span>
+<span class="nc" id="L219">                }</span>
+<span class="nc" id="L220">            }</span>
+<span class="nc" id="L221">        }</span>
+<span class="nc" id="L222">    }</span>
+
+<span class="nc" id="L224">    val header: ToolBar get() = root.header</span>
+
+    fun navigateForward(): Boolean {
+<span class="nc bnc" id="L227" title="All 2 branches missed.">        if (!forwardButton.isDisabled) {</span>
+<span class="nc" id="L228">            dock(viewStack[viewPos.get() + 1], false)</span>
+<span class="nc" id="L229">            return true</span>
+        }
+<span class="nc" id="L231">        return false</span>
+    }
+
+    fun navigateBack(): Boolean {
+<span class="nc bnc" id="L235" title="All 2 branches missed.">        if (!backButton.isDisabled) {</span>
+<span class="nc" id="L236">            dock(viewStack[viewPos.get() - 1], false)</span>
+<span class="nc" id="L237">            return true</span>
+        }
+<span class="nc" id="L239">        return false</span>
+    }
+
+<span class="nc" id="L242">    init {</span>
+//        @Suppress(&quot;LeakingThis&quot;)
+//        if (!scope.hasActiveWorkspace) scope.workspaceInstance = this
+<span class="nc" id="L245">        navigationModeProperty.addListener { _, ov, nv -&gt; navigationModeChanged(ov, nv) }</span>
+<span class="nc" id="L246">        tabContainer.tabs.onChange { change -&gt;</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">            while (change.next()) {</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">                if (change.wasRemoved()) {</span>
+<span class="nc" id="L249">                    change.removed.forEach {</span>
+<span class="nc bnc" id="L250" title="All 2 branches missed.">                        if (it == dockedComponent) {</span>
+<span class="nc" id="L251">                            titleProperty.unbind()</span>
+<span class="nc" id="L252">                            refreshButton.disableProperty().unbind()</span>
+<span class="nc" id="L253">                            saveButton.disableProperty().unbind()</span>
+<span class="nc" id="L254">                            createButton.disableProperty().unbind()</span>
+<span class="nc" id="L255">                            deleteButton.disableProperty().unbind()</span>
+                        }
+<span class="nc" id="L257">                    }</span>
+                }
+<span class="nc bnc" id="L259" title="All 2 branches missed.">                if (change.wasAdded()) {</span>
+<span class="nc" id="L260">                    change.addedSubList.forEach {</span>
+<span class="nc" id="L261">                        it.content.properties[&quot;tornadofx.tab&quot;] = it</span>
+<span class="nc" id="L262">                    }</span>
+                }
+            }
+<span class="nc" id="L265">        }</span>
+<span class="nc" id="L266">        tabContainer.selectionModel.selectedItemProperty().addListener { observableValue, ov, nv -&gt;</span>
+<span class="nc bnc" id="L267" title="All 4 branches missed.">            val newCmp = nv?.content?.uiComponent&lt;UIComponent&gt;()</span>
+<span class="nc bnc" id="L268" title="All 4 branches missed.">            val oldCmp = ov?.content?.uiComponent&lt;UIComponent&gt;()</span>
+<span class="nc bnc" id="L269" title="All 4 branches missed.">            if (newCmp != null &amp;&amp; newCmp != dockedComponent) {</span>
+<span class="nc" id="L270">                setAsCurrentlyDocked(newCmp)</span>
+            }
+<span class="nc bnc" id="L272" title="All 4 branches missed.">            if (oldCmp != newCmp) oldCmp?.callOnUndock()</span>
+<span class="nc bnc" id="L273" title="All 2 branches missed.">            if (newCmp == null) {</span>
+<span class="nc" id="L274">                headingContainer.children.clear()</span>
+<span class="nc" id="L275">                clearDynamicComponents()</span>
+<span class="nc" id="L276">                dockedComponentProperty.value = null</span>
+            }
+<span class="nc" id="L278">        }</span>
+<span class="nc" id="L279">        dockedComponentProperty.onChange { child -&gt;</span>
+<span class="nc bnc" id="L280" title="All 2 branches missed.">            if (child != null) {</span>
+<span class="nc" id="L281">                inDynamicComponentMode {</span>
+<span class="nc bnc" id="L282" title="All 2 branches missed.">                    if (contentContainer == stackContainer) {</span>
+<span class="nc" id="L283">                        tabContainer.tabs.clear()</span>
+<span class="nc" id="L284">                        stackContainer.clear()</span>
+<span class="nc" id="L285">                        stackContainer += child</span>
+                    } else {
+<span class="nc" id="L287">                        stackContainer.clear()</span>
+<span class="nc bnc" id="L288" title="All 4 branches missed.">                        var tab = tabContainer.tabs.find { it.content == child.root }</span>
+<span class="nc bnc" id="L289" title="All 2 branches missed.">                        if (tab == null) {</span>
+<span class="nc" id="L290">                            tabContainer += child</span>
+<span class="nc" id="L291">                            tab = tabContainer.tabs.last()</span>
+                        } else {
+<span class="nc" id="L293">                            child.callOnDock()</span>
+                        }
+<span class="nc" id="L295">                        tabContainer.selectionModel.select(tab)</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">                        if (!child.isDocked) child.callOnDock()</span>
+                    }
+<span class="nc" id="L298">                }</span>
+            }
+<span class="nc" id="L300">        }</span>
+<span class="nc" id="L301">        navigationModeChanged(null, navigationMode)</span>
+<span class="nc" id="L302">        registerWorkspaceAccelerators()</span>
+<span class="nc" id="L303">    }</span>
+
+    private fun navigationModeChanged(oldMode: NavigationMode?, newMode: NavigationMode?) {
+<span class="nc bnc" id="L306" title="All 4 branches missed.">        if (oldMode == null || oldMode != newMode) {</span>
+<span class="nc bnc" id="L307" title="All 2 branches missed.">            contentContainer = if (navigationMode == Stack) stackContainer else tabContainer</span>
+<span class="nc" id="L308">            root.center = contentContainer</span>
+<span class="nc bnc" id="L309" title="All 6 branches missed.">            if (contentContainer == stackContainer &amp;&amp; tabContainer.tabs.isNotEmpty()) {</span>
+<span class="nc" id="L310">                tabContainer.tabs.clear()</span>
+            }
+<span class="nc bnc" id="L312" title="All 2 branches missed.">            dockedComponent?.also {</span>
+<span class="nc" id="L313">                dockedComponentProperty.value = null</span>
+<span class="nc bnc" id="L314" title="All 4 branches missed.">                if (oldMode == Stack &amp;&amp; newMode == Tabs) {</span>
+<span class="nc bnc" id="L315" title="All 2 branches missed.">                    val listener = it.properties[&quot;tornadofx.rootParentChangeListener&quot;] as ChangeListener&lt;Parent&gt;</span>
+<span class="nc" id="L316">                    it.root.parentProperty().removeListener(listener)</span>
+<span class="nc" id="L317">                    it.callOnUndock()</span>
+<span class="nc" id="L318">                    dock(it, true)</span>
+<span class="nc" id="L319">                    it.root.parentProperty().addListener(listener)</span>
+                } else {
+<span class="nc" id="L321">                    dock(it, true)</span>
+                }
+<span class="nc" id="L323">            }</span>
+        }
+<span class="nc bnc" id="L325" title="All 2 branches missed.">        if (newMode == Stack) {</span>
+<span class="nc bnc" id="L326" title="All 2 branches missed.">            if (backButton !in root.header.items) {</span>
+<span class="nc" id="L327">                root.header.items.add(0, backButton)</span>
+<span class="nc" id="L328">                root.header.items.add(1, forwardButton)</span>
+            }
+        } else {
+<span class="nc" id="L331">            root.header.items -= backButton</span>
+<span class="nc" id="L332">            root.header.items -= forwardButton</span>
+        }
+<span class="nc" id="L334">    }</span>
+
+    override fun onSave() {
+        dockedComponentProperty.value
+<span class="nc bnc" id="L338" title="All 4 branches missed.">                ?.takeIf { it.effectiveSavable.value }</span>
+<span class="nc bnc" id="L339" title="All 2 branches missed.">                ?.onSave()</span>
+<span class="nc" id="L340">    }</span>
+
+    override fun onDelete() {
+        dockedComponentProperty.value
+<span class="nc bnc" id="L344" title="All 4 branches missed.">                ?.takeIf { it.effectiveDeletable.value }</span>
+<span class="nc bnc" id="L345" title="All 2 branches missed.">                ?.onDelete()</span>
+<span class="nc" id="L346">    }</span>
+
+    override fun onCreate() {
+        dockedComponentProperty.value
+<span class="nc bnc" id="L350" title="All 4 branches missed.">                ?.takeIf { it.effectiveCreatable.value }</span>
+<span class="nc bnc" id="L351" title="All 2 branches missed.">                ?.onCreate()</span>
+<span class="nc" id="L352">    }</span>
+
+    override fun onRefresh() {
+        dockedComponentProperty.value
+<span class="nc bnc" id="L356" title="All 4 branches missed.">                ?.takeIf { it.effectiveRefreshable.value }</span>
+<span class="nc bnc" id="L357" title="All 2 branches missed.">                ?.onRefresh()</span>
+<span class="nc" id="L358">    }</span>
+
+<span class="nc bnc" id="L360" title="All 2 branches missed.">    inline fun &lt;reified T : UIComponent&gt; dock(scope: Scope = this@Workspace.scope, params: Map&lt;*, Any?&gt;? = null) = dock(find&lt;T&gt;(scope, params))</span>
+<span class="nc" id="L361">    inline fun &lt;reified T : UIComponent&gt; dock(scope: Scope = this@Workspace.scope, vararg params: Pair&lt;*, Any?&gt;) { dock&lt;T&gt;(scope, params.toMap()) }</span>
+
+<span class="nc" id="L363">    fun dock(child: UIComponent, forward: Boolean = true) {</span>
+<span class="nc bnc" id="L364" title="All 2 branches missed.">        if (child == dockedComponent) return</span>
+
+        // Remove everything after viewpos if moving forward
+<span class="nc bnc" id="L367" title="All 4 branches missed.">        if (forward) while (viewPos.get() &lt; viewStack.size -1) viewStack.removeAt(viewPos.get() + 1)</span>
+
+<span class="nc bnc" id="L369" title="All 6 branches missed.">        val addToStack = contentContainer == stackContainer &amp;&amp; maxViewStackDepth &gt; 0 &amp;&amp; child !in viewStack</span>
+
+<span class="nc bnc" id="L371" title="All 2 branches missed.">        if (addToStack) viewStack += child</span>
+
+<span class="nc" id="L373">        setAsCurrentlyDocked(child)</span>
+
+        // Ensure max stack size
+<span class="nc bnc" id="L376" title="All 6 branches missed.">        while (viewStack.size &gt;= maxViewStackDepth &amp;&amp; viewStack.isNotEmpty())</span>
+<span class="nc" id="L377">            viewStack.removeAt(0)</span>
+<span class="nc" id="L378">    }</span>
+
+    private fun setAsCurrentlyDocked(child: UIComponent) {
+<span class="nc" id="L381">        titleProperty.bind(child.titleProperty)</span>
+<span class="nc" id="L382">        rebindWorkspaceButtons(child)</span>
+
+<span class="nc" id="L384">        headingContainer.children.clear()</span>
+<span class="nc" id="L385">        headingContainer.label(child.headingProperty) {</span>
+<span class="nc" id="L386">            graphicProperty().bind(child.iconProperty)</span>
+<span class="nc" id="L387">            removeWhen(!showHeadingLabelProperty)</span>
+<span class="nc" id="L388">        }</span>
+
+<span class="nc" id="L390">        clearDynamicComponents()</span>
+
+<span class="nc" id="L392">        dockedComponentProperty.value = child</span>
+
+<span class="nc bnc" id="L394" title="All 8 branches missed.">        if (currentWindow?.isShowing != true &amp;&amp; currentWindow?.aboutToBeShown != true)</span>
+<span class="nc" id="L395">            FX.log.warning(&quot;UIComponent $child docked in invisible workspace $workspace&quot;)</span>
+<span class="nc" id="L396">    }</span>
+
+    fun rebindWorkspaceButtons(child: UIComponent) {
+<span class="nc" id="L399">        refreshButton.disableProperty().cleanBind(!child.effectiveRefreshable)</span>
+<span class="nc" id="L400">        saveButton.disableProperty().cleanBind(!child.effectiveSavable)</span>
+<span class="nc" id="L401">        createButton.disableProperty().cleanBind(!child.effectiveCreatable)</span>
+<span class="nc" id="L402">        deleteButton.disableProperty().cleanBind(!child.effectiveDeletable)</span>
+<span class="nc" id="L403">    }</span>
+
+    private fun clearDynamicComponents() {
+<span class="nc" id="L406">        root.dynamicComponents.forEach(Node::removeFromParent)</span>
+<span class="nc" id="L407">        root.dynamicComponents.clear()</span>
+<span class="nc" id="L408">    }</span>
+
+    fun inDynamicComponentMode(function: () -&gt; Unit) {
+<span class="nc" id="L411">        root.dynamicComponentMode = true</span>
+<span class="nc" id="L412">        try {</span>
+<span class="nc" id="L413">            function()</span>
+        } finally {
+<span class="nc" id="L415">            root.dynamicComponentMode = false</span>
+        }
+<span class="nc" id="L417">    }</span>
+
+    /**
+     * Create a new scope and associate it with this Workspace and optionally add one
+     * or more ScopedInstance instances into the scope. The op block operates on the workspace and is passed the new scope. The following example
+     * creates a new scope, injects a Customer Model into it and docks the CustomerEditor
+     * into the Workspace:
+     *
+     * &lt;pre&gt;
+     * workspace.withNewScope(CustomerModel(customer)) { newScope -&gt;
+     *     dock&lt;CustomerEditor&gt;(newScope)
+     * }
+     * &lt;/pre&gt;
+     */
+<span class="nc" id="L431">    fun withNewScope(vararg setInScope: ScopedInstance, op: Workspace.(Scope) -&gt; Unit) = op(this, Scope(this, *setInScope))</span>
+
+    /**
+     * Create a new scope and associate it with this Workspace and dock the given UIComponent type into
+     * the scope, passing the given parameters on to the UIComponent and optionally injecting the given Injectables into the new scope.
+     */
+    inline fun &lt;reified T : UIComponent&gt; dockInNewScope(params: Map&lt;*, Any?&gt;, vararg setInScope: ScopedInstance) {
+        withNewScope(*setInScope) { newScope -&gt;
+<span class="nc" id="L439">            dock&lt;T&gt;(newScope, params)</span>
+<span class="nc" id="L440">        }</span>
+    }
+
+    /**
+     * Create a new scope and associate it with this Workspace and dock the given UIComponent type into
+     * the scope, optionally injecting the given Injectables into the new scope.
+     */
+    inline fun &lt;reified T : UIComponent&gt; dockInNewScope(vararg setInScope: ScopedInstance) {
+        withNewScope(*setInScope) { newScope -&gt;
+<span class="nc" id="L449">            dock&lt;T&gt;(newScope)</span>
+<span class="nc" id="L450">        }</span>
+    }
+
+    /**
+     * Create a new scope and associate it with this Workspace and dock the given UIComponent type into
+     * the scope and optionally injecting the given Injectables into the new scope.
+     */
+    fun &lt;T : UIComponent&gt; dockInNewScope(uiComponent: T, vararg setInScope: ScopedInstance) {
+<span class="nc" id="L458">        withNewScope(*setInScope) {</span>
+<span class="nc" id="L459">            dock(uiComponent)</span>
+<span class="nc" id="L460">        }</span>
+<span class="nc" id="L461">    }</span>
+
+    /**
+     * Will automatically dock the given [UIComponent] if the [ListMenuItem] is selected.
+     */
+    inline fun &lt;reified T : UIComponent&gt; ListMenuItem.dockOnSelect() {
+<span class="nc" id="L467">        whenSelected { dock&lt;T&gt;() }</span>
+    }
+}
+
+<span class="nc" id="L471">open class WorkspaceApp(val initiallyDockedView: KClass&lt;out UIComponent&gt;, vararg stylesheet: KClass&lt;out Stylesheet&gt;) : App(Workspace::class, *stylesheet) {</span>
+<span class="nc" id="L472">    init {</span>
+<span class="nc bnc" id="L473" title="All 2 branches missed.">        if (initiallyDockedView.isSubclassOf(Workspace::class))</span>
+<span class="nc" id="L474">            log.warning(&quot;WorkspaceApp called with a Workspace as parameter! Change to App($initiallyDockedView::class) instead.&quot;)</span>
+<span class="nc" id="L475">    }</span>
+
+    override fun onBeforeShow(view: UIComponent) {
+<span class="nc" id="L478">        workspace.dock(find(initiallyDockedView))</span>
+<span class="nc" id="L479">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

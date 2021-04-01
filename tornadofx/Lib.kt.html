@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Lib.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Lib.kt</span></div><h1>Lib.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.InvalidationListener
+import javafx.beans.property.*
+import javafx.beans.value.*
+import javafx.collections.*
+import javafx.collections.transformation.FilteredList
+import javafx.collections.transformation.SortedList
+import javafx.geometry.Insets
+import javafx.scene.control.ListView
+import javafx.scene.control.TableView
+import javafx.scene.input.Clipboard
+import javafx.scene.input.ClipboardContent
+import javafx.scene.input.DataFormat
+import javafx.scene.media.Media
+import javafx.scene.media.MediaPlayer
+import java.io.File
+import java.util.function.Predicate
+
+/**
+ * A wrapper for an observable list of items that can be bound to a list control like TableView, ListView etc.
+ *
+ * The wrapper makes the data sortable and filterable. Configure a filter by setting the
+ * predicate property or by calling filterWhen to automatically update the predicate when
+ * an observable value changes.
+ *
+ ** Usage:
+ *
+ * ```kotlin
+ * val table = TableView&lt;Person&gt;()
+ * val data = SortedFilteredList(persons).bindTo(table)
+ * ```
+ *
+ * Items can be updated by calling `data.items.setAll` or `data.items.addAll` at a later time.
+ */
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="fc" id="L37">class SortedFilteredList&lt;T&gt;(</span>
+<span class="pc" id="L38">        val items: ObservableList&lt;T&gt; = FXCollections.observableArrayList(),</span>
+<span class="fc" id="L39">        initialPredicate: (T) -&gt; Boolean = { true },</span>
+<span class="pc bpc" id="L40" title="1 of 2 branches missed.">        val filteredItems: FilteredList&lt;T&gt; = FilteredList(items, initialPredicate),</span>
+<span class="pc" id="L41">        val sortedItems: SortedList&lt;T&gt; = SortedList(filteredItems)) : ObservableList&lt;T&gt; {</span>
+
+<span class="fc" id="L43">    init {</span>
+<span class="pc" id="L44">        items.onChange { refilter() }</span>
+<span class="fc" id="L45">    }</span>
+
+    // Should setAll be forwarded to the underlying list? This might be needed for full editing capabilities,
+    // but will affect the ordering of the underlying list
+<span class="nc" id="L49">    var setAllPassThrough = false</span>
+<span class="fc" id="L50">    override val size: Int get() = sortedItems.size</span>
+<span class="nc" id="L51">    override fun contains(element: T) = element in sortedItems</span>
+<span class="nc" id="L52">    override fun containsAll(elements: Collection&lt;T&gt;) = sortedItems.containsAll(elements)</span>
+<span class="nc" id="L53">    override fun get(index: Int) = sortedItems[index]</span>
+<span class="nc" id="L54">    override fun indexOf(element: T) = sortedItems.indexOf(element)</span>
+<span class="nc" id="L55">    override fun isEmpty() = sortedItems.isEmpty()</span>
+<span class="nc" id="L56">    override fun iterator() = sortedItems.iterator()</span>
+<span class="nc" id="L57">    override fun lastIndexOf(element: T) = sortedItems.lastIndexOf(element)</span>
+<span class="nc" id="L58">    override fun add(element: T) = items.add(element)</span>
+    override fun add(index: Int, element: T) {
+<span class="nc" id="L60">        val item = sortedItems[index]</span>
+<span class="nc" id="L61">        val backingIndex = items.indexOf(item)</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">        if (backingIndex &gt; -1) {</span>
+<span class="nc" id="L63">            items.add(backingIndex, element)</span>
+        }
+<span class="nc" id="L65">    }</span>
+
+    override fun addAll(index: Int, elements: Collection&lt;T&gt;): Boolean {
+<span class="nc" id="L68">        val item = sortedItems[index]</span>
+<span class="nc" id="L69">        val backingIndex = items.indexOf(item)</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">        if (backingIndex &gt; -1) {</span>
+<span class="nc" id="L71">            return items.addAll(backingIndex, elements)</span>
+        }
+<span class="nc" id="L73">        return false</span>
+    }
+
+<span class="nc" id="L76">    override fun addAll(elements: Collection&lt;T&gt;) = items.addAll(elements)</span>
+
+<span class="nc" id="L78">    override fun clear() = items.clear()</span>
+<span class="nc" id="L79">    override fun listIterator() = sortedItems.listIterator()</span>
+<span class="nc" id="L80">    override fun listIterator(index: Int) = sortedItems.listIterator(index)</span>
+<span class="nc" id="L81">    override fun remove(element: T) = items.remove(element)</span>
+<span class="nc" id="L82">    override fun removeAll(elements: Collection&lt;T&gt;) = items.removeAll(elements)</span>
+    override fun removeAt(index: Int): T? {
+<span class="nc" id="L84">        val item = sortedItems[index]</span>
+<span class="nc" id="L85">        val backingIndex = items.indexOf(item)</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        return if (backingIndex &gt; -1) {</span>
+<span class="nc" id="L87">            items.removeAt(backingIndex)</span>
+        } else {
+<span class="nc" id="L89">            null</span>
+        }
+    }
+
+    override fun subList(fromIndex: Int, toIndex: Int): MutableList&lt;T&gt; {
+<span class="nc" id="L94">        val item = sortedItems[fromIndex]</span>
+<span class="nc" id="L95">        val backingFromIndex = items.indexOf(item)</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        if (backingFromIndex &gt; -1) {</span>
+<span class="nc" id="L97">            return items.subList(backingFromIndex, items.indexOf(sortedItems[toIndex - 1]))</span>
+        }
+<span class="nc" id="L99">        return mutableListOf()</span>
+    }
+
+<span class="nc" id="L102">    override fun removeAll(vararg elements: T) = items.removeAll(elements)</span>
+
+<span class="nc" id="L104">    override fun addAll(vararg elements: T) = items.addAll(elements)</span>
+
+    override fun remove(from: Int, to: Int) {
+<span class="nc" id="L107">        val item = sortedItems[from]</span>
+<span class="nc" id="L108">        val backingFromIndex = items.indexOf(item)</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">        if (backingFromIndex &gt; -1) {</span>
+<span class="nc" id="L110">            items.remove(backingFromIndex, items.indexOf(sortedItems[to]))</span>
+        }
+<span class="nc" id="L112">    }</span>
+
+<span class="nc" id="L114">    override fun retainAll(vararg elements: T) = items.retainAll(elements)</span>
+
+<span class="nc" id="L116">    override fun retainAll(elements: Collection&lt;T&gt;) = items.retainAll(elements)</span>
+
+    override fun removeListener(listener: ListChangeListener&lt;in T&gt;?) {
+<span class="nc" id="L119">        sortedItems.removeListener(listener)</span>
+<span class="nc" id="L120">    }</span>
+
+    override fun removeListener(listener: InvalidationListener?) {
+<span class="nc" id="L123">        sortedItems.removeListener(listener)</span>
+<span class="nc" id="L124">    }</span>
+
+    override fun addListener(listener: ListChangeListener&lt;in T&gt;?) {
+<span class="nc" id="L127">        sortedItems.addListener(listener)</span>
+<span class="nc" id="L128">    }</span>
+
+    override fun addListener(listener: InvalidationListener?) {
+<span class="nc" id="L131">        sortedItems.addListener(listener)</span>
+<span class="nc" id="L132">    }</span>
+
+<span class="nc bnc" id="L134" title="All 2 branches missed.">    override fun setAll(col: MutableCollection&lt;out T&gt;?) = if (setAllPassThrough) items.setAll(col) else false</span>
+
+<span class="nc" id="L136">    override fun setAll(vararg elements: T) = items.setAll(*elements)</span>
+
+    /**
+     * Support editing of the sorted/filtered list. Useful to support editing support in ListView/TableView etc
+     */
+    override fun set(index: Int, element: T): T {
+<span class="nc" id="L142">        val item = sortedItems[index]</span>
+<span class="nc" id="L143">        val backingIndex = items.indexOf(item)</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">        if (backingIndex &gt; -1) {</span>
+<span class="nc" id="L145">            items[backingIndex] = element</span>
+        }
+<span class="nc" id="L147">        return item</span>
+    }
+
+
+    /**
+     * Force the filtered list to refilter it's items based on the current predicate without having to configure a new predicate.
+     * Avoid reassigning the property value as that would impede binding.
+     */
+    fun refilter() {
+<span class="nc" id="L156">        val p = predicate</span>
+<span class="nc bnc" id="L157" title="All 2 branches missed.">        if (p != null) {</span>
+<span class="nc" id="L158">            filteredItems.predicate = Predicate { p(it) }</span>
+        }
+<span class="nc" id="L160">    }</span>
+
+<span class="pc" id="L162">    val predicateProperty: ObjectProperty&lt;(T) -&gt; Boolean&gt; = object : SimpleObjectProperty&lt;(T) -&gt; Boolean&gt;() {</span>
+        override fun set(newValue: ((T) -&gt; Boolean)) {
+<span class="fc" id="L164">            super.set(newValue)</span>
+<span class="fc" id="L165">            filteredItems.predicate = Predicate { newValue(it) }</span>
+<span class="fc" id="L166">        }</span>
+    }
+<span class="fc" id="L168">    var predicate by predicateProperty</span>
+
+    /**
+     * Bind this data object to the given TableView.
+     *
+     * The `tableView.items` is set to the underlying sortedItems.
+     *
+     * The underlying sortedItems.comparatorProperty` is automatically bound to `tableView.comparatorProperty`.
+     */
+<span class="nc" id="L177">    fun bindTo(tableView: TableView&lt;T&gt;): SortedFilteredList&lt;T&gt; = apply {</span>
+<span class="nc" id="L178">        tableView.items = this</span>
+<span class="nc" id="L179">        sortedItems.comparatorProperty().bind(tableView.comparatorProperty())</span>
+<span class="nc" id="L180">    }</span>
+
+    /**
+     * Bind this data object to the given ListView.
+     *
+     * The `listView.items` is set to the underlying sortedItems.
+     *
+     */
+<span class="nc" id="L188">    fun bindTo(listView: ListView&lt;T&gt;): SortedFilteredList&lt;T&gt; = apply { listView.items = this }</span>
+
+    /**
+     * Update the filter predicate whenever the given observable changes. The filter expression
+     * receives both the observable value and the current list item to evaluate.
+     *
+     * Convenient for filtering based on a TextField:
+     *
+     * &lt;pre&gt;
+     * textfield {
+     *     promptText = &quot;Filtrering&quot;
+     *     data.filterWhen(textProperty(), { query, item -&gt; item.matches(query) } )
+     * }
+     * &lt;/pre&gt;
+     */
+    fun &lt;Q&gt; filterWhen(observable: ObservableValue&lt;Q&gt;, filterExpr: (Q, T) -&gt; Boolean) {
+<span class="nc" id="L204">        observable.addListener { observableValue, oldValue, newValue -&gt;</span>
+<span class="nc" id="L205">            predicate = { filterExpr(newValue, it) }</span>
+<span class="nc" id="L206">        }</span>
+<span class="nc" id="L207">    }</span>
+}
+
+@Deprecated(&quot;Use `asObservable()` instead.&quot;, ReplaceWith(&quot;this.asObservable()&quot;, &quot;tornadofx.asObservable&quot;))
+<span class="nc" id="L211">fun &lt;T&gt; List&lt;T&gt;.observable(): ObservableList&lt;T&gt; = FXCollections.observableList(this)</span>
+
+@Deprecated(&quot;Use `asObservable()` instead.&quot;, ReplaceWith(&quot;this.asObservable()&quot;, &quot;tornadofx.asObservable&quot;))
+<span class="nc" id="L214">fun &lt;T&gt; Set&lt;T&gt;.observable(): ObservableSet&lt;T&gt; = FXCollections.observableSet(this)</span>
+
+@Deprecated(&quot;Use `asObservable()` instead.&quot;, ReplaceWith(&quot;this.asObservable()&quot;, &quot;tornadofx.asObservable&quot;))
+<span class="nc" id="L217">fun &lt;K, V&gt; Map&lt;K, V&gt;.observable(): ObservableMap&lt;K, V&gt; = FXCollections.observableMap(this)</span>
+
+fun Clipboard.setContent(op: ClipboardContent.() -&gt; Unit) {
+<span class="fc" id="L220">    val content = ClipboardContent()</span>
+<span class="fc" id="L221">    op(content)</span>
+<span class="fc" id="L222">    setContent(content)</span>
+<span class="fc" id="L223">}</span>
+
+<span class="fc" id="L225">fun Clipboard.putString(value: String) = setContent { putString(value) }</span>
+<span class="nc" id="L226">fun Clipboard.putFiles(files: MutableList&lt;File&gt;) = setContent { putFiles(files) }</span>
+<span class="nc" id="L227">fun Clipboard.put(dataFormat: DataFormat, value: Any) = setContent { put(dataFormat, value) }</span>
+
+inline fun &lt;T&gt; ChangeListener(crossinline listener: (observable: ObservableValue&lt;out T&gt;?, oldValue: T, newValue: T) -&gt; Unit): ChangeListener&lt;T&gt; =
+<span class="nc" id="L230">        javafx.beans.value.ChangeListener&lt;T&gt; { observable, oldValue, newValue -&gt; listener(observable, oldValue, newValue) }</span>
+
+/**
+ * Listen for changes to this observable. Optionally only listen x times.
+ * The lambda receives the changed value when the change occurs, which may be null,
+ */
+fun &lt;T&gt; ObservableValue&lt;T&gt;.onChangeTimes(times: Int, op: (T?) -&gt; Unit) {
+<span class="fc" id="L237">    var counter = 0</span>
+<span class="fc" id="L238">    val listener = object : ChangeListener&lt;T&gt; {</span>
+        override fun changed(observable: ObservableValue&lt;out T&gt;?, oldValue: T, newValue: T) {
+<span class="pc bpc" id="L240" title="1 of 2 branches missed.">            if (++counter == times) {</span>
+<span class="fc" id="L241">                removeListener(this)</span>
+            }
+<span class="fc" id="L243">            op(newValue)</span>
+<span class="fc" id="L244">        }</span>
+    }
+<span class="fc" id="L246">    addListener(listener)</span>
+<span class="fc" id="L247">}</span>
+
+<span class="fc" id="L249">fun &lt;T&gt; ObservableValue&lt;T&gt;.onChangeOnce(op: (T?) -&gt; Unit) = onChangeTimes(1, op)</span>
+
+<span class="fc" id="L251">fun &lt;T&gt; ObservableValue&lt;T&gt;.onChange(op: (T?) -&gt; Unit) = apply { addListener { _, _, newValue -&gt; op(newValue) } }</span>
+<span class="pc bpc" id="L252" title="1 of 2 branches missed.">fun ObservableBooleanValue.onChange(op: (Boolean) -&gt; Unit) = apply { addListener { _, _, new -&gt; op(new ?: false) } }</span>
+<span class="pc bpc" id="L253" title="1 of 2 branches missed.">fun ObservableIntegerValue.onChange(op: (Int) -&gt; Unit) = apply { addListener { _, _, new -&gt; op((new ?: 0).toInt()) } }</span>
+<span class="nc bnc" id="L254" title="All 2 branches missed.">fun ObservableLongValue.onChange(op: (Long) -&gt; Unit) = apply { addListener { _, _, new -&gt; op((new ?: 0L).toLong()) } }</span>
+<span class="nc" id="L255">fun ObservableFloatValue.onChange(op: (Float) -&gt; Unit) = apply {</span>
+<span class="nc" id="L256">    addListener { _, _, new -&gt;</span>
+<span class="nc bnc" id="L257" title="All 2 branches missed.">        op((new ?: 0f).toFloat())</span>
+<span class="nc" id="L258">    }</span>
+<span class="nc" id="L259">}</span>
+
+<span class="fc" id="L261">fun ObservableDoubleValue.onChange(op: (Double) -&gt; Unit) = apply {</span>
+<span class="fc" id="L262">    addListener { _, _, new -&gt;</span>
+<span class="pc bpc" id="L263" title="1 of 2 branches missed.">        op((new ?: 0.0).toDouble())</span>
+<span class="fc" id="L264">    }</span>
+<span class="fc" id="L265">}</span>
+
+<span class="fc" id="L267">fun &lt;T&gt; ObservableList&lt;T&gt;.onChange(op: (ListChangeListener.Change&lt;out T&gt;) -&gt; Unit) = apply {</span>
+<span class="fc" id="L268">    addListener(op) // Sch.Funtik. Old: addListener(ListChangeListener { op(it) }) - unnecessary lambda</span>
+<span class="fc" id="L269">}</span>
+
+<span class="nc" id="L271">fun &lt;K, V&gt; ObservableMap&lt;K, V&gt;.onChange(op: (MapChangeListener.Change&lt;out K, out V&gt;) -&gt; Unit) = apply {</span>
+<span class="nc" id="L272">    addListener(op) // addListener(MapChangeListener { op(it) })</span>
+<span class="nc" id="L273">}</span>
+
+/**
+ * JavaDoc: Note that put operation might remove an element if there was already a value associated with the same key.
+ * In this case wasAdded() and wasRemoved() will both return true.
+ */
+val &lt;K, V&gt; MapChangeListener.Change&lt;out K, out V&gt;.wasUpdated: Boolean
+<span class="nc bnc" id="L280" title="All 4 branches missed.">    get() = wasAdded() &amp;&amp; wasRemoved()</span>
+
+/**
+ * Create a proxy property backed by calculated data based on a specific property. The setter
+ * must return the new value for the backed property.
+ * The scope of the getter and setter will be the receiver property
+ */
+<span class="nc" id="L287">fun &lt;R, T&gt; proxyprop(receiver: Property&lt;R&gt;, getter: Property&lt;R&gt;.() -&gt; T, setter: Property&lt;R&gt;.(T) -&gt; R): ObjectProperty&lt;T&gt; = object : SimpleObjectProperty&lt;T&gt;() {</span>
+<span class="nc" id="L288">    init {</span>
+<span class="nc" id="L289">        receiver.onChange {</span>
+<span class="nc" id="L290">            fireValueChangedEvent()</span>
+<span class="nc" id="L291">        }</span>
+<span class="nc" id="L292">    }</span>
+
+    override fun invalidated() {
+<span class="nc" id="L295">        receiver.value = setter(receiver, super.get())</span>
+<span class="nc" id="L296">    }</span>
+
+<span class="nc" id="L298">    override fun get() = getter.invoke(receiver)</span>
+    override fun set(v: T) {
+<span class="nc" id="L300">        receiver.value = setter(receiver, v)</span>
+<span class="nc" id="L301">        super.set(v)</span>
+<span class="nc" id="L302">    }</span>
+<span class="nc" id="L303">}</span>
+
+/**
+ * Create a proxy double property backed by calculated data based on a specific property. The setter
+ * must return the new value for the backed property.
+ * The scope of the getter and setter will be the receiver property
+ */
+<span class="nc" id="L310">fun &lt;R&gt; proxypropDouble(receiver: Property&lt;R&gt;, getter: Property&lt;R&gt;.() -&gt; Double, setter: Property&lt;R&gt;.(Double) -&gt; R): DoubleProperty = object : SimpleDoubleProperty() {</span>
+<span class="nc" id="L311">    init {</span>
+<span class="nc" id="L312">        receiver.onChange {</span>
+<span class="nc" id="L313">            fireValueChangedEvent()</span>
+<span class="nc" id="L314">        }</span>
+<span class="nc" id="L315">    }</span>
+
+    override fun invalidated() {
+<span class="nc" id="L318">        receiver.value = setter(receiver, super.get())</span>
+<span class="nc" id="L319">    }</span>
+
+<span class="nc" id="L321">    override fun get() = getter.invoke(receiver)</span>
+    override fun set(v: Double) {
+<span class="nc" id="L323">        receiver.value = setter(receiver, v)</span>
+<span class="nc" id="L324">        super.set(v)</span>
+<span class="nc" id="L325">    }</span>
+<span class="nc" id="L326">}</span>
+
+<span class="nc" id="L328">fun insets(all: Number) = Insets(all.toDouble(), all.toDouble(), all.toDouble(), all.toDouble())</span>
+<span class="nc" id="L329">fun insets(horizontal: Number? = null, vertical: Number? = null) = Insets(</span>
+<span class="nc bnc" id="L330" title="All 2 branches missed.">        vertical?.toDouble() ?: 0.0,</span>
+<span class="nc bnc" id="L331" title="All 2 branches missed.">        horizontal?.toDouble() ?: 0.0,</span>
+<span class="nc bnc" id="L332" title="All 2 branches missed.">        vertical?.toDouble() ?: 0.0,</span>
+<span class="nc bnc" id="L333" title="All 2 branches missed.">        horizontal?.toDouble() ?: 0.0</span>
+<span class="nc" id="L334">)</span>
+
+fun insets(
+<span class="nc" id="L337">        top: Number? = null,</span>
+<span class="nc" id="L338">        right: Number? = null,</span>
+<span class="nc" id="L339">        bottom: Number? = null,</span>
+<span class="nc" id="L340">        left: Number? = null</span>
+<span class="nc" id="L341">) = Insets(</span>
+<span class="nc bnc" id="L342" title="All 2 branches missed.">        top?.toDouble() ?: 0.0,</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">        right?.toDouble() ?: 0.0,</span>
+<span class="nc bnc" id="L344" title="All 2 branches missed.">        bottom?.toDouble() ?: 0.0,</span>
+<span class="nc bnc" id="L345" title="All 2 branches missed.">        left?.toDouble() ?: 0.0</span>
+<span class="nc" id="L346">)</span>
+
+fun Insets.copy(
+<span class="nc" id="L349">        top: Number? = null,</span>
+<span class="nc" id="L350">        right: Number? = null,</span>
+<span class="nc" id="L351">        bottom: Number? = null,</span>
+<span class="nc" id="L352">        left: Number? = null</span>
+<span class="nc" id="L353">) = Insets(</span>
+<span class="nc bnc" id="L354" title="All 2 branches missed.">        top?.toDouble() ?: this.top,</span>
+<span class="nc bnc" id="L355" title="All 2 branches missed.">        right?.toDouble() ?: this.right,</span>
+<span class="nc bnc" id="L356" title="All 2 branches missed.">        bottom?.toDouble() ?: this.bottom,</span>
+<span class="nc bnc" id="L357" title="All 2 branches missed.">        left?.toDouble() ?: this.left</span>
+<span class="nc" id="L358">)</span>
+
+
+fun Insets.copy(
+<span class="nc" id="L362">        horizontal: Number? = null,</span>
+<span class="nc" id="L363">        vertical: Number? = null</span>
+<span class="nc" id="L364">) = Insets(</span>
+<span class="nc bnc" id="L365" title="All 2 branches missed.">        vertical?.toDouble() ?: this.top,</span>
+<span class="nc bnc" id="L366" title="All 2 branches missed.">        horizontal?.toDouble() ?: this.right,</span>
+<span class="nc bnc" id="L367" title="All 2 branches missed.">        vertical?.toDouble() ?: this.bottom,</span>
+<span class="nc bnc" id="L368" title="All 2 branches missed.">        horizontal?.toDouble() ?: this.left</span>
+<span class="nc" id="L369">)</span>
+
+<span class="nc" id="L371">val Insets.horizontal get() = (left + right) / 2</span>
+<span class="nc" id="L372">val Insets.vertical get() = (top + bottom) / 2</span>
+<span class="nc" id="L373">val Insets.all get() = (left + right + top + bottom) / 4</span>
+
+
+<span class="nc bnc" id="L376" title="All 2 branches missed.">fun String.isLong() = toLongOrNull() != null</span>
+<span class="nc bnc" id="L377" title="All 2 branches missed.">fun String.isInt() = toIntOrNull() != null</span>
+<span class="nc bnc" id="L378" title="All 2 branches missed.">fun String.isDouble() = toDoubleOrNull() != null</span>
+<span class="nc bnc" id="L379" title="All 2 branches missed.">fun String.isFloat() = toFloatOrNull() != null</span>
+
+/**
+ * [forEach] with Map.Entree as receiver.
+ */
+<span class="nc" id="L384">inline fun &lt;K, V&gt; Map&lt;K, V&gt;.withEach(action: Map.Entry&lt;K, V&gt;.() -&gt; Unit) = forEach(action)</span>
+
+/**
+ * [forEach] with the element as receiver.
+ */
+<span class="nc" id="L389">inline fun &lt;T&gt; Iterable&lt;T&gt;.withEach(action: T.() -&gt; Unit) = forEach(action)</span>
+
+/**
+ * [forEach] with the element as receiver.
+ */
+<span class="nc" id="L394">inline fun &lt;T&gt; Sequence&lt;T&gt;.withEach(action: T.() -&gt; Unit) = forEach(action)</span>
+
+/**
+ * [forEach] with the element as receiver.
+ */
+<span class="nc" id="L399">inline fun &lt;T&gt; Array&lt;T&gt;.withEach(action: T.() -&gt; Unit) = forEach(action)</span>
+
+/**
+ * [map] with Map.Entree as receiver.
+ */
+<span class="nc" id="L404">inline fun &lt;K, V, R&gt; Map&lt;K, V&gt;.mapEach(action: Map.Entry&lt;K, V&gt;.() -&gt; R) = map(action)</span>
+
+/**
+ * [map] with the element as receiver.
+ */
+<span class="nc" id="L409">inline fun &lt;T, R&gt; Iterable&lt;T&gt;.mapEach(action: T.() -&gt; R) = map(action)</span>
+
+/**
+ * [map] with the element as receiver.
+ */
+<span class="fc" id="L414">fun &lt;T, R&gt; Sequence&lt;T&gt;.mapEach(action: T.() -&gt; R) = map(action)</span>
+
+/**
+ * [map] with the element as receiver.
+ */
+<span class="nc" id="L419">inline fun &lt;T, R&gt; Array&lt;T&gt;.mapEach(action: T.() -&gt; R) = map(action)</span>
+
+/**
+ * [mapTo] with Map.Entree as receiver.
+ */
+<span class="nc" id="L424">inline fun &lt;K, V, R, C : MutableCollection&lt;in R&gt;&gt; Map&lt;K, V&gt;.mapEachTo(destination: C, action: Map.Entry&lt;K, V&gt;.() -&gt; R) = mapTo(destination, action)</span>
+
+/**
+ * [mapTo] with the element as receiver.
+ */
+<span class="nc" id="L429">inline fun &lt;T, R, C : MutableCollection&lt;in R&gt;&gt; Iterable&lt;T&gt;.mapEachTo(destination: C, action: T.() -&gt; R) = mapTo(destination, action)</span>
+
+/**
+ * [mapTo] with the element as receiver.
+ */
+<span class="nc" id="L434">fun &lt;T, R, C : MutableCollection&lt;in R&gt;&gt; Sequence&lt;T&gt;.mapEachTo(destination: C, action: T.() -&gt; R) = mapTo(destination, action)</span>
+
+/**
+ * [mapTo] with the element as receiver.
+ */
+<span class="nc" id="L439">fun &lt;T, R, C : MutableCollection&lt;in R&gt;&gt; Array&lt;T&gt;.mapEachTo(destination: C, action: T.() -&gt; R) = mapTo(destination, action)</span>
+
+<span class="nc" id="L441">fun Media.play() = MediaPlayer(this).play()</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

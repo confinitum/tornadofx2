@@ -1,0 +1,407 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Layouts.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Layouts.kt</span></div><h1>Layouts.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.property.ObjectProperty
+import javafx.beans.value.ObservableValue
+import javafx.collections.ObservableList
+import javafx.event.EventTarget
+import javafx.geometry.Orientation
+import javafx.geometry.Pos
+import javafx.scene.Group
+import javafx.scene.Node
+import javafx.scene.Parent
+import javafx.scene.canvas.Canvas
+import javafx.scene.control.*
+import javafx.scene.layout.*
+import kotlin.reflect.KClass
+import kotlin.reflect.KFunction1
+import kotlin.reflect.full.createInstance
+
+<span class="fc" id="L19">private val GridPaneRowIdKey = &quot;TornadoFX.GridPaneRowId&quot;</span>
+<span class="fc" id="L20">private val GridPaneParentObjectKey = &quot;TornadoFX.GridPaneParentObject&quot;</span>
+
+<span class="pc" id="L22">fun GridPane.row(title: String? = null, op: Pane.() -&gt; Unit = {}) {</span>
+<span class="pc bpc" id="L23" title="1 of 4 branches missed.">    properties[GridPaneRowIdKey] = if (properties.containsKey(GridPaneRowIdKey)) properties[GridPaneRowIdKey] as Int + 1 else 0</span>
+
+    // Allow the caller to add children to a fake pane
+<span class="fc" id="L26">    val fake = Pane()</span>
+<span class="fc" id="L27">    fake.properties[GridPaneParentObjectKey] = this</span>
+<span class="pc bpc" id="L28" title="1 of 2 branches missed.">    if (title != null) fake.children.add(Label(title))</span>
+
+<span class="fc" id="L30">    op(fake)</span>
+
+    // Create a new row in the GridPane and add the children added to the fake pane
+<span class="pc bpc" id="L33" title="1 of 2 branches missed.">    addRow(properties[GridPaneRowIdKey] as Int, *fake.children.toTypedArray())</span>
+<span class="fc" id="L34">}</span>
+
+/**
+ * Removes the corresponding row to which this [node] belongs to.
+ *
+ * It does the opposite of the [GridPane.row] cleaning all internal state properly.
+ *
+ * @return the row index of the removed row.
+ */
+fun GridPane.removeRow(node: Node): Int {
+<span class="fc" id="L44">    val rowIdKey = properties[GridPaneRowIdKey] as Int?</span>
+<span class="fc bfc" id="L45" title="All 2 branches covered.">    if (rowIdKey != null) {</span>
+<span class="fc" id="L46">        when (rowIdKey) {</span>
+<span class="fc bfc" id="L47" title="All 2 branches covered.">            0 -&gt; properties.remove(GridPaneRowIdKey)</span>
+<span class="fc" id="L48">            else -&gt; properties[GridPaneRowIdKey] = rowIdKey - 1</span>
+        }
+    }
+<span class="fc bfc" id="L51" title="All 2 branches covered.">    val rowIndex = GridPane.getRowIndex(node) ?: 0</span>
+<span class="fc" id="L52">    val nodesToDelete = mutableListOf&lt;Node&gt;()</span>
+<span class="fc" id="L53">    children.forEach { child -&gt;</span>
+<span class="pc bpc" id="L54" title="1 of 2 branches missed.">        val childRowIndex = GridPane.getRowIndex(child) ?: 0</span>
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        if (childRowIndex == rowIndex) {</span>
+<span class="fc" id="L56">            nodesToDelete.add(child)</span>
+            // Remove row index property from the node
+<span class="fc" id="L58">            GridPane.setRowIndex(child, null)</span>
+<span class="fc" id="L59">            GridPane.setColumnIndex(child, null)</span>
+<span class="fc bfc" id="L60" title="All 2 branches covered.">        } else if (childRowIndex &gt; rowIndex) {</span>
+<span class="fc" id="L61">            GridPane.setRowIndex(child, childRowIndex - 1)</span>
+        }
+<span class="fc" id="L63">    }</span>
+<span class="fc" id="L64">    children.removeAll(nodesToDelete)</span>
+<span class="fc" id="L65">    return rowIndex</span>
+}
+
+fun GridPane.removeAllRows() {
+<span class="fc" id="L69">    children.forEach {</span>
+<span class="fc" id="L70">        GridPane.setRowIndex(it, null)</span>
+<span class="fc" id="L71">        GridPane.setColumnIndex(it, null)</span>
+<span class="fc" id="L72">    }</span>
+<span class="fc" id="L73">    children.clear()</span>
+<span class="fc" id="L74">    properties.remove(GridPaneRowIdKey)</span>
+<span class="fc" id="L75">}</span>
+
+<span class="nc" id="L77">fun GridPane.constraintsForColumn(columnIndex: Int) = constraintsFor(columnConstraints, columnIndex)</span>
+
+<span class="nc" id="L79">fun GridPane.constraintsForRow(rowIndex: Int) = constraintsFor(rowConstraints, rowIndex)</span>
+
+//constraints for row and column can be handled the same way
+internal inline fun &lt;reified T : ConstraintsBase&gt; constraintsFor(constraints: ObservableList&lt;T&gt;, index: Int): T {
+    while (constraints.size &lt;= index) constraints.add(T::class.createInstance())
+    return constraints[index]
+}
+
+val Parent.gridpaneColumnConstraints: ColumnConstraints?
+    get() {
+<span class="nc" id="L89">        var cursor = this</span>
+<span class="nc" id="L90">        var next = parent</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">        while (next != null) {</span>
+<span class="nc" id="L92">            val gridReference = when {</span>
+<span class="nc bnc" id="L93" title="All 4 branches missed.">                next is GridPane -&gt; next to GridPane.getColumnIndex(cursor)?.let { it }</span>
+            // perhaps we're still in the row builder
+<span class="nc bnc" id="L95" title="All 6 branches missed.">                next.parent == null -&gt; (next.properties[GridPaneParentObjectKey] as? GridPane)?.let {</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">                    it to next.getChildList()?.indexOf(cursor)</span>
+                }
+<span class="nc" id="L98">                else -&gt; null</span>
+            }
+
+<span class="nc bnc" id="L101" title="All 2 branches missed.">            if (gridReference != null) {</span>
+<span class="nc" id="L102">                val (grid, columnIndex) = gridReference</span>
+<span class="nc bnc" id="L103" title="All 4 branches missed.">                if (columnIndex != null &amp;&amp; columnIndex &gt;= 0) return grid.constraintsForColumn(columnIndex)</span>
+            }
+<span class="nc" id="L105">            cursor = next</span>
+<span class="nc" id="L106">            next = next.parent</span>
+        }
+<span class="nc" id="L108">        return null</span>
+    }
+
+<span class="nc bnc" id="L111" title="All 2 branches missed.">fun Parent.gridpaneColumnConstraints(op: ColumnConstraints.() -&gt; Unit) = gridpaneColumnConstraints?.apply { op() }</span>
+
+<span class="nc" id="L113">fun ToolBar.spacer(prio: Priority = Priority.ALWAYS, op: Pane.() -&gt; Unit = {}): Pane {</span>
+<span class="nc" id="L114">    val pane = Pane().apply {</span>
+<span class="nc" id="L115">        addClass(&quot;spacer&quot;)</span>
+<span class="nc" id="L116">        hgrow = prio</span>
+<span class="nc" id="L117">    }</span>
+<span class="nc" id="L118">    op(pane)</span>
+<span class="nc" id="L119">    add(pane)</span>
+<span class="nc" id="L120">    return pane</span>
+}
+
+<span class="nc" id="L123">fun HBox.spacer(prio: Priority = Priority.ALWAYS, op: Pane.() -&gt; Unit = {}) = opcr(this, Pane().apply { HBox.setHgrow(this, prio) }, op)</span>
+<span class="nc" id="L124">fun VBox.spacer(prio: Priority = Priority.ALWAYS, op: Pane.() -&gt; Unit = {}) = opcr(this, Pane().apply { VBox.setVgrow(this, prio) }, op)</span>
+
+<span class="nc" id="L126">fun EventTarget.toolbar(vararg nodes: Node, op: ToolBar.() -&gt; Unit = {}): ToolBar {</span>
+<span class="nc" id="L127">    val toolbar = ToolBar()</span>
+<span class="nc bnc" id="L128" title="All 6 branches missed.">    if (nodes.isNotEmpty()) toolbar.items.addAll(nodes)</span>
+<span class="nc" id="L129">    opcr(this, toolbar, op)</span>
+<span class="nc" id="L130">    return toolbar</span>
+}
+
+
+@Deprecated(&quot;No need to wrap ToolBar children in children{} anymore. Remove the wrapper and all builder items will still be added as before.&quot;, ReplaceWith(&quot;no children{} wrapper&quot;), DeprecationLevel.WARNING)
+<span class="nc" id="L135">fun ToolBar.children(op: ToolBar.() -&gt; Unit) = apply { op() }</span>
+
+<span class="pc" id="L137">fun EventTarget.hbox(spacing: Number? = null, alignment: Pos? = null, op: HBox.() -&gt; Unit = {}): HBox {</span>
+<span class="fc" id="L138">    val hbox = HBox()</span>
+<span class="pc bpc" id="L139" title="1 of 2 branches missed.">    if (alignment != null) hbox.alignment = alignment</span>
+<span class="pc bpc" id="L140" title="1 of 2 branches missed.">    if (spacing != null) hbox.spacing = spacing.toDouble()</span>
+<span class="fc" id="L141">    return opcr(this, hbox, op)</span>
+}
+
+<span class="fc" id="L144">fun EventTarget.vbox(spacing: Number? = null, alignment: Pos? = null, op: VBox.() -&gt; Unit = {}): VBox {</span>
+<span class="fc" id="L145">    val vbox = VBox()</span>
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">    if (alignment != null) vbox.alignment = alignment</span>
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">    if (spacing != null) vbox.spacing = spacing.toDouble()</span>
+<span class="fc" id="L148">    return opcr(this, vbox, op)</span>
+}
+
+<span class="nc" id="L151">fun ToolBar.separator(orientation: Orientation = Orientation.HORIZONTAL, op: Separator.() -&gt; Unit = {}): Separator {</span>
+<span class="nc" id="L152">    val separator = Separator(orientation).also(op)</span>
+<span class="nc" id="L153">    add(separator)</span>
+<span class="nc" id="L154">    return separator</span>
+}
+
+<span class="nc" id="L157">fun EventTarget.separator(orientation: Orientation = Orientation.HORIZONTAL, op: Separator.() -&gt; Unit = {}) = opcr(this, Separator(orientation), op)</span>
+
+<span class="nc bnc" id="L159" title="All 2 branches missed.">fun EventTarget.group(initialChildren: Iterable&lt;Node&gt;? = null, op: Group.() -&gt; Unit = {}) = opcr(this, Group().apply { if (initialChildren != null) children.addAll(initialChildren) }, op)</span>
+<span class="pc bpc" id="L160" title="1 of 2 branches missed.">fun EventTarget.stackpane(initialChildren: Iterable&lt;Node&gt;? = null, op: StackPane.() -&gt; Unit = {}) = opcr(this, StackPane().apply { if (initialChildren != null) children.addAll(initialChildren) }, op)</span>
+<span class="nc" id="L161">fun EventTarget.gridpane(op: GridPane.() -&gt; Unit = {}) = opcr(this, GridPane(), op)</span>
+<span class="nc" id="L162">fun EventTarget.pane(op: Pane.() -&gt; Unit = {}) = opcr(this, Pane(), op)</span>
+<span class="nc" id="L163">fun EventTarget.flowpane(op: FlowPane.() -&gt; Unit = {}) = opcr(this, FlowPane(), op)</span>
+<span class="nc" id="L164">fun EventTarget.tilepane(op: TilePane.() -&gt; Unit = {}) = opcr(this, TilePane(), op)</span>
+<span class="pc" id="L165">fun EventTarget.borderpane(op: BorderPane.() -&gt; Unit = {}) = opcr(this, BorderPane(), op)</span>
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+var Node.builderTarget: ((Any) -&gt; ObjectProperty&lt;Node&gt;)?
+<span class="fc" id="L169">    get() = properties[&quot;tornadofx.builderTarget&quot;] as ((Any) -&gt; ObjectProperty&lt;Node&gt;)?</span>
+    set(value) {
+<span class="fc" id="L171">        properties[&quot;tornadofx.builderTarget&quot;] = value</span>
+<span class="fc" id="L172">    }</span>
+
+<span class="nc" id="L174">fun BorderPane.top(op: BorderPane.() -&gt; Unit) = region(BorderPane::topProperty, op)</span>
+<span class="fc" id="L175">fun BorderPane.bottom(op: BorderPane.() -&gt; Unit) = region(BorderPane::bottomProperty, op)</span>
+<span class="nc" id="L176">fun BorderPane.left(op: BorderPane.() -&gt; Unit) = region(BorderPane::leftProperty, op)</span>
+<span class="nc" id="L177">fun BorderPane.right(op: BorderPane.() -&gt; Unit) = region(BorderPane::rightProperty, op)</span>
+<span class="fc" id="L178">fun BorderPane.center(op: BorderPane.() -&gt; Unit) = region(BorderPane::centerProperty, op)</span>
+
+internal fun BorderPane.region(region: ((BorderPane) -&gt; ObjectProperty&lt;Node&gt;)?, op: BorderPane.() -&gt; Unit) {
+    @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="fc" id="L182">    builderTarget = region as ((Any) -&gt; ObjectProperty&lt;Node&gt;)?</span>
+<span class="fc" id="L183">    op()</span>
+<span class="fc" id="L184">    builderTarget = null</span>
+<span class="fc" id="L185">}</span>
+
+@Deprecated(&quot;Use top = node {} instead&quot;)
+<span class="nc" id="L188">fun &lt;T : Node&gt; BorderPane.top(topNode: T, op: T.() -&gt; Unit = {}): T {</span>
+<span class="nc" id="L189">    top = topNode</span>
+<span class="nc" id="L190">    return opcr(this, topNode, op)</span>
+}
+
+inline fun &lt;reified C : UIComponent&gt; BorderPane.setRegion(scope: Scope, region: KFunction1&lt;BorderPane, ObjectProperty&lt;Node&gt;&gt;) = apply {
+    region.invoke(this).value = find&lt;C&gt;(scope).root
+}
+
+<span class="nc" id="L197">fun &lt;C : UIComponent&gt; BorderPane.setRegion(scope: Scope, region: KFunction1&lt;BorderPane, ObjectProperty&lt;Node&gt;&gt;, nodeType: KClass&lt;C&gt;) = apply {</span>
+<span class="nc" id="L198">    region.invoke(this).value = find(nodeType, scope).root</span>
+<span class="nc" id="L199">}</span>
+
+@Deprecated(&quot;Use bottom = node {} instead&quot;)
+<span class="nc" id="L202">fun &lt;T : Node&gt; BorderPane.bottom(bottomNode: T, op: T.() -&gt; Unit = {}): T {</span>
+<span class="nc" id="L203">    bottom = bottomNode</span>
+<span class="nc" id="L204">    return opcr(this, bottomNode, op)</span>
+}
+
+@Deprecated(&quot;Use left = node {} instead&quot;)
+<span class="nc" id="L208">fun &lt;T : Node&gt; BorderPane.left(leftNode: T, op: T.() -&gt; Unit = {}): T {</span>
+<span class="nc" id="L209">    left = leftNode</span>
+<span class="nc" id="L210">    return opcr(this, leftNode, op)</span>
+}
+
+@Deprecated(&quot;Use right = node {} instead&quot;)
+<span class="nc" id="L214">fun &lt;T : Node&gt; BorderPane.right(rightNode: T, op: T.() -&gt; Unit = {}): T {</span>
+<span class="nc" id="L215">    right = rightNode</span>
+<span class="nc" id="L216">    return opcr(this, rightNode, op)</span>
+}
+
+@Deprecated(&quot;Use center = node {} instead&quot;)
+<span class="nc" id="L220">fun &lt;T : Node&gt; BorderPane.center(centerNode: T, op: T.() -&gt; Unit = {}): T {</span>
+<span class="nc" id="L221">    center = centerNode</span>
+<span class="nc" id="L222">    return opcr(this, centerNode, op)</span>
+}
+
+<span class="nc" id="L225">fun EventTarget.titledpane(title: String? = null, node: Node? = null, collapsible: Boolean = true, op: (TitledPane).() -&gt; Unit = {}): TitledPane {</span>
+<span class="nc" id="L226">    val titledPane = TitledPane(title, node)</span>
+<span class="nc" id="L227">    titledPane.isCollapsible = collapsible</span>
+<span class="nc" id="L228">    opcr(this, titledPane, op)</span>
+<span class="nc" id="L229">    return titledPane</span>
+}
+
+<span class="nc" id="L232">fun EventTarget.titledpane(title: ObservableValue&lt;String&gt;, node: Node? = null, collapsible: Boolean = true, op: (TitledPane).() -&gt; Unit = {}): TitledPane {</span>
+<span class="nc" id="L233">    val titledPane = TitledPane(&quot;&quot;, node)</span>
+<span class="nc" id="L234">    titledPane.textProperty().bind(title)</span>
+<span class="nc" id="L235">    titledPane.isCollapsible = collapsible</span>
+<span class="nc" id="L236">    opcr(this, titledPane, op)</span>
+<span class="nc" id="L237">    return titledPane</span>
+}
+
+<span class="nc" id="L240">fun EventTarget.pagination(pageCount: Int? = null, pageIndex: Int? = null, op: Pagination.() -&gt; Unit = {}): Pagination {</span>
+<span class="nc" id="L241">    val pagination = Pagination()</span>
+<span class="nc bnc" id="L242" title="All 2 branches missed.">    if (pageCount != null) pagination.pageCount = pageCount</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">    if (pageIndex != null) pagination.currentPageIndex = pageIndex</span>
+<span class="nc" id="L244">    return opcr(this, pagination, op)</span>
+}
+
+<span class="nc" id="L247">fun EventTarget.scrollpane(fitToWidth: Boolean = false, fitToHeight: Boolean = false, op: ScrollPane.() -&gt; Unit = {}): ScrollPane {</span>
+<span class="nc" id="L248">    val pane = ScrollPane()</span>
+<span class="nc" id="L249">    pane.isFitToWidth = fitToWidth</span>
+<span class="nc" id="L250">    pane.isFitToHeight = fitToHeight</span>
+<span class="nc" id="L251">    opcr(this, pane, op)</span>
+<span class="nc" id="L252">    return pane</span>
+}
+
+var ScrollPane.edgeToEdge: Boolean
+<span class="nc" id="L256">    get() = hasClass(&quot;edge-to-edge&quot;)</span>
+    set(value) {
+<span class="nc bnc" id="L258" title="All 2 branches missed.">        if (value) addClass(&quot;edge-to-edge&quot;) else removeClass(&quot;edge-to-edge&quot;)</span>
+<span class="nc" id="L259">    }</span>
+
+<span class="nc" id="L261">fun EventTarget.splitpane(orientation: Orientation = Orientation.HORIZONTAL, vararg nodes: Node, op: SplitPane.() -&gt; Unit = {}): SplitPane {</span>
+<span class="nc" id="L262">    val splitpane = SplitPane()</span>
+<span class="nc" id="L263">    splitpane.orientation = orientation</span>
+<span class="nc bnc" id="L264" title="All 6 branches missed.">    if (nodes.isNotEmpty())</span>
+<span class="nc" id="L265">        splitpane.items.addAll(nodes)</span>
+<span class="nc" id="L266">    opcr(this, splitpane, op)</span>
+<span class="nc" id="L267">    return splitpane</span>
+}
+
+@Deprecated(&quot;No need to wrap splitpane items in items{} anymore. Remove the wrapper and all builder items will still be added as before.&quot;, ReplaceWith(&quot;no items{} wrapper&quot;), DeprecationLevel.WARNING)
+<span class="nc" id="L271">fun SplitPane.items(op: (SplitPane.() -&gt; Unit)) = op(this)</span>
+
+<span class="nc" id="L273">fun EventTarget.canvas(width: Double = 0.0, height: Double = 0.0, op: Canvas.() -&gt; Unit = {}) =</span>
+<span class="nc" id="L274">        opcr(this, Canvas(width, height), op)</span>
+
+<span class="nc" id="L276">fun EventTarget.anchorpane(vararg nodes: Node, op: AnchorPane.() -&gt; Unit = {}): AnchorPane {</span>
+<span class="nc" id="L277">    val anchorpane = AnchorPane()</span>
+<span class="nc bnc" id="L278" title="All 6 branches missed.">    if (nodes.isNotEmpty()) anchorpane.children.addAll(nodes)</span>
+<span class="nc" id="L279">    opcr(this, anchorpane, op)</span>
+<span class="nc" id="L280">    return anchorpane</span>
+}
+
+<span class="nc" id="L283">fun EventTarget.accordion(vararg panes: TitledPane, op: Accordion.() -&gt; Unit = {}): Accordion {</span>
+<span class="nc" id="L284">    val accordion = Accordion()</span>
+<span class="nc bnc" id="L285" title="All 6 branches missed.">    if (panes.isNotEmpty()) accordion.panes.addAll(panes)</span>
+<span class="nc" id="L286">    opcr(this, accordion, op)</span>
+<span class="nc" id="L287">    return accordion</span>
+}
+
+<span class="nc" id="L290">fun &lt;T : Node&gt; Accordion.fold(title: String? = null, node: T, expanded: Boolean = false, op: T.() -&gt; Unit = {}): TitledPane {</span>
+<span class="nc" id="L291">    val fold = TitledPane(title, node)</span>
+<span class="nc" id="L292">    fold.isExpanded = expanded</span>
+<span class="nc" id="L293">    panes += fold</span>
+<span class="nc" id="L294">    op(node)</span>
+<span class="nc" id="L295">    return fold</span>
+}
+
+@Deprecated(&quot;Properties added to the container will be lost if you add only a single child Node&quot;, ReplaceWith(&quot;Accordion.fold(title, node, op)&quot;), DeprecationLevel.WARNING)
+<span class="nc" id="L299">fun Accordion.fold(title: String? = null, op: Pane.() -&gt; Unit = {}): TitledPane {</span>
+<span class="nc" id="L300">    val vbox = VBox().also(op)</span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">    val fold = TitledPane(title, if (vbox.children.size == 1) vbox.children[0] else vbox)</span>
+<span class="nc" id="L302">    panes += fold</span>
+<span class="nc" id="L303">    return fold</span>
+}
+
+<span class="nc" id="L306">fun EventTarget.region(op: Region.() -&gt; Unit = {}) = opcr(this, Region(), op)</span>
+
+
+@Deprecated(&quot;Use the paddingRight property instead&quot;, ReplaceWith(&quot;paddingRight = p&quot;))
+<span class="nc" id="L310">fun Region.paddingRight(p: Double) { paddingRight = p }</span>
+
+var Region.paddingRight: Number
+<span class="nc" id="L313">    get() = padding.right</span>
+    set(value) {
+<span class="nc" id="L315">        padding = padding.copy(right = value.toDouble())</span>
+<span class="nc" id="L316">    }</span>
+
+@Deprecated(&quot;Use the paddingLeft property instead&quot;, ReplaceWith(&quot;paddingLeft = p&quot;))
+<span class="nc" id="L319">fun Region.paddingLeft(p: Double) { paddingLeft = p }</span>
+
+var Region.paddingLeft: Number
+<span class="nc" id="L322">    get() = padding.left</span>
+    set(value) {
+<span class="nc" id="L324">        padding = padding.copy(left = value)</span>
+<span class="nc" id="L325">    }</span>
+
+@Deprecated(&quot;Use the paddingTop property instead&quot;, ReplaceWith(&quot;paddingTop = p&quot;))
+<span class="nc" id="L328">fun Region.paddingTop(p: Double) { paddingTop = p }</span>
+
+var Region.paddingTop: Number
+<span class="nc" id="L331">    get() = padding.top</span>
+    set(value) {
+<span class="nc" id="L333">        padding = padding.copy(top = value)</span>
+<span class="nc" id="L334">    }</span>
+
+@Deprecated(&quot;Use the paddingBottom property instead&quot;, ReplaceWith(&quot;paddingBottom = p&quot;))
+<span class="nc" id="L337">fun Region.paddingBottom(p: Double) { paddingBottom = p }</span>
+
+var Region.paddingBottom: Number
+<span class="nc" id="L340">    get() = padding.bottom</span>
+    set(value) {
+<span class="nc" id="L342">        padding = padding.copy(bottom = value)</span>
+<span class="nc" id="L343">    }</span>
+
+@Deprecated(&quot;Use the paddingVertical property instead&quot;, ReplaceWith(&quot;paddingVertical = p&quot;))
+<span class="nc" id="L346">fun Region.paddingVertical(p: Double) { paddingVertical = p }</span>
+
+var Region.paddingVertical: Number
+<span class="nc" id="L349">    get() = padding.vertical * 2</span>
+    set(value) {
+<span class="nc" id="L351">        val half = value.toDouble() / 2.0</span>
+<span class="nc" id="L352">        padding = padding.copy(vertical = half)</span>
+<span class="nc" id="L353">    }</span>
+
+@Deprecated(&quot;Use the paddingHorizontal property instead&quot;, ReplaceWith(&quot;paddingHorizontal = p&quot;))
+<span class="nc" id="L356">fun Region.paddingHorizontal(p: Double) { paddingHorizontal = p }</span>
+
+var Region.paddingHorizontal: Number
+<span class="nc" id="L359">    get() = padding.horizontal * 2</span>
+    set(value) {
+<span class="nc" id="L361">        val half = value.toDouble() / 2.0</span>
+<span class="nc" id="L362">        padding = padding.copy(horizontal = half)</span>
+<span class="nc" id="L363">    }</span>
+
+@Deprecated(&quot;Use the paddingAll property instead&quot;, ReplaceWith(&quot;paddingAll = p&quot;))
+fun Region.paddingAll(p: Double) {
+<span class="nc" id="L367">    paddingAll = p</span>
+<span class="nc" id="L368">}</span>
+
+var Region.paddingAll: Number
+<span class="nc" id="L371">    get() = padding.all</span>
+    set(value) {
+<span class="nc" id="L373">        padding = insets(value)</span>
+<span class="nc" id="L374">    }</span>
+
+fun Region.fitToParentHeight() {
+<span class="fc" id="L377">    val parent = this.parent</span>
+<span class="pc bpc" id="L378" title="2 of 4 branches missed.">    if (parent != null &amp;&amp; parent is Region) {</span>
+<span class="fc" id="L379">        fitToHeight(parent)</span>
+    }
+<span class="fc" id="L381">}</span>
+
+fun Region.fitToParentWidth() {
+<span class="fc" id="L384">    val parent = this.parent</span>
+<span class="pc bpc" id="L385" title="2 of 4 branches missed.">    if (parent != null &amp;&amp; parent is Region) {</span>
+<span class="fc" id="L386">        fitToWidth(parent)</span>
+    }
+<span class="fc" id="L388">}</span>
+
+fun Region.fitToParentSize() {
+<span class="fc" id="L391">    fitToParentHeight()</span>
+<span class="fc" id="L392">    fitToParentWidth()</span>
+<span class="fc" id="L393">}</span>
+
+fun Region.fitToHeight(region: Region) {
+<span class="fc" id="L396">    prefHeightProperty().bind(region.heightProperty())</span>
+<span class="fc" id="L397">}</span>
+
+fun Region.fitToWidth(region: Region) {
+<span class="fc" id="L400">    prefWidthProperty().bind(region.widthProperty())</span>
+<span class="fc" id="L401">}</span>
+
+fun Region.fitToSize(region: Region) {
+<span class="fc" id="L404">    fitToHeight(region)</span>
+<span class="fc" id="L405">    fitToWidth(region)</span>
+<span class="fc" id="L406">}</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

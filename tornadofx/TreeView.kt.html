@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TreeView.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">TreeView.kt</span></div><h1>TreeView.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.property.*
+import javafx.scene.Node
+import javafx.scene.control.*
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
+import javafx.util.Callback
+import tornadofx.FX.IgnoreParentBuilder.Once
+import kotlin.reflect.KClass
+
+/**
+ * Base class for all TreeCellFragments.
+ */
+<span class="nc" id="L15">abstract class TreeCellFragment&lt;T&gt; : ItemFragment&lt;T&gt;() {</span>
+
+<span class="nc" id="L17">    val cellProperty: ObjectProperty&lt;TreeCell&lt;T&gt;?&gt; = SimpleObjectProperty()</span>
+<span class="nc" id="L18">    var cell by cellProperty</span>
+
+<span class="nc" id="L20">    val editingProperty = SimpleBooleanProperty(false)</span>
+<span class="nc" id="L21">    val editing by editingProperty</span>
+
+<span class="nc bnc" id="L23" title="All 2 branches missed.">    open fun startEdit() { cell?.startEdit() }</span>
+
+<span class="nc bnc" id="L25" title="All 2 branches missed.">    open fun commitEdit(newValue: T) { cell?.commitEdit(newValue) }</span>
+
+<span class="nc bnc" id="L27" title="All 2 branches missed.">    open fun cancelEdit() { cell?.cancelEdit() }</span>
+
+<span class="nc bnc" id="L29" title="All 2 branches missed.">    open fun onEdit(op: () -&gt; Unit) { editingProperty.onChange { if (it) op() } }</span>
+}
+
+<span class="nc" id="L32">open class SmartTreeCell&lt;T&gt;(val scope: Scope = FX.defaultScope, treeView: TreeView&lt;T&gt;?): TreeCell&lt;T&gt;() {</span>
+<span class="nc" id="L33">    @Suppress(&quot;UNCHECKED_CAST&quot;) private val editSupport: (TreeCell&lt;T&gt;.(EditEventType, T?) -&gt; Unit)? get() = treeView.properties[&quot;tornadofx.editSupport&quot;] as (TreeCell&lt;T&gt;.(EditEventType, T?) -&gt; Unit)?</span>
+<span class="nc" id="L34">    @Suppress(&quot;UNCHECKED_CAST&quot;) private val cellFormat: (TreeCell&lt;T&gt;.(T) -&gt; Unit)? get() = treeView.properties[&quot;tornadofx.cellFormat&quot;] as (TreeCell&lt;T&gt;.(T) -&gt; Unit)?</span>
+<span class="nc" id="L35">    @Suppress(&quot;UNCHECKED_CAST&quot;) private val cellCache: TreeCellCache&lt;T&gt;? get() = treeView.properties[&quot;tornadofx.cellCache&quot;] as TreeCellCache&lt;T&gt;?</span>
+    private var cellFragment: TreeCellFragment&lt;T&gt;? = null
+<span class="nc" id="L37">    private var fresh = true</span>
+
+<span class="nc" id="L39">    init {</span>
+<span class="nc bnc" id="L40" title="All 2 branches missed.">        if (treeView != null) {</span>
+<span class="nc" id="L41">            treeView.properties[&quot;tornadofx.cellFormatCapable&quot;] = true</span>
+<span class="nc" id="L42">            treeView.properties[&quot;tornadofx.cellCacheCapable&quot;] = true</span>
+<span class="nc" id="L43">            treeView.properties[&quot;tornadofx.editCapable&quot;] = true</span>
+        }
+<span class="nc" id="L45">        indexProperty().onChange {</span>
+<span class="nc bnc" id="L46" title="All 2 branches missed.">            if (it == -1) clearCellFragment()</span>
+<span class="nc" id="L47">        }</span>
+<span class="nc" id="L48">    }</span>
+
+    override fun startEdit() {
+<span class="nc" id="L51">        super.startEdit()</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">        editSupport?.invoke(this, EditEventType.StartEdit, null)</span>
+<span class="nc" id="L53">    }</span>
+
+    override fun commitEdit(newValue: T) {
+<span class="nc" id="L56">        super.commitEdit(newValue)</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">        editSupport?.invoke(this, EditEventType.CommitEdit, newValue)</span>
+<span class="nc" id="L58">    }</span>
+
+    override fun cancelEdit() {
+<span class="nc" id="L61">        super.cancelEdit()</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">        editSupport?.invoke(this, EditEventType.CancelEdit, null)</span>
+<span class="nc" id="L63">    }</span>
+
+    override fun updateItem(item: T, empty: Boolean) {
+<span class="nc" id="L66">        super.updateItem(item, empty)</span>
+
+<span class="nc bnc" id="L68" title="All 4 branches missed.">        if (item == null || empty) {</span>
+<span class="nc" id="L69">            cleanUp()</span>
+<span class="nc" id="L70">            clearCellFragment()</span>
+        } else {
+<span class="nc" id="L72">            FX.ignoreParentBuilder = Once</span>
+<span class="nc" id="L73">            try {</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">                cellCache?.apply { graphic = getOrCreateNode(item) }</span>
+            } finally {
+<span class="nc" id="L76">                FX.ignoreParentBuilder = FX.IgnoreParentBuilder.No</span>
+            }
+<span class="nc bnc" id="L78" title="All 2 branches missed.">            if (fresh) {</span>
+                @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc" id="L80">                val cellFragmentType = treeView.properties[&quot;tornadofx.cellFragment&quot;] as KClass&lt;TreeCellFragment&lt;T&gt;&gt;?</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">                cellFragment = if (cellFragmentType != null) find(cellFragmentType, scope) else null</span>
+<span class="nc" id="L82">                fresh = false</span>
+            }
+<span class="nc bnc" id="L84" title="All 2 branches missed.">            cellFragment?.apply {</span>
+<span class="nc" id="L85">                editingProperty.cleanBind(editingProperty())</span>
+<span class="nc" id="L86">                itemProperty.value = item</span>
+<span class="nc" id="L87">                cellProperty.value = this@SmartTreeCell</span>
+<span class="nc" id="L88">                graphic = root</span>
+<span class="nc" id="L89">            }</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">            cellFormat?.invoke(this, item)</span>
+        }
+<span class="nc" id="L92">    }</span>
+
+    private fun cleanUp() {
+<span class="nc" id="L95">        textProperty().unbind()</span>
+<span class="nc" id="L96">        graphicProperty().unbind()</span>
+<span class="nc" id="L97">        text = null</span>
+<span class="nc" id="L98">        graphic = null</span>
+<span class="nc" id="L99">        style = null</span>
+        // Can't clear styleClass as this would mess with arrow icons for branches. We might improve this by keeping &quot;cell&quot;, &quot;indexed-cell&quot; and &quot;tree-cell&quot; and remove the rest
+        // styleClass.clear()
+<span class="nc" id="L102">    }</span>
+
+    private fun clearCellFragment() {
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        cellFragment?.apply {</span>
+<span class="nc" id="L106">            cellProperty.value = null</span>
+<span class="nc" id="L107">            itemProperty.value = null</span>
+<span class="nc" id="L108">            editingProperty.unbind()</span>
+<span class="nc" id="L109">            editingProperty.value = false</span>
+<span class="nc" id="L110">        }</span>
+<span class="nc" id="L111">    }</span>
+}
+
+<span class="nc" id="L114">class TreeCellCache&lt;T&gt;(private val cacheProvider: (T) -&gt; Node) {</span>
+<span class="nc" id="L115">    private val store = mutableMapOf&lt;T, Node&gt;()</span>
+<span class="nc" id="L116">    fun getOrCreateNode(value: T) = store.getOrPut(value){ cacheProvider(value) }</span>
+}
+
+fun &lt;T&gt; TreeView&lt;T&gt;.bindSelected(property: Property&lt;T&gt;) {
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">    selectionModel.selectedItemProperty().onChange { property.value = it?.value }</span>
+<span class="fc" id="L121">}</span>
+
+/**
+ * Binds the currently selected object of type [T] in the given [TreeView] to the corresponding [ItemViewModel].
+ */
+<span class="fc" id="L126">fun &lt;T&gt; TreeView&lt;T&gt;.bindSelected(model: ItemViewModel&lt;T&gt;) = this.bindSelected(model.itemProperty)</span>
+
+
+fun &lt;T&gt; TreeView&lt;T&gt;.onUserDelete(action: (T) -&gt; Unit) {
+<span class="nc" id="L130">    addEventFilter(KeyEvent.KEY_PRESSED) { event -&gt;</span>
+<span class="nc" id="L131">        val value = selectedValue</span>
+<span class="nc bnc" id="L132" title="All 4 branches missed.">        if (event.code == KeyCode.BACK_SPACE &amp;&amp; value != null)</span>
+<span class="nc" id="L133">            action(value)</span>
+<span class="nc" id="L134">    }</span>
+<span class="nc" id="L135">}</span>
+
+fun &lt;T&gt; TreeView&lt;T&gt;.onUserSelect(action: (T) -&gt; Unit) {
+<span class="nc" id="L138">    selectionModel.selectedItemProperty().addListener { _, _, new -&gt;</span>
+<span class="nc bnc" id="L139" title="All 4 branches missed.">        new?.value?.let { action(it) }</span>
+<span class="nc" id="L140">    }</span>
+<span class="nc" id="L141">}</span>
+
+
+/**
+ * &lt;p&gt;This method will attempt to select the first index in the control.
+ * If clearSelection is not called first, this method
+ * will have the result of selecting the first index, whilst retaining
+ * the selection of any other currently selected indices.&lt;/p&gt;
+ *
+ * &lt;p&gt;If the first index is already selected, calling this method will have
+ * no result, and no selection event will take place.&lt;/p&gt;
+ *
+ * This functions is the same as calling.
+ * ```
+ * selectionModel.selectFirst()
+ *
+ * ```
+ */
+<span class="nc" id="L159">fun &lt;T&gt; TreeView&lt;T&gt;.selectFirst() = selectionModel.selectFirst()</span>
+
+<span class="fc" id="L161">fun &lt;T&gt; TreeView&lt;T&gt;.populate(itemFactory: (T) -&gt; TreeItem&lt;T&gt; = { TreeItem(it) }, childFactory: (TreeItem&lt;T&gt;) -&gt; Iterable&lt;T&gt;?) =</span>
+<span class="fc" id="L162">        populateTree(root, itemFactory, childFactory)</span>
+
+/**
+ * Registers a `Fragment` which should be used to represent a [TreeItem] for the given [TreeView].
+ */
+<span class="nc" id="L167">fun &lt;T, F : TreeCellFragment&lt;T&gt;&gt; TreeView&lt;T&gt;.cellFragment(scope: Scope = FX.defaultScope, fragment: KClass&lt;F&gt;) {</span>
+<span class="nc" id="L168">    properties[&quot;tornadofx.cellFragment&quot;] = fragment</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">    if (properties[&quot;tornadofx.cellFormatCapable&quot;] != true)</span>
+<span class="nc" id="L170">        cellFactory = Callback { SmartTreeCell(scope, it) }</span>
+<span class="nc" id="L171">}</span>
+
+<span class="nc" id="L173">fun &lt;S&gt; TreeView&lt;S&gt;.cellFormat(scope: Scope = FX.defaultScope, formatter: (TreeCell&lt;S&gt;.(S) -&gt; Unit)) {</span>
+<span class="nc" id="L174">    properties[&quot;tornadofx.cellFormat&quot;] = formatter</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">    if (properties[&quot;tornadofx.cellFormatCapable&quot;] != true) {</span>
+<span class="nc" id="L176">        cellFactory = Callback { SmartTreeCell(scope, it) }</span>
+    }
+<span class="nc" id="L178">}</span>
+
+fun &lt;S&gt; TreeView&lt;S&gt;.cellDecorator(decorator: (TreeCell&lt;S&gt;.(S) -&gt; Unit)) {
+<span class="nc" id="L181">    val originalFactory = cellFactory</span>
+
+<span class="nc bnc" id="L183" title="All 2 branches missed.">    if (originalFactory == null) cellFormat(formatter = decorator) else {</span>
+<span class="nc" id="L184">        cellFactory = Callback { treeView: TreeView&lt;S&gt; -&gt;</span>
+<span class="nc" id="L185">            val cell = originalFactory.call(treeView)</span>
+<span class="nc" id="L186">            cell.itemProperty().onChange { decorator(cell, cell.item) }</span>
+<span class="nc" id="L187">            cell</span>
+        }
+    }
+<span class="nc" id="L190">}</span>
+
+// -- Properties
+
+/**
+ * Returns the currently selected value of type [T] (which is currently the
+ * selected value represented by the current selection model). If there
+ * are multiple values selected, it will return the most recently selected
+ * value.
+ *
+ * &lt;p&gt;Note that the returned value is a snapshot in time.
+ */
+val &lt;T&gt; TreeView&lt;T&gt;.selectedValue: T?
+<span class="nc bnc" id="L203" title="All 2 branches missed.">    get() = this.selectionModel.selectedItem?.value</span>
+
+<span class="nc" id="L205">fun &lt;T&gt; TreeView&lt;T&gt;.multiSelect(enable: Boolean = true) {</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">    selectionModel.selectionMode = if (enable) SelectionMode.MULTIPLE else SelectionMode.SINGLE</span>
+<span class="nc" id="L207">}</span>
+
+<span class="nc" id="L209">fun &lt;T&gt; TreeTableView&lt;T&gt;.multiSelect(enable: Boolean = true) {</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">    selectionModel.selectionMode = if (enable) SelectionMode.MULTIPLE else SelectionMode.SINGLE</span>
+<span class="nc" id="L211">}</span>
+
+// -- TreeItem helpers
+/**
+ * Expand this [TreeItem] and children down to `depth`.
+ */
+fun &lt;T&gt; TreeItem&lt;T&gt;.expandTo(depth: Int)  {
+<span class="nc bnc" id="L218" title="All 2 branches missed.">	if ( depth &gt; 0 ) {</span>
+<span class="nc" id="L219">		this.isExpanded = true</span>
+<span class="nc" id="L220">		this.children.forEach { it.expandTo(depth - 1) }</span>
+	}
+<span class="nc" id="L222">}</span>
+
+/**
+ * Expand this `[TreeItem] and all it's children.
+ */
+<span class="nc" id="L227">fun &lt;T&gt; TreeItem&lt;T&gt;.expandAll()  = expandTo(Int.MAX_VALUE)</span>
+
+/**
+ * Collapse this [TreeItem] and all it's children.
+ */
+
+fun &lt;T&gt; TreeItem&lt;T&gt;.collapseAll()  {
+<span class="nc" id="L234">	this.isExpanded = false</span>
+<span class="nc" id="L235">	this.children.forEach { it.collapseAll() }</span>
+<span class="nc" id="L236">}</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

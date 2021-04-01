@@ -1,0 +1,1020 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Animation.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Animation.kt</span></div><h1>Animation.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.animation.*
+import javafx.beans.value.WritableValue
+import javafx.event.ActionEvent
+import javafx.event.EventHandler
+import javafx.geometry.Point2D
+import javafx.geometry.Point3D
+import javafx.scene.Node
+import javafx.scene.canvas.Canvas
+import javafx.scene.image.Image
+import javafx.scene.layout.Background
+import javafx.scene.layout.BackgroundFill
+import javafx.scene.layout.Pane
+import javafx.scene.layout.StackPane
+import javafx.scene.paint.Color
+import javafx.scene.paint.Paint
+import javafx.scene.shape.Rectangle
+import javafx.scene.shape.Shape
+import javafx.scene.transform.Rotate
+import javafx.util.Duration
+
+operator fun Timeline.plusAssign(keyFrame: KeyFrame) {
+<span class="nc" id="L24">    keyFrames.add(keyFrame)</span>
+<span class="nc" id="L25">}</span>
+
+operator fun KeyFrame.plusAssign(keyValue: KeyValue) {
+<span class="nc" id="L28">    values.add(keyValue)</span>
+<span class="nc" id="L29">}</span>
+
+<span class="nc" id="L31">fun SequentialTransition.timeline(op: (Timeline).() -&gt; Unit) = timeline(false, op).also { children += it }</span>
+
+<span class="nc" id="L33">fun ParallelTransition.timeline(op: (Timeline).() -&gt; Unit) = timeline(false, op).also { children += it }</span>
+
+<span class="nc" id="L35">fun sequentialTransition(play: Boolean = true, op: (SequentialTransition.() -&gt; Unit)) = SequentialTransition().apply {</span>
+<span class="nc" id="L36">    op(this)</span>
+<span class="nc bnc" id="L37" title="All 2 branches missed.">    if (play) play()</span>
+<span class="nc" id="L38">}</span>
+
+<span class="nc" id="L40">fun parallelTransition(play: Boolean = true, op: (ParallelTransition.() -&gt; Unit)) = ParallelTransition().apply {</span>
+<span class="nc" id="L41">    op(this)</span>
+<span class="nc bnc" id="L42" title="All 2 branches missed.">    if (play) play()</span>
+<span class="nc" id="L43">}</span>
+
+<span class="nc" id="L45">fun timeline(play: Boolean = true, op: (Timeline).() -&gt; Unit) = Timeline().apply {</span>
+<span class="nc" id="L46">    op()</span>
+<span class="nc bnc" id="L47" title="All 2 branches missed.">    if (play) play()</span>
+<span class="nc" id="L48">}</span>
+
+/**
+ * A convenience function for creating a [TranslateTransition] on a [UIComponent].
+ *
+ * @param time How long the animation will take
+ * @param destination Where to move the component (relative to its translation origin)
+ * @param easing How to interpolate the motion
+ * @param reversed Whether the animation should be played in reverse
+ * @param play Whether the animation should start playing automatically
+ * @param op Modify the animation after it is created
+ * @return A TranslateTransition on this component
+ */
+fun UIComponent.move(
+        time: Duration, destination: Point2D,
+<span class="nc" id="L63">        easing: Interpolator = Interpolator.EASE_BOTH,</span>
+<span class="nc" id="L64">        reversed: Boolean = false,</span>
+<span class="nc" id="L65">        play: Boolean = true,</span>
+<span class="nc" id="L66">        op: TranslateTransition.() -&gt; Unit = {}</span>
+<span class="nc" id="L67">) = root.move(time, destination, easing, reversed, play, op)</span>
+
+/**
+ * A convenience function for creating a [TranslateTransition] on a [Node].
+ *
+ * @param time How long the animation will take
+ * @param destination Where to move the node (relative to its translation origin)
+ * @param easing How to interpolate the animation
+ * @param reversed Whether the animation should be played in reverse
+ * @param play Whether the animation should start playing automatically
+ * @param op Modify the animation after it is created
+ * @return A TranslateTransition on this node
+ */
+fun Node.move(time: Duration, destination: Point2D,
+<span class="nc" id="L81">              easing: Interpolator = Interpolator.EASE_BOTH, reversed: Boolean = false, play: Boolean = true,</span>
+<span class="nc" id="L82">              op: TranslateTransition.() -&gt; Unit = {}): TranslateTransition {</span>
+<span class="nc" id="L83">    val target: Point2D</span>
+<span class="nc bnc" id="L84" title="All 2 branches missed.">    if (reversed) {</span>
+<span class="nc" id="L85">        target = point(translateX, translateY)</span>
+<span class="nc" id="L86">        translateX = destination.x</span>
+<span class="nc" id="L87">        translateY = destination.y</span>
+    } else {
+<span class="nc" id="L89">        target = destination</span>
+    }
+<span class="nc" id="L91">    return TranslateTransition(time, this).apply {</span>
+<span class="nc" id="L92">        interpolator = easing</span>
+<span class="nc" id="L93">        op(this)</span>
+<span class="nc" id="L94">        toX = target.x</span>
+<span class="nc" id="L95">        toY = target.y</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        if (play) play()</span>
+<span class="nc" id="L97">    }</span>
+}
+
+/**
+ * A convenience function for creating a [RotateTransition] on a [UIComponent].
+ *
+ * @param time How long the animation will take
+ * @param angle How far to rotate the component (in degrees; relative to its 0 rotation)
+ * @param easing How to interpolate the animation
+ * @param reversed Whether the animation should be played in reverse
+ * @param play Whether the animation should start playing automatically
+ * @param op Modify the animation after it is created
+ * @return A RotateTransition on this component
+ */
+fun UIComponent.rotate(
+        time: Duration,
+        angle: Number,
+<span class="nc" id="L114">        easing: Interpolator = Interpolator.EASE_BOTH,</span>
+<span class="nc" id="L115">        reversed: Boolean = false,</span>
+<span class="nc" id="L116">        play: Boolean = true,</span>
+<span class="nc" id="L117">        op: RotateTransition.() -&gt; Unit = {}</span>
+<span class="nc" id="L118">) = root.rotate(time, angle, easing, reversed, play, op)</span>
+
+/**
+ * A convenience function for creating a [RotateTransition] on a [Node].
+ *
+ * @param time How long the animation will take
+ * @param angle How far to rotate the node (in degrees; relative to its 0 rotation)
+ * @param easing How to interpolate the animation
+ * @param reversed Whether the animation should be played in reverse
+ * @param play Whether the animation should start playing automatically
+ * @param op Modify the animation after it is created
+ * @return A RotateTransition on this node
+ */
+fun Node.rotate(time: Duration, angle: Number,
+<span class="nc" id="L132">                easing: Interpolator = Interpolator.EASE_BOTH, reversed: Boolean = false, play: Boolean = true,</span>
+<span class="nc" id="L133">                op: RotateTransition.() -&gt; Unit = {}): RotateTransition {</span>
+<span class="nc" id="L134">    val target: Double</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">    if (reversed) {</span>
+<span class="nc" id="L136">        target = rotate</span>
+<span class="nc" id="L137">        rotate = angle.toDouble()</span>
+    } else {
+<span class="nc" id="L139">        target = angle.toDouble()</span>
+    }
+<span class="nc" id="L141">    return RotateTransition(time, this).apply {</span>
+<span class="nc" id="L142">        interpolator = easing</span>
+<span class="nc" id="L143">        op(this)</span>
+<span class="nc" id="L144">        toAngle = target</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">        if (play) play()</span>
+<span class="nc" id="L146">    }</span>
+}
+
+/**
+ * A convenience function for creating a [ScaleTransition] on a [UIComponent].
+ *
+ * @param time How long the animation will take
+ * @param scale How to scale the component (relative to its default scale)
+ * @param easing How to interpolate the animation
+ * @param reversed Whether the animation should be played in reverse
+ * @param play Whether the animation should start playing automatically
+ * @param op Modify the animation after it is created
+ * @return A ScaleTransition on this component
+ */
+fun UIComponent.scale(
+        time: Duration,
+        scale: Point2D,
+<span class="nc" id="L163">        easing: Interpolator = Interpolator.EASE_BOTH,</span>
+<span class="nc" id="L164">        reversed: Boolean = false,</span>
+<span class="nc" id="L165">        play: Boolean = true,</span>
+<span class="nc" id="L166">        op: ScaleTransition.() -&gt; Unit = {}</span>
+<span class="nc" id="L167">) = root.scale(time, scale, easing, reversed, play, op)</span>
+
+/**
+ * A convenience function for creating a [ScaleTransition] on a [Node].
+ *
+ * @param time How long the animation will take
+ * @param scale How to scale the node (relative to its default scale)
+ * @param easing How to interpolate the animation
+ * @param reversed Whether the animation should be played in reverse
+ * @param play Whether the animation should start playing automatically
+ * @param op Modify the animation after it is created
+ * @return A ScaleTransition on this node
+ */
+fun Node.scale(time: Duration, scale: Point2D,
+<span class="nc" id="L181">               easing: Interpolator = Interpolator.EASE_BOTH, reversed: Boolean = false, play: Boolean = true,</span>
+<span class="nc" id="L182">               op: ScaleTransition.() -&gt; Unit = {}): ScaleTransition {</span>
+<span class="nc" id="L183">    val target: Point2D</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">    if (reversed) {</span>
+<span class="nc" id="L185">        target = point(scaleX, scaleY)</span>
+<span class="nc" id="L186">        scaleX = scale.x</span>
+<span class="nc" id="L187">        scaleY = scale.y</span>
+    } else {
+<span class="nc" id="L189">        target = scale</span>
+    }
+<span class="nc" id="L191">    return ScaleTransition(time, this).apply {</span>
+<span class="nc" id="L192">        interpolator = easing</span>
+<span class="nc" id="L193">        op(this)</span>
+<span class="nc" id="L194">        toX = target.x</span>
+<span class="nc" id="L195">        toY = target.y</span>
+<span class="nc bnc" id="L196" title="All 2 branches missed.">        if (play) play()</span>
+<span class="nc" id="L197">    }</span>
+}
+
+/**
+ * A convenience function for creating a [FadeTransition] on a [UIComponent].
+ *
+ * @param time How long the animation will take
+ * @param opacity The final opacity of the component
+ * @param easing How to interpolate the animation
+ * @param reversed Whether the animation should be played in reverse
+ * @param play Whether the animation should start playing automatically
+ * @param op Modify the animation after it is created
+ * @return A FadeTransition on this component
+ */
+fun UIComponent.fade(
+        time: Duration,
+        opacity: Number,
+<span class="nc" id="L214">        easing: Interpolator = Interpolator.EASE_BOTH,</span>
+<span class="nc" id="L215">        reversed: Boolean = false,</span>
+<span class="nc" id="L216">        play: Boolean = true,</span>
+<span class="nc" id="L217">        op: FadeTransition.() -&gt; Unit = {}</span>
+<span class="nc" id="L218">) = root.fade(time, opacity, easing, reversed, play, op)</span>
+
+/**
+ * A convenience function for creating a [FadeTransition] on a [Node].
+ *
+ * @param time How long the animation will take
+ * @param opacity The final opacity of the node
+ * @param easing How to interpolate the animation
+ * @param reversed Whether the animation should be played in reverse
+ * @param play Whether the animation should start playing automatically
+ * @param op Modify the animation after it is created
+ * @return A FadeTransition on this node
+ */
+fun Node.fade(time: Duration, opacity: Number,
+<span class="nc" id="L232">              easing: Interpolator = Interpolator.EASE_BOTH, reversed: Boolean = false, play: Boolean = true,</span>
+<span class="nc" id="L233">              op: FadeTransition.() -&gt; Unit = {}): FadeTransition {</span>
+<span class="nc" id="L234">    val target: Double</span>
+<span class="nc bnc" id="L235" title="All 2 branches missed.">    if (reversed) {</span>
+<span class="nc" id="L236">        target = this.opacity</span>
+<span class="nc" id="L237">        this.opacity = opacity.toDouble()</span>
+    } else {
+<span class="nc" id="L239">        target = opacity.toDouble()</span>
+    }
+<span class="nc" id="L241">    return FadeTransition(time, this).apply {</span>
+<span class="nc" id="L242">        interpolator = easing</span>
+<span class="nc" id="L243">        op(this)</span>
+<span class="nc" id="L244">        toValue = target</span>
+<span class="nc bnc" id="L245" title="All 2 branches missed.">        if (play) play()</span>
+<span class="nc" id="L246">    }</span>
+}
+
+/**
+ * A convenience function for creating a [TranslateTransition], [RotateTransition], [ScaleTransition], [FadeTransition]
+ * on a [UIComponent] that all run simultaneously.
+ *
+ * @param time How long the animation will take
+ * @param destination Where to move the component (relative to its translation origin)
+ * @param angle How far to rotate the component (in degrees; relative to its 0 rotation)
+ * @param scale How to scale the component (relative to its default scale)
+ * @param opacity The final opacity of the component
+ * @param easing How to interpolate the animation
+ * @param reversed Whether the animation should be played in reverse
+ * @param play Whether the animation should start playing automatically
+ * @param op Modify the animation after it is created
+ * @return A ParallelTransition on this component
+ */
+fun UIComponent.transform(
+        time: Duration,
+        destination: Point2D,
+        angle: Number,
+        scale: Point2D,
+        opacity: Number,
+<span class="nc" id="L270">        easing: Interpolator = Interpolator.EASE_BOTH,</span>
+<span class="nc" id="L271">        reversed: Boolean = false,</span>
+<span class="nc" id="L272">        play: Boolean = true,</span>
+<span class="nc" id="L273">        op: ParallelTransition.() -&gt; Unit = {}</span>
+<span class="nc" id="L274">) = root.transform(time, destination, angle, scale, opacity, easing, reversed, play, op)</span>
+
+/**
+ * A convenience function for creating a [TranslateTransition], [RotateTransition], [ScaleTransition], [FadeTransition]
+ * on a [Node] that all run simultaneously.
+ *
+ * @param time How long the animation will take
+ * @param destination Where to move the node (relative to its translation origin)
+ * @param angle How far to rotate the node (in degrees; relative to its 0 rotation)
+ * @param scale How to scale the node (relative to its default scale)
+ * @param opacity The final opacity of the node
+ * @param easing How to interpolate the animation
+ * @param reversed Whether the animation should be played in reverse
+ * @param play Whether the animation should start playing automatically
+ * @param op Modify the animation after it is created
+ * @return A ParallelTransition on this node
+ */
+fun Node.transform(
+        time: Duration,
+        destination: Point2D,
+        angle: Number,
+        scale: Point2D,
+        opacity: Number,
+<span class="nc" id="L297">        easing: Interpolator = Interpolator.EASE_BOTH,</span>
+<span class="nc" id="L298">        reversed: Boolean = false,</span>
+<span class="nc" id="L299">        play: Boolean = true,</span>
+<span class="nc" id="L300">        op: ParallelTransition.() -&gt; Unit = {}</span>
+<span class="nc" id="L301">) = move(time, destination, easing, reversed, play)</span>
+<span class="nc" id="L302">        .and(rotate(time, angle, easing, reversed, play))</span>
+<span class="nc" id="L303">        .and(scale(time, scale, easing, reversed, play))</span>
+<span class="nc" id="L304">        .and(fade(time, opacity, easing, reversed, play))</span>
+<span class="nc" id="L305">        .apply {</span>
+<span class="nc" id="L306">            interpolator = easing</span>
+<span class="nc" id="L307">            op(this)</span>
+<span class="nc bnc" id="L308" title="All 2 branches missed.">            if (play) play()</span>
+<span class="nc" id="L309">        }</span>
+
+/**
+ * A convenience function for creating a parallel animation from multiple animations.
+ *
+ * @receiver The base animation
+ * @param animation The animations to play with this one
+ * @param op Modify the animation after it is created
+ * @return A ParallelTransition
+ */
+<span class="nc" id="L319">fun Animation.and(vararg animation: Animation, op: ParallelTransition.() -&gt; Unit = {}) = when {</span>
+<span class="nc bnc" id="L320" title="All 2 branches missed.">    this is ParallelTransition -&gt; this.apply { children += animation }</span>
+<span class="nc" id="L321">    else -&gt; ParallelTransition(this, *animation)</span>
+<span class="nc" id="L322">}.also(op)</span>
+
+<span class="nc" id="L324">infix fun Animation.and(animation: Animation) = when {</span>
+<span class="nc bnc" id="L325" title="All 2 branches missed.">    this is ParallelTransition -&gt; this.apply { children += animation }</span>
+<span class="nc" id="L326">    else -&gt; ParallelTransition(this, animation)</span>
+<span class="nc" id="L327">}</span>
+
+/**
+ * A convenience function for playing multiple animations in parallel.
+ *
+ * @receiver The animations to play in parallel
+ * @param play Whether to start playing immediately
+ * @param op Modify the animation before playing
+ * @return A ParallelTransition
+ */
+fun Iterable&lt;Animation&gt;.playParallel(
+<span class="nc" id="L338">        play: Boolean = true,</span>
+<span class="nc" id="L339">        op: ParallelTransition.() -&gt; Unit = {}</span>
+<span class="nc" id="L340">) = ParallelTransition().apply {</span>
+<span class="nc" id="L341">    children.setAll(toList())</span>
+<span class="nc" id="L342">    op(this)</span>
+<span class="nc bnc" id="L343" title="All 2 branches missed.">    if (play) play()</span>
+<span class="nc" id="L344">}</span>
+
+/**
+ * A convenience function for creating a sequential animation from multiple animations.
+ *
+ * @receiver The base animation
+ * @param animation The animations to play with this one
+ * @param op Modify the animation after it is created
+ * @return A SequentialTransition
+ */
+<span class="nc" id="L354">fun Animation.then(vararg animation: Animation, op: SequentialTransition.() -&gt; Unit = {}) = when {</span>
+<span class="nc bnc" id="L355" title="All 2 branches missed.">    this is SequentialTransition -&gt; this.apply { children += animation }</span>
+<span class="nc" id="L356">    else -&gt; SequentialTransition(this, *animation)</span>
+<span class="nc" id="L357">}.also(op)</span>
+
+<span class="nc" id="L359">infix fun Animation.then(animation: Animation) = when {</span>
+<span class="nc bnc" id="L360" title="All 2 branches missed.">    this is SequentialTransition -&gt; this.apply { children += animation }</span>
+<span class="nc" id="L361">    else -&gt; SequentialTransition(this, animation)</span>
+<span class="nc" id="L362">}</span>
+
+/**
+ * A convenience function for playing multiple animations in sequence.
+ *
+ * @receiver The animations to play in sequence
+ * @param play Whether to start playing immediately
+ * @param op Modify the animation before playing
+ * @return A SequentialTransition
+ */
+fun Iterable&lt;Animation&gt;.playSequential(
+<span class="nc" id="L373">        play: Boolean = true,</span>
+<span class="nc" id="L374">        op: SequentialTransition.() -&gt; Unit = {}</span>
+<span class="nc" id="L375">) = SequentialTransition().apply {</span>
+<span class="nc" id="L376">    children.setAll(toList())</span>
+<span class="nc" id="L377">    op(this)</span>
+<span class="nc bnc" id="L378" title="All 2 branches missed.">    if (play) play()</span>
+<span class="nc" id="L379">}</span>
+
+fun Shape.animateFill(time: Duration, from: Color, to: Color,
+<span class="nc" id="L382">                      easing: Interpolator = Interpolator.EASE_BOTH, reversed: Boolean = false, play: Boolean = true,</span>
+<span class="nc" id="L383">                      op: FillTransition.() -&gt; Unit = {}): FillTransition {</span>
+<span class="nc" id="L384">    return FillTransition(time, this, from, to).apply {</span>
+<span class="nc" id="L385">        interpolator = easing</span>
+<span class="nc bnc" id="L386" title="All 2 branches missed.">        if (reversed) {</span>
+<span class="nc" id="L387">            fromValue = to</span>
+<span class="nc" id="L388">            toValue = from</span>
+        }
+<span class="nc" id="L390">        op(this)</span>
+<span class="nc bnc" id="L391" title="All 2 branches missed.">        if (play) play()</span>
+<span class="nc" id="L392">    }</span>
+}
+
+fun Shape.animateStroke(time: Duration, from: Color, to: Color,
+<span class="nc" id="L396">                        easing: Interpolator = Interpolator.EASE_BOTH, reversed: Boolean = false, play: Boolean = true,</span>
+<span class="nc" id="L397">                        op: StrokeTransition.() -&gt; Unit = {}): StrokeTransition {</span>
+<span class="nc" id="L398">    return StrokeTransition(time, this, from, to).apply {</span>
+<span class="nc" id="L399">        interpolator = easing</span>
+<span class="nc bnc" id="L400" title="All 2 branches missed.">        if (reversed) {</span>
+<span class="nc" id="L401">            fromValue = to</span>
+<span class="nc" id="L402">            toValue = from</span>
+        }
+<span class="nc" id="L404">        op(this)</span>
+<span class="nc bnc" id="L405" title="All 2 branches missed.">        if (play) play()</span>
+<span class="nc" id="L406">    }</span>
+}
+
+fun Node.follow(time: Duration, path: Shape,
+<span class="nc" id="L410">                easing: Interpolator = Interpolator.EASE_BOTH, reversed: Boolean = false, play: Boolean = true,</span>
+<span class="nc" id="L411">                op: PathTransition.() -&gt; Unit = {}): PathTransition {</span>
+<span class="nc" id="L412">    return PathTransition(time, path, this).apply {</span>
+<span class="nc" id="L413">        interpolator = easing</span>
+<span class="nc" id="L414">        op(this)</span>
+<span class="nc bnc" id="L415" title="All 4 branches missed.">        if (reversed &amp;&amp; rate &gt; 0.0) rate = -rate</span>
+<span class="nc bnc" id="L416" title="All 2 branches missed.">        if (play) play()</span>
+<span class="nc" id="L417">    }</span>
+}
+
+<span class="nc" id="L420">fun pause(time: Duration, play: Boolean = true, op: PauseTransition.() -&gt; Unit = {}) = PauseTransition(time).apply {</span>
+<span class="nc" id="L421">    op(this)</span>
+<span class="nc bnc" id="L422" title="All 2 branches missed.">    if (play) play()</span>
+<span class="nc" id="L423">}</span>
+
+fun Timeline.keyframe(duration: Duration, op: (KeyFrameBuilder).() -&gt; Unit): KeyFrame {
+<span class="nc" id="L426">    val keyFrame = KeyFrameBuilder(duration).also(op).build()</span>
+<span class="nc" id="L427">    return keyFrame.also { this += it }</span>
+}
+
+<span class="nc" id="L430">class KeyFrameBuilder(val duration: Duration) {</span>
+
+<span class="nc" id="L432">    var keyValues: MutableList&lt;KeyValue&gt; = ArrayList()</span>
+<span class="nc" id="L433">    var name: String? = null</span>
+<span class="nc" id="L434">    private var _onFinished: (ActionEvent) -&gt; Unit = {}</span>
+
+    fun setOnFinished(onFinished: (ActionEvent) -&gt; Unit) {
+<span class="nc" id="L437">        this._onFinished = onFinished</span>
+<span class="nc" id="L438">    }</span>
+
+    operator fun plusAssign(keyValue: KeyValue) {
+<span class="nc" id="L441">        keyValues.add(keyValue)</span>
+<span class="nc" id="L442">    }</span>
+
+<span class="nc" id="L444">    fun &lt;T&gt; keyvalue(writableValue: WritableValue&lt;T&gt;, endValue: T, interpolator: Interpolator? = null): KeyValue {</span>
+<span class="nc bnc" id="L445" title="All 2 branches missed.">        val keyValue = interpolator?.let { KeyValue(writableValue, endValue, it) } ?: KeyValue(writableValue, endValue)</span>
+<span class="nc" id="L446">        this += keyValue</span>
+<span class="nc" id="L447">        return keyValue</span>
+    }
+
+<span class="nc bnc" id="L450" title="All 2 branches missed.">    internal fun build() = KeyFrame(duration, name, _onFinished, keyValues)</span>
+
+}
+
+<span class="nc" id="L454">fun &lt;T&gt; WritableValue&lt;T&gt;.animate(endValue: T, duration: Duration, interpolator: Interpolator? = null, op: Timeline.() -&gt; Unit = {}) {</span>
+<span class="nc" id="L455">    val writableValue = this</span>
+<span class="nc" id="L456">    val timeline = Timeline()</span>
+
+<span class="nc" id="L458">    timeline.apply {</span>
+<span class="nc" id="L459">        keyframe(duration) {</span>
+<span class="nc" id="L460">            keyvalue(writableValue, endValue, interpolator)</span>
+<span class="nc" id="L461">        }</span>
+<span class="nc" id="L462">        op()</span>
+<span class="nc" id="L463">        play()</span>
+<span class="nc" id="L464">    }</span>
+<span class="nc" id="L465">}</span>
+
+<span class="nc" id="L467">val Number.millis: Duration get() = Duration.millis(this.toDouble())</span>
+<span class="nc" id="L468">val Number.seconds: Duration get() = Duration.seconds(this.toDouble())</span>
+<span class="nc" id="L469">val Number.minutes: Duration get() = Duration.minutes(this.toDouble())</span>
+<span class="nc" id="L470">val Number.hours: Duration get() = Duration.hours(this.toDouble())</span>
+
+<span class="nc" id="L472">operator fun Duration.plus(duration: Duration): Duration = this.add(duration)</span>
+<span class="nc" id="L473">operator fun Duration.minus(duration: Duration): Duration = this.subtract(duration)</span>
+
+/**
+ * A class that, when used with [replaceWith] or [UIComponent.replaceWith], allows you to replace [View]s, [Fragment]s,
+ * or [Node]s using a transition effect.
+ *
+ * To create a new ViewTransition, you need to implement the [ViewTransition.create] function. You should also override
+ * [ViewTransition.onComplete] to cleanup any changes to the nodes (such as resetting transformations).
+ *
+ * During the transition, the view/fragment/node being transitioned is replaced with a temporary [StackPane] containing
+ * both the current node and its replacement. By default, this StackPane contains only these two nodes with the current
+ * node on top. You can override [ViewTransition.stack] to change how this works.
+ *
+ * If you need to change the order of the stack during the transition, you have access to the stack as a parameter of
+ * the create method, and there is also a StackPane extension function ([ViewTransition.moveToTop]) for convenience.
+ */
+<span class="nc" id="L489">abstract class ViewTransition {</span>
+    /**
+     * Create an animation to play for the transition between two nodes. The [StackPane] used as a placeholder during
+     * the transition is also provided.
+     *
+     * There are a number of useful extensions functions for nodes defined above to make animations easier. See any of
+     * the ViewTransitions defined below for examples.
+     *
+     * @param current The node currently in the scenegraph that is to be replaced
+     * @param replacement The node that will be in the scenegraph after the transition
+     * @param stack The StackPane containing the nodes during the transition
+     * @return The animation that will play during the transition
+     */
+    abstract fun create(current: Node, replacement: Node, stack: StackPane): Animation
+
+    /**
+     * Will be called after the transition is finished and the replacement node has been docked. This function is useful
+     * for resetting changes made to the node during the transition, such as position, scale, and opacity.
+     *
+     * See [Metro] for an example.
+     *
+     * @param removed The node that was removed from the scenegraph
+     * @param replacement The node now in the scenegraph
+     */
+<span class="nc" id="L513">    open fun onComplete(removed: Node, replacement: Node) = Unit</span>
+
+<span class="nc" id="L515">    var setup: StackPane.() -&gt; Unit = {}</span>
+    /**
+     * This allows users to modify the generated stack after the the ViewTransition is generated (so they can add things
+     * like AnchorPane and VGrow/HGrow constraints).
+     */
+    fun setup(setup: StackPane.() -&gt; Unit) {
+<span class="nc" id="L521">        this.setup = setup</span>
+<span class="nc" id="L522">    }</span>
+
+    internal fun call(current: Node, replacement: Node, clip: Boolean, attach: (Node) -&gt; Unit) {
+<span class="nc" id="L525">        current.isTransitioning = true</span>
+<span class="nc" id="L526">        replacement.isTransitioning = true</span>
+<span class="nc bnc" id="L527" title="All 2 branches missed.">        val currentUIComponent = current.properties[UI_COMPONENT_PROPERTY] as? UIComponent</span>
+<span class="nc bnc" id="L528" title="All 2 branches missed.">        val replacementUIComponent = replacement.properties[UI_COMPONENT_PROPERTY] as? UIComponent</span>
+<span class="nc bnc" id="L529" title="All 2 branches missed.">        currentUIComponent?.muteDocking = true</span>
+<span class="nc bnc" id="L530" title="All 2 branches missed.">        replacementUIComponent?.muteDocking = true</span>
+
+<span class="nc" id="L532">        val stack = stack(current, replacement)</span>
+<span class="nc bnc" id="L533" title="All 2 branches missed.">        if (clip) {</span>
+<span class="nc" id="L534">            stack.clip = Rectangle().apply {</span>
+<span class="nc" id="L535">                widthProperty().bind(stack.widthProperty())</span>
+<span class="nc" id="L536">                heightProperty().bind(stack.heightProperty())</span>
+<span class="nc" id="L537">            }</span>
+        }
+<span class="nc" id="L539">        stack.setup()</span>
+<span class="nc" id="L540">        attach(stack)</span>
+
+<span class="nc" id="L542">        create(current, replacement, stack).apply {</span>
+<span class="nc" id="L543">            val oldFinish: EventHandler&lt;ActionEvent&gt;? = onFinished</span>
+<span class="nc" id="L544">            setOnFinished {</span>
+<span class="nc" id="L545">                stack.children.clear()</span>
+<span class="nc" id="L546">                current.removeFromParent()</span>
+<span class="nc" id="L547">                replacement.removeFromParent()</span>
+<span class="nc" id="L548">                stack.removeFromParent()</span>
+<span class="nc bnc" id="L549" title="All 2 branches missed.">                currentUIComponent?.let {</span>
+<span class="nc" id="L550">                    it.muteDocking = false</span>
+<span class="nc" id="L551">                    it.callOnUndock()</span>
+<span class="nc" id="L552">                }</span>
+<span class="nc bnc" id="L553" title="All 2 branches missed.">                replacementUIComponent?.muteDocking = false</span>
+<span class="nc" id="L554">                attach(replacement)</span>
+<span class="nc bnc" id="L555" title="All 2 branches missed.">                oldFinish?.handle(it)</span>
+<span class="nc" id="L556">                onComplete(current, replacement)</span>
+<span class="nc" id="L557">                current.isTransitioning = false</span>
+<span class="nc" id="L558">                replacement.isTransitioning = false</span>
+<span class="nc" id="L559">            }</span>
+<span class="nc" id="L560">        }.play()</span>
+<span class="nc" id="L561">    }</span>
+
+    /**
+     * If the given node exists in this [StackPane], move it to be on top (visually).
+     *
+     * @param node The node to move to the top of the stack
+     */
+    protected fun StackPane.moveToTop(node: Node) {
+<span class="nc bnc" id="L569" title="All 2 branches missed.">        if (children.remove(node)) children.add(node)</span>
+<span class="nc" id="L570">    }</span>
+
+<span class="nc" id="L572">    protected fun Image.toCanvas() = Canvas(width, height).also {</span>
+<span class="nc" id="L573">        it.graphicsContext2D.drawImage(this, 0.0, 0.0)</span>
+<span class="nc" id="L574">    }</span>
+
+    /**
+     * Create a [StackPane] in which the transition will take place. You should generally put both the current and the
+     * replacement nodes in the stack, but it isn't technically required.
+     *
+     * See [FadeThrough] for an example.
+     *
+     * By default this returns a StackPane with only the current and replacement nodes in it (the current node will be
+     * on top).
+     *
+     * @param current The node that is currently in the scenegraph
+     * @param replacement The node that will be in the scenegraph after the transition
+     * @return The [StackPane] that will be in the scenegraph during the transition
+     */
+<span class="nc" id="L589">    open fun stack(current: Node, replacement: Node) = StackPane(replacement, current)</span>
+
+    companion object {
+        @Deprecated(&quot;Use `Slide(0.2.seconds)`&quot;, ReplaceWith(&quot;Slide(0.2.seconds)&quot;))
+<span class="nc" id="L593">        val SlideIn = fun(existing: UIComponent, replacement: UIComponent, transitionCompleteCallback: () -&gt; Unit) {</span>
+<span class="nc" id="L594">            replacement.root.translateX = existing.root.boundsInLocal.width</span>
+
+<span class="nc" id="L596">            val existingSlide = TranslateTransition(0.2.seconds, existing.root).apply {</span>
+<span class="nc" id="L597">                toX = -existing.root.boundsInLocal.width</span>
+<span class="nc" id="L598">                interpolator = Interpolator.EASE_OUT</span>
+<span class="nc" id="L599">            }</span>
+
+<span class="nc" id="L601">            val replacementSlide = TranslateTransition(0.2.seconds, replacement.root).apply {</span>
+<span class="nc" id="L602">                toX = 0.0</span>
+<span class="nc" id="L603">                onFinished = EventHandler { transitionCompleteCallback() }</span>
+<span class="nc" id="L604">                interpolator = Interpolator.EASE_OUT</span>
+<span class="nc" id="L605">            }</span>
+
+<span class="nc" id="L607">            existingSlide.play()</span>
+<span class="nc" id="L608">            replacementSlide.play()</span>
+<span class="nc" id="L609">        }</span>
+
+        @Deprecated(&quot;Use `Slide(0.2.seconds, Direction.LEFT)`&quot;, ReplaceWith(&quot;Slide(0.2.seconds, Direction.RIGHT)&quot;))
+<span class="nc" id="L612">        val SlideOut = fun(existing: UIComponent, replacement: UIComponent, transitionCompleteCallback: () -&gt; Unit) {</span>
+<span class="nc" id="L613">            replacement.root.translateX = -existing.root.boundsInLocal.width</span>
+
+<span class="nc" id="L615">            val existingSlide = TranslateTransition(0.2.seconds, existing.root).apply {</span>
+<span class="nc" id="L616">                toX = existing.root.boundsInLocal.width</span>
+<span class="nc" id="L617">                interpolator = Interpolator.EASE_OUT</span>
+<span class="nc" id="L618">            }</span>
+
+<span class="nc" id="L620">            val replacementSlide = TranslateTransition(0.2.seconds, replacement.root).apply {</span>
+<span class="nc" id="L621">                toX = 0.0</span>
+<span class="nc" id="L622">                onFinished = EventHandler { transitionCompleteCallback() }</span>
+<span class="nc" id="L623">                interpolator = Interpolator.EASE_OUT</span>
+<span class="nc" id="L624">            }</span>
+
+<span class="nc" id="L626">            existingSlide.play()</span>
+<span class="nc" id="L627">            replacementSlide.play()</span>
+<span class="nc" id="L628">        }</span>
+    }
+
+    enum class Direction { UP, RIGHT, DOWN, LEFT;
+
+<span class="nc bnc" id="L633" title="All 4 branches missed.">        fun reversed() = when (this) {</span>
+<span class="nc" id="L634">            UP -&gt; DOWN</span>
+<span class="nc" id="L635">            RIGHT -&gt; LEFT</span>
+<span class="nc" id="L636">            DOWN -&gt; UP</span>
+<span class="nc" id="L637">            LEFT -&gt; RIGHT</span>
+<span class="nc" id="L638">        }</span>
+    }
+
+    /**
+     * A [ViewTransition] that smoothly fades from one node to another.
+     *
+     * @param duration How long the transition will take
+     */
+<span class="nc" id="L646">    class Fade(val duration: Duration) : ViewTransition() {</span>
+<span class="nc" id="L647">        override fun create(current: Node, replacement: Node, stack: StackPane) = current.fade(duration, 0, play = false)</span>
+
+        override fun onComplete(removed: Node, replacement: Node) {
+<span class="nc" id="L650">            removed.opacity = 1.0</span>
+<span class="nc" id="L651">        }</span>
+    }
+
+    /**
+     * A [ViewTransition] that fades from one node to another through a Paint (useful for fading through black).
+     *
+     * By default this fades through transparent, meaning it will show whatever is underneath the current node.
+     *
+     * @param duration How long the transition will take
+     * @param color The color to fade through (can be any [Paint])
+     */
+<span class="nc" id="L662">    class FadeThrough(duration: Duration, val color: Paint = Color.TRANSPARENT) : ViewTransition() {</span>
+<span class="nc" id="L663">        private val bg = Pane().apply { background = Background(BackgroundFill(color, null, null)) }</span>
+<span class="nc" id="L664">        val halfTime: Duration = duration.divide(2.0)</span>
+        override fun create(
+                current: Node,
+                replacement: Node,
+                stack: StackPane
+<span class="nc" id="L669">        ) = current.fade(halfTime, 0, easing = Interpolator.EASE_IN, play = false)</span>
+<span class="nc" id="L670">                .then(replacement.fade(halfTime, 0, easing = Interpolator.EASE_OUT, reversed = true, play = false))</span>
+
+<span class="nc" id="L672">        override fun stack(current: Node, replacement: Node) = StackPane(bg, replacement, current)</span>
+
+        override fun onComplete(removed: Node, replacement: Node) {
+<span class="nc" id="L675">            removed.opacity = 1.0</span>
+<span class="nc" id="L676">        }</span>
+    }
+
+    /**
+     * A [ViewTransition] that can be reversed
+     */
+<span class="nc" id="L682">    abstract class ReversibleViewTransition&lt;out T : ViewTransition&gt; : ViewTransition() {</span>
+        /**
+         * Create a transition to be the reverse of the current transition. It's generally recommended (though in no way
+         * required) for the reverse transition to be a logical reversal of this transition.
+         *
+         * @return The reversed [ViewTransition]
+         */
+        protected abstract fun reversed(): T
+
+<span class="nc" id="L691">        fun reversed(op: T.() -&gt; Unit = {}): T = reversed().also(op)</span>
+    }
+
+    /**
+     * A [ReversibleViewTransition] that slides one node out (in a given direction) while sliding another in. The effect
+     * is similar to panning the camera in the opposite direction.
+     *
+     * The reverse is a Slide in the opposite direction.
+     *
+     * @param duration How long the transition will take
+     * @param direction The direction to slide the nodes
+     */
+<span class="nc" id="L703">    class Slide(val duration: Duration, val direction: Direction = Direction.LEFT) : ReversibleViewTransition&lt;Slide&gt;() {</span>
+        override fun create(current: Node, replacement: Node, stack: StackPane): Animation {
+<span class="nc" id="L705">            val bounds = current.boundsInLocal</span>
+<span class="nc bnc" id="L706" title="All 4 branches missed.">            val destination = when (direction) {</span>
+<span class="nc" id="L707">                Direction.UP -&gt; point(0, -bounds.height)</span>
+<span class="nc" id="L708">                Direction.RIGHT -&gt; point(bounds.width, 0)</span>
+<span class="nc" id="L709">                Direction.DOWN -&gt; point(0, bounds.height)</span>
+<span class="nc" id="L710">                Direction.LEFT -&gt; point(-bounds.width, 0)</span>
+            }
+<span class="nc" id="L712">            return current.move(duration, destination, play = false)</span>
+<span class="nc" id="L713">                    .and(replacement.move(duration, destination.multiply(-1.0), reversed = true, play = false))</span>
+        }
+
+<span class="nc" id="L716">        override fun stack(current: Node, replacement: Node) = super.stack(replacement, current)</span>
+
+        override fun onComplete(removed: Node, replacement: Node) {
+<span class="nc" id="L719">            removed.translateX = 0.0</span>
+<span class="nc" id="L720">            removed.translateY = 0.0</span>
+<span class="nc" id="L721">        }</span>
+
+<span class="nc" id="L723">        override fun reversed() = Slide(duration, direction.reversed()).also { it.setup = setup }</span>
+    }
+
+    /**
+     * A [ReversibleViewTransition] where a node slides in in a given direction covering another node.
+     *
+     * The reverse is a [Reveal] in the opposite direction
+     *
+     * @param duration How long the transition will take
+     * @param direction The direction to slide the node
+     */
+<span class="nc" id="L734">    class Cover(val duration: Duration, val direction: Direction = Direction.LEFT) : ReversibleViewTransition&lt;Reveal&gt;() {</span>
+        override fun create(current: Node, replacement: Node, stack: StackPane): Animation {
+<span class="nc" id="L736">            val bounds = current.boundsInLocal</span>
+<span class="nc bnc" id="L737" title="All 4 branches missed.">            val destination = when (direction) {</span>
+<span class="nc" id="L738">                Direction.UP -&gt; point(0, bounds.height)</span>
+<span class="nc" id="L739">                Direction.RIGHT -&gt; point(-bounds.width, 0)</span>
+<span class="nc" id="L740">                Direction.DOWN -&gt; point(0, -bounds.height)</span>
+<span class="nc" id="L741">                Direction.LEFT -&gt; point(bounds.width, 0)</span>
+            }
+<span class="nc" id="L743">            return replacement.move(duration, destination, reversed = true, play = false)</span>
+        }
+
+<span class="nc" id="L746">        override fun stack(current: Node, replacement: Node) = super.stack(replacement, current)</span>
+
+<span class="nc" id="L748">        override fun reversed() = Reveal(duration, direction.reversed()).also { it.setup = setup }</span>
+    }
+
+
+    /**
+     * A [ReversibleViewTransition] where a node slides out in a given direction revealing another node.
+     *
+     * The reverse is a [Cover] in the opposite direction
+     *
+     * @param duration How long the transition will take
+     * @param direction The direction to slide the node
+     */
+<span class="nc" id="L760">    class Reveal(val duration: Duration, val direction: Direction = Direction.LEFT) : ReversibleViewTransition&lt;Cover&gt;() {</span>
+        override fun create(current: Node, replacement: Node, stack: StackPane): Animation {
+<span class="nc" id="L762">            val bounds = current.boundsInLocal</span>
+<span class="nc bnc" id="L763" title="All 4 branches missed.">            val destination = when (direction) {</span>
+<span class="nc" id="L764">                Direction.UP -&gt; point(0, -bounds.height)</span>
+<span class="nc" id="L765">                Direction.RIGHT -&gt; point(bounds.width, 0)</span>
+<span class="nc" id="L766">                Direction.DOWN -&gt; point(0, bounds.height)</span>
+<span class="nc" id="L767">                Direction.LEFT -&gt; point(-bounds.width, 0)</span>
+            }
+<span class="nc" id="L769">            return current.move(duration, destination, play = false)</span>
+        }
+
+        override fun onComplete(removed: Node, replacement: Node) {
+<span class="nc" id="L773">            removed.translateX = 0.0</span>
+<span class="nc" id="L774">            removed.translateY = 0.0</span>
+<span class="nc" id="L775">        }</span>
+
+<span class="nc" id="L777">        override fun reversed() = Cover(duration, direction.reversed()).also { it.setup = setup }</span>
+    }
+
+    /**
+     * A [ReversibleViewTransition] where a node fades and slides out in a given direction while another node fades and
+     * slides in. The effect is similar to effects commonly used in Windows applications (thus the name).
+     *
+     * The reverse is a Metro in the opposite direction.
+     *
+     * @param duration How long the transition will take
+     * @param direction The direction to slide the nodes
+     * @param distancePercentage The distance to move the nodes as a percentage of the size of the current node
+     */
+<span class="nc" id="L790">    class Metro(val duration: Duration, val direction: Direction = Direction.LEFT, val distancePercentage: Double = 0.1) : ReversibleViewTransition&lt;Metro&gt;() {</span>
+        override fun create(current: Node, replacement: Node, stack: StackPane): Animation {
+<span class="nc" id="L792">            val bounds = current.boundsInLocal</span>
+<span class="nc bnc" id="L793" title="All 4 branches missed.">            val destination = when (direction) {</span>
+<span class="nc" id="L794">                Direction.UP -&gt; point(0, -bounds.height * distancePercentage)</span>
+<span class="nc" id="L795">                Direction.RIGHT -&gt; point(bounds.width * distancePercentage, 0)</span>
+<span class="nc" id="L796">                Direction.DOWN -&gt; point(0, bounds.height * distancePercentage)</span>
+<span class="nc" id="L797">                Direction.LEFT -&gt; point(-bounds.width * distancePercentage, 0)</span>
+            }
+<span class="nc" id="L799">            return current.transform(duration.divide(2.0), destination, 0, point(1, 1), 0, play = false)</span>
+<span class="nc" id="L800">                    .then(replacement.transform(duration.divide(2.0), destination.multiply(-1.0), 0, point(1, 1), 0,</span>
+<span class="nc" id="L801">                            reversed = true, play = false))</span>
+        }
+
+        override fun onComplete(removed: Node, replacement: Node) {
+<span class="nc" id="L805">            removed.translateX = 0.0</span>
+<span class="nc" id="L806">            removed.translateY = 0.0</span>
+<span class="nc" id="L807">            removed.opacity = 1.0</span>
+<span class="nc" id="L808">        }</span>
+
+<span class="nc" id="L810">        override fun reversed() = Metro(duration, direction.reversed(), distancePercentage).also { it.setup = setup }</span>
+    }
+
+    /**
+     * A [ReversibleViewTransition] that swaps the two nodes in a way that looks like two cards in a deck being swapped.
+     *
+     * The reverse is a Swap in the opposite direction
+     *
+     * @param duration How long the transition will take
+     * @param direction The direction the current node will initially move
+     * @param scale The starting scale of the replacement node and ending scale of the current node
+     */
+<span class="nc" id="L822">    class Swap(val duration: Duration, val direction: Direction = Direction.LEFT, val scale: Point2D = point(.75, .75)) : ReversibleViewTransition&lt;Swap&gt;() {</span>
+        override fun create(current: Node, replacement: Node, stack: StackPane): Animation {
+<span class="nc" id="L824">            val bounds = current.boundsInLocal</span>
+<span class="nc bnc" id="L825" title="All 4 branches missed.">            val destination = when (direction) {</span>
+<span class="nc" id="L826">                Direction.UP -&gt; point(0, -bounds.height * 0.5)</span>
+<span class="nc" id="L827">                Direction.RIGHT -&gt; point(bounds.width * 0.5, 0)</span>
+<span class="nc" id="L828">                Direction.DOWN -&gt; point(0, bounds.height * 0.5)</span>
+<span class="nc" id="L829">                Direction.LEFT -&gt; point(-bounds.width * 0.5, 0)</span>
+            }
+<span class="nc" id="L831">            val halfTime = duration.divide(2.0)</span>
+<span class="nc" id="L832">            return current.scale(duration, scale, play = false).and(replacement.scale(duration, scale, reversed = true, play = false))</span>
+<span class="nc" id="L833">                    .and(current.move(halfTime, destination).and(replacement.move(halfTime, destination.multiply(-1.0))) {</span>
+<span class="nc" id="L834">                        setOnFinished { stack.moveToTop(replacement) }</span>
+<span class="nc" id="L835">                    }.then(current.move(halfTime, Point2D.ZERO).and(replacement.move(halfTime, Point2D.ZERO))))</span>
+        }
+
+        override fun onComplete(removed: Node, replacement: Node) {
+<span class="nc" id="L839">            removed.translateX = 0.0</span>
+<span class="nc" id="L840">            removed.translateY = 0.0</span>
+<span class="nc" id="L841">            removed.scaleX = 1.0</span>
+<span class="nc" id="L842">            removed.scaleY = 1.0</span>
+<span class="nc" id="L843">        }</span>
+
+<span class="nc" id="L845">        override fun reversed() = Swap(duration, direction.reversed(), scale).also { it.setup = setup }</span>
+    }
+
+    /**
+     * A [ViewTransition] similar to flipping a node over to reveal another on its back. The effect has no perspective
+     * (it isn't 3D) due to the limits of JavaFX's affine transformation system.
+     *
+     * @param duration How long the transition will take
+     * @param vertical Whether to flip the card vertically or horizontally
+     */
+<span class="nc" id="L855">    class Flip(duration: Duration, vertical: Boolean = false) : ViewTransition() {</span>
+<span class="nc" id="L856">        val halfTime: Duration = duration.divide(2.0)</span>
+<span class="nc bnc" id="L857" title="All 2 branches missed.">        val targetAxis: Point3D = (if (vertical) Rotate.X_AXIS else Rotate.Y_AXIS)</span>
+
+        override fun create(current: Node, replacement: Node, stack: StackPane): Animation {
+<span class="nc" id="L860">            return current.rotate(halfTime, 90, easing = Interpolator.EASE_IN, play = false) { axis = targetAxis}.then(</span>
+<span class="nc" id="L861">                    replacement.rotate(halfTime, 90, easing = Interpolator.EASE_OUT, reversed = true, play = false) {</span>
+<span class="nc" id="L862">                        axis = targetAxis</span>
+<span class="nc" id="L863">                    }</span>
+            )
+        }
+
+        override fun onComplete(removed: Node, replacement: Node) {
+<span class="nc" id="L868">            removed.rotate = 0.0</span>
+<span class="nc" id="L869">            removed.rotationAxis = Rotate.Z_AXIS</span>
+<span class="nc" id="L870">            replacement.rotationAxis = Rotate.Z_AXIS</span>
+<span class="nc" id="L871">        }</span>
+    }
+
+    /**
+     * A [ViewTransition] where a node spins and grows like a newspaper.
+     *
+     * The effect is similar to this: http://www.canstockphoto.com/spinning-news-paper-4032376.html
+     *
+     * @param duration How long the transition will take
+     * @param rotations How many time the paper will rotate (use a negative value for clockwise rotation)
+     */
+<span class="nc" id="L882">    class NewsFlash(val duration: Duration, val rotations: Number = 2) : ViewTransition() {</span>
+<span class="nc" id="L883">        override fun create(current: Node, replacement: Node, stack: StackPane) = replacement.transform(</span>
+<span class="nc" id="L884">                time = duration,</span>
+<span class="nc" id="L885">                destination = Point2D.ZERO,</span>
+<span class="nc" id="L886">                angle = rotations.toDouble() * 360,</span>
+<span class="nc" id="L887">                scale = Point2D.ZERO,</span>
+<span class="nc" id="L888">                opacity = 1,</span>
+<span class="nc" id="L889">                easing = Interpolator.EASE_IN,</span>
+<span class="nc" id="L890">                reversed = true,</span>
+<span class="nc" id="L891">                play = false</span>
+<span class="nc" id="L892">        )</span>
+
+<span class="nc" id="L894">        override fun stack(current: Node, replacement: Node) = super.stack(replacement, current)</span>
+    }
+
+    /**
+     * A [ReversibleViewTransition] where a node grows and fades out revealing another node.
+     *
+     * The reverse is an [Implode]
+     *
+     * @param duration How long the transition will take
+     * @param scale How big to scale the node as it fades out
+     */
+<span class="nc" id="L905">    class Explode(val duration: Duration, val scale: Point2D = point(2, 2)) : ReversibleViewTransition&lt;Implode&gt;() {</span>
+        override fun create(
+                current: Node,
+                replacement: Node,
+                stack: StackPane
+<span class="nc" id="L910">        ) = current.transform(duration, Point2D.ZERO, 0, scale, 0, play = false)</span>
+
+        override fun onComplete(removed: Node, replacement: Node) {
+<span class="nc" id="L913">            removed.scaleX = 1.0</span>
+<span class="nc" id="L914">            removed.scaleY = 1.0</span>
+<span class="nc" id="L915">            removed.opacity = 1.0</span>
+<span class="nc" id="L916">        }</span>
+
+<span class="nc" id="L918">        override fun reversed() = Implode(duration, scale).also { it.setup = setup }</span>
+    }
+
+    /**
+     * A [ReversibleViewTransition] where a node shrinks and fades in revealing another node.
+     *
+     * The reverse is an [Explode]
+     *
+     * @param duration How long the transition will take
+     * @param scale The initial size the node shrinks from
+     */
+<span class="nc" id="L929">    class Implode(val duration: Duration, val scale: Point2D = point(2, 2)) : ReversibleViewTransition&lt;Explode&gt;() {</span>
+        override fun create(
+                current: Node,
+                replacement: Node,
+                stack: StackPane
+<span class="nc" id="L934">        ) = replacement.transform(duration, Point2D.ZERO, 0, scale, 0, reversed = true, play = false)</span>
+
+<span class="nc" id="L936">        override fun stack(current: Node, replacement: Node) = super.stack(replacement, current)</span>
+
+<span class="nc" id="L938">        override fun reversed() = Explode(duration, scale).also { it.setup = setup }</span>
+    }
+
+    /**
+     * A [ReversibleViewTransition] where a node is wiped away in a given direction revealing another node.
+     *
+     * The reverse is an Wipe in the opposite direction
+     *
+     * @param duration How long the transition will take
+     * @param direction The direction the node is wiped away
+     */
+<span class="nc" id="L949">    class Wipe(val duration: Duration, val direction: Direction = Direction.LEFT) : ReversibleViewTransition&lt;Wipe&gt;() {</span>
+        override fun stack(current: Node, replacement: Node) =
+<span class="nc" id="L951">            StackPane(replacement, current.snapshot(null, null).toCanvas())</span>
+
+        override fun create(current: Node, replacement: Node, stack: StackPane): Animation {
+<span class="nc bnc" id="L954" title="All 2 branches missed.">            val canvas = stack.children[1] as Canvas</span>
+<span class="nc" id="L955">            val gc = canvas.graphicsContext2D</span>
+<span class="nc" id="L956">            return object : Transition() {</span>
+<span class="nc" id="L957">                var x = 0.0</span>
+<span class="nc" id="L958">                var y = 0.0</span>
+<span class="nc" id="L959">                var width = canvas.width</span>
+<span class="nc" id="L960">                var height = canvas.height</span>
+
+<span class="nc" id="L962">                init {</span>
+<span class="nc" id="L963">                    cycleDuration = duration</span>
+<span class="nc" id="L964">                }</span>
+
+                override fun interpolate(frac: Double) {
+<span class="nc bnc" id="L967" title="All 3 branches missed.">                    when (direction) {</span>
+                        ViewTransition.Direction.UP, ViewTransition.Direction.DOWN -&gt; {
+<span class="nc" id="L969">                            height = frac * canvas.height</span>
+<span class="nc bnc" id="L970" title="All 2 branches missed.">                            if (direction == ViewTransition.Direction.UP) y = canvas.height - height</span>
+                        }
+                        ViewTransition.Direction.LEFT, ViewTransition.Direction.RIGHT -&gt; {
+<span class="nc" id="L973">                            width = frac * canvas.width</span>
+<span class="nc bnc" id="L974" title="All 2 branches missed.">                            if (direction == ViewTransition.Direction.LEFT) x = canvas.width - width</span>
+                        }
+                    }
+<span class="nc" id="L977">                    gc.clearRect(x, y, width, height)</span>
+<span class="nc" id="L978">                }</span>
+            }
+        }
+
+<span class="nc" id="L982">        override fun reversed() = Wipe(duration, direction.reversed()).also { it.setup = setup }</span>
+    }
+
+    /**
+     * A [ViewTransition] where a node is dissolved revealing another node.
+     *
+     * @param duration How long the transition will take
+     * @param hChunks The number of horizontal chunks the current node will be broken into
+     * @param vChunks The number of vertical chunks the current node will be broken into
+     */
+<span class="nc" id="L992">    class Dissolve(val duration: Duration, val hChunks: Int = 50, val vChunks: Int = 50) : ViewTransition() {</span>
+        override fun stack(current: Node, replacement: Node) =
+<span class="nc" id="L994">            StackPane(replacement, current.snapshot(null, null).toCanvas())</span>
+
+        override fun create(current: Node, replacement: Node, stack: StackPane): Animation {
+<span class="nc bnc" id="L997" title="All 2 branches missed.">            val canvas = stack.children[1] as Canvas</span>
+<span class="nc" id="L998">            val width = canvas.width / hChunks</span>
+<span class="nc" id="L999">            val height = canvas.height / vChunks</span>
+<span class="nc" id="L1000">            val gc = canvas.graphicsContext2D</span>
+<span class="nc" id="L1001">            val originalSize = hChunks * vChunks</span>
+<span class="nc bnc" id="L1002" title="All 2 branches missed.">            val indices = MutableList(originalSize) { it }</span>
+<span class="nc" id="L1003">            indices.shuffle()</span>
+<span class="nc" id="L1004">            return object : Transition() {</span>
+<span class="nc" id="L1005">                init {</span>
+<span class="nc" id="L1006">                    cycleDuration = duration</span>
+<span class="nc" id="L1007">                }</span>
+
+                override fun interpolate(frac: Double) {
+<span class="nc bnc" id="L1010" title="All 2 branches missed.">                    if (indices.isEmpty()) return</span>
+<span class="nc bnc" id="L1011" title="All 2 branches missed.">                    repeat((frac * originalSize).toInt() - originalSize + indices.lastIndex) {</span>
+<span class="nc" id="L1012">                        val index = indices.removeAt(indices.lastIndex)</span>
+<span class="nc" id="L1013">                        gc.clearRect(index % hChunks * width, index / hChunks * height, width, height)</span>
+<span class="nc" id="L1014">                    }</span>
+<span class="nc" id="L1015">                }</span>
+            }
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

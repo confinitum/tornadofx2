@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Slideshow.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Slideshow.kt</span></div><h1>Slideshow.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.property.ObjectProperty
+import javafx.beans.property.ReadOnlyIntegerProperty
+import javafx.beans.property.SimpleIntegerProperty
+import javafx.beans.property.SimpleObjectProperty
+import javafx.collections.FXCollections
+import javafx.collections.ListChangeListener
+import javafx.collections.ObservableList
+import javafx.scene.input.KeyCombination
+import javafx.scene.input.KeyEvent
+import javafx.scene.layout.BorderPane
+import javafx.util.Duration
+import tornadofx.ViewTransition.Direction.RIGHT
+import java.util.*
+import kotlin.concurrent.timerTask
+import kotlin.reflect.KClass
+
+<span class="nc" id="L19">class Slideshow(val scope: Scope = FX.defaultScope, defaultTimeout: Duration? = null) : BorderPane() {</span>
+<span class="nc" id="L20">    val slides: ObservableList&lt;Slide&gt; = FXCollections.observableArrayList&lt;Slide&gt;()</span>
+
+<span class="nc" id="L22">    var defaultTimeoutProperty = SimpleObjectProperty&lt;Duration&gt;(defaultTimeout)</span>
+<span class="nc" id="L23">    var defaultTimeout by defaultTimeoutProperty</span>
+
+<span class="nc" id="L25">    val defaultTransitionProperty: ObjectProperty&lt;ViewTransition&gt; = SimpleObjectProperty(ViewTransition.Swap(.3.seconds))</span>
+<span class="nc" id="L26">    var defaultTransition: ViewTransition? by defaultTransitionProperty</span>
+
+<span class="nc" id="L28">    val defaultBackTransitionProperty: ObjectProperty&lt;ViewTransition&gt; = SimpleObjectProperty(ViewTransition.Swap(.3.seconds, RIGHT))</span>
+<span class="nc" id="L29">    var defaultBackTransition: ViewTransition? by defaultBackTransitionProperty</span>
+
+<span class="nc" id="L31">    val currentSlideProperty: ObjectProperty&lt;Slide?&gt; = SimpleObjectProperty()</span>
+<span class="nc" id="L32">    var currentSlide: Slide? by currentSlideProperty</span>
+
+<span class="nc" id="L34">    val nextKeyProperty: ObjectProperty&lt;KeyCombination&gt; = SimpleObjectProperty(KeyCombination.valueOf(&quot;Alt+Right&quot;))</span>
+<span class="nc" id="L35">    var nextKey: KeyCombination by nextKeyProperty</span>
+
+<span class="nc" id="L37">    val previousKeyProperty: ObjectProperty&lt;KeyCombination&gt; = SimpleObjectProperty(KeyCombination.valueOf(&quot;Alt+Left&quot;))</span>
+<span class="nc" id="L38">    var previousKey: KeyCombination by previousKeyProperty</span>
+
+<span class="nc" id="L40">    private val realIndexProperty = SimpleIntegerProperty(-1)</span>
+<span class="nc" id="L41">    val indexProperty: ReadOnlyIntegerProperty = ReadOnlyIntegerProperty.readOnlyIntegerProperty(realIndexProperty)</span>
+<span class="nc" id="L42">    val index by indexProperty</span>
+
+<span class="nc bnc" id="L44" title="All 2 branches missed.">    inline fun &lt;reified T : UIComponent&gt; slide(transition: ViewTransition? = null, timeout: Duration? = defaultTimeout) = slide(T::class, transition, timeout)</span>
+<span class="nc" id="L45">    fun slide(view: KClass&lt;out UIComponent&gt;, transition: ViewTransition? = null, timeout: Duration? = defaultTimeout) = slides.addAll(Slide(view, transition, timeout))</span>
+
+<span class="nc bnc" id="L47" title="All 2 branches missed.">    fun hasNext() = index &lt; (slides.size - 1)</span>
+
+    private var timer: Timer? = null
+    private var task: TimerTask? = null
+
+    fun next(): Boolean {
+<span class="nc bnc" id="L53" title="All 2 branches missed.">        if (!hasNext()) return false</span>
+<span class="nc" id="L54">        goto(slides[index + 1], true)</span>
+<span class="nc" id="L55">        return true</span>
+    }
+
+    fun previous(): Boolean {
+<span class="nc bnc" id="L59" title="All 2 branches missed.">        if (index &lt;= 0) return false</span>
+<span class="nc" id="L60">        goto(slides[index - 1], false)</span>
+<span class="nc" id="L61">        return true</span>
+    }
+
+<span class="nc" id="L64">    init {</span>
+<span class="nc" id="L65">        showFirstSlideWhenAvailable()</span>
+<span class="nc" id="L66">        hookNavigationShortcuts()</span>
+<span class="nc" id="L67">        listenForNextSlide()</span>
+<span class="nc" id="L68">    }</span>
+
+    private fun listenForNextSlide() {
+<span class="nc" id="L71">        currentSlideProperty.onChange { slide -&gt;</span>
+<span class="nc bnc" id="L72" title="All 4 branches missed.">            slide?.timeout?.let { timeout -&gt;</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">                if (timer == null) {</span>
+<span class="nc" id="L74">                    timer = Timer(&quot;SlideshowTimer${this@Slideshow}&quot;)</span>
+                }
+<span class="nc bnc" id="L76" title="All 2 branches missed.">                task?.cancel()</span>
+<span class="nc" id="L77">                task = timerTask {</span>
+                    runLater {
+<span class="nc" id="L79">                        next()</span>
+<span class="nc" id="L80">                    }</span>
+                }
+<span class="nc" id="L82">                timer!!.schedule(task, timeout.toMillis().toLong())</span>
+<span class="nc" id="L83">            }</span>
+<span class="nc" id="L84">        }</span>
+<span class="nc" id="L85">    }</span>
+
+    private fun hookNavigationShortcuts() {
+<span class="nc" id="L88">        sceneProperty().onChange {</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">            scene?.addEventHandler(KeyEvent.KEY_PRESSED) {</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">                if (!it.isConsumed) {</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">                    if (nextKey.match(it)) next()</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">                    else if (previousKey.match(it)) previous()</span>
+                }
+<span class="nc" id="L94">            }</span>
+<span class="nc" id="L95">        }</span>
+<span class="nc" id="L96">    }</span>
+
+    private fun showFirstSlideWhenAvailable() {
+<span class="nc" id="L99">        slides.addListener { change: ListChangeListener.Change&lt;out Slide&gt; -&gt;</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">            while (change.next()) {</span>
+<span class="nc bnc" id="L101" title="All 4 branches missed.">                if (change.wasAdded() &amp;&amp; currentSlide == null)</span>
+<span class="nc" id="L102">                    next()</span>
+            }
+<span class="nc" id="L104">        }</span>
+<span class="nc" id="L105">    }</span>
+
+    private fun goto(slide: Slide, forward: Boolean) {
+<span class="nc" id="L108">        val nextUI = slide.getUI(scope)</span>
+
+        // Avoid race conditions if last transition is still in progress
+<span class="nc" id="L111">        val centerRightNow = center</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">        if (centerRightNow == null) {</span>
+<span class="nc" id="L113">            center = nextUI.root</span>
+        } else {
+<span class="nc bnc" id="L115" title="All 4 branches missed.">            val transition = if (forward) slide.transition ?: defaultTransition else defaultBackTransition</span>
+<span class="nc" id="L116">            nextUI.root.removeFromParent()</span>
+<span class="nc" id="L117">            centerRightNow.replaceWith(nextUI.root, transition)</span>
+        }
+
+<span class="nc bnc" id="L120" title="All 2 branches missed.">        val delta = if (forward) 1 else -1</span>
+<span class="nc" id="L121">        val newIndex = index + delta</span>
+<span class="nc" id="L122">        currentSlide = slides[newIndex]</span>
+<span class="nc" id="L123">        realIndexProperty.value = newIndex</span>
+<span class="nc" id="L124">    }</span>
+
+<span class="nc" id="L126">    class Slide(val view: KClass&lt;out UIComponent&gt;, val transition: ViewTransition? = null, val timeout: Duration? = null) {</span>
+        private lateinit var ui: UIComponent
+        fun getUI(scope: Scope): UIComponent {
+<span class="nc bnc" id="L129" title="All 2 branches missed.">            if (!::ui.isInitialized) ui = find(view, scope)</span>
+<span class="nc" id="L130">            return ui</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

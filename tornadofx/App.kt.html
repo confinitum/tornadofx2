@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>App.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">App.kt</span></div><h1>App.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.application.Application
+import javafx.application.Platform
+import javafx.scene.Scene
+import javafx.scene.image.Image
+import javafx.stage.Stage
+import tornadofx.FX.Companion.eventbus
+import tornadofx.FX.Companion.inheritParamHolder
+import tornadofx.FX.Companion.inheritScopeHolder
+import tornadofx.FX.Companion.primaryStage
+import java.awt.*
+import java.awt.event.*
+import java.awt.event.MouseEvent.BUTTON1
+import java.awt.image.BufferedImage
+import java.io.InputStream
+import java.nio.charset.Charset
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.util.*
+import javax.imageio.ImageIO
+import javax.swing.SwingUtilities
+import kotlin.properties.ReadOnlyProperty
+import kotlin.reflect.KClass
+import kotlin.reflect.KProperty
+
+<span class="pc" id="L27">open class App(open val primaryView: KClass&lt;out UIComponent&gt; = NoPrimaryViewSpecified::class, vararg stylesheet: KClass&lt;out Stylesheet&gt;) : Application(), Configurable {</span>
+<span class="fc" id="L28">    open var scope: Scope = FX.defaultScope</span>
+<span class="nc" id="L29">    val workspace: Workspace get() = scope.workspace</span>
+
+<span class="fc" id="L31">    constructor() : this(NoPrimaryViewSpecified::class)</span>
+
+    /**
+     * Path to app/global configuration settings. Defaults to app.properties inside
+     * the configured configBasePath (By default conf in the current directory).
+     */
+<span class="pc" id="L37">    override val config: ConfigProperties by lazy { loadConfig() }</span>
+
+    /**
+     * Default path for configuration. All components will by default
+     * store their configuration in a file below this path.
+     */
+<span class="nc" id="L43">    open val configBasePath: Path get() = Paths.get(&quot;conf&quot;)</span>
+
+    /**
+     * Path for the application wide config element. It is `app.properties` by default,
+     * in the folder provided by #configBasePath
+     */
+<span class="nc" id="L49">    override val configPath: Path get() = configBasePath.resolve(&quot;app.properties&quot;)</span>
+
+<span class="nc" id="L51">    override val configCharset: Charset get() = Charsets.UTF_8</span>
+
+<span class="fc" id="L53">    private val trayIcons = ArrayList&lt;TrayIcon&gt;()</span>
+<span class="fc" id="L54">    val resources: ResourceLookup by lazy {</span>
+<span class="nc" id="L55">        ResourceLookup(this)</span>
+    }
+
+    fun &lt;T : FXEvent&gt; fire(event: T) {
+<span class="nc" id="L59">        FX.eventbus.fire(event)</span>
+<span class="nc" id="L60">    }</span>
+
+<span class="pc" id="L62">    constructor(primaryView: KClass&lt;out UIComponent&gt; = NoPrimaryViewSpecified::class, stylesheet: KClass&lt;out Stylesheet&gt;, scope: Scope = FX.defaultScope) : this(primaryView, *arrayOf(stylesheet)) {</span>
+<span class="fc" id="L63">        this.scope = scope</span>
+    }
+
+<span class="nc" id="L66">    constructor(icon: Image, primaryView: KClass&lt;out UIComponent&gt; = NoPrimaryViewSpecified::class, vararg stylesheet: KClass&lt;out Stylesheet&gt;) : this(primaryView, *stylesheet) {</span>
+<span class="nc" id="L67">        addStageIcon(icon, scope)</span>
+    }
+
+<span class="nc" id="L70">    fun &lt;T : Any&gt; k(javaClass: Class&lt;T&gt;): KClass&lt;T&gt; = javaClass.kotlin</span>
+
+<span class="fc" id="L72">    init {</span>
+<span class="fc" id="L73">        Stylesheet.importServiceLoadedStylesheets()</span>
+<span class="fc" id="L74">        stylesheet.forEach { importStylesheet(it) }</span>
+<span class="fc" id="L75">    }</span>
+
+    override fun start(stage: Stage) {
+<span class="fc" id="L78">        FX.registerApplication(scope, this, stage)</span>
+<span class="fc" id="L79">        detectDiContainerArgument()</span>
+
+<span class="fc" id="L81">        try {</span>
+<span class="fc" id="L82">            val primaryViewType = determinePrimaryView()</span>
+<span class="fc" id="L83">            val view = find(primaryViewType, scope)</span>
+
+            @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="pc bpc" id="L86" title="4 of 6 branches missed.">            (view as? Workspace)?.let { FX.defaultWorkspace = primaryViewType as KClass&lt;Workspace&gt; }</span>
+
+<span class="fc" id="L88">            stage.apply {</span>
+<span class="fc" id="L89">                stage.aboutToBeShown = true</span>
+<span class="fc" id="L90">                view.muteDocking = true</span>
+<span class="fc" id="L91">                scene = createPrimaryScene(view)</span>
+<span class="fc" id="L92">                view.properties[&quot;tornadofx.scene&quot;] = scene</span>
+<span class="fc" id="L93">                FX.applyStylesheetsTo(scene)</span>
+<span class="fc" id="L94">                titleProperty().bind(view.titleProperty)</span>
+<span class="fc" id="L95">                hookGlobalShortcuts()</span>
+<span class="fc" id="L96">                view.onBeforeShow()</span>
+<span class="fc" id="L97">                onBeforeShow(view)</span>
+<span class="fc" id="L98">                view.muteDocking = false</span>
+                // No need to call view.callOnDock() if show() is called since it
+                // will be called by the stage's showingProperty listener
+<span class="pc bpc" id="L101" title="1 of 4 branches missed.">                if (view !is NoPrimaryViewSpecified &amp;&amp; shouldShowPrimaryStage())</span>
+<span class="fc" id="L102">                    show()</span>
+                else
+<span class="fc" id="L104">                    view.callOnDock()</span>
+<span class="fc" id="L105">                stage.aboutToBeShown = false</span>
+<span class="fc" id="L106">            }</span>
+<span class="fc" id="L107">            FX.initialized.value = true</span>
+<span class="nc" id="L108">        } catch (ex: Exception) {</span>
+<span class="nc" id="L109">            Thread.getDefaultUncaughtExceptionHandler().uncaughtException(Thread.currentThread(), ex)</span>
+        }
+<span class="fc" id="L111">    }</span>
+
+    /**
+     * Detect if --di-container= argument was given on the command line and assign it to FX.dicontainer
+     *
+     * Another implementation can still be assigned to FX.dicontainer programmatically
+     */
+    private fun detectDiContainerArgument() {
+<span class="pc bpc" id="L119" title="3 of 6 branches missed.">        parameters?.named?.get(&quot;di-container&quot;)?.let { diContainerClassName -&gt;</span>
+<span class="nc" id="L120">            val dic = try {</span>
+<span class="nc" id="L121">                Class.forName(diContainerClassName).newInstance()</span>
+<span class="nc" id="L122">            } catch (ex: Exception) {</span>
+<span class="nc" id="L123">                log.warning(&quot;Unable to instantiate --di-container=$diContainerClassName: ${ex.message}&quot;)</span>
+<span class="nc" id="L124">                null</span>
+            }
+<span class="nc bnc" id="L126" title="All 2 branches missed.">            if (dic is DIContainer)</span>
+<span class="nc" id="L127">                FX.dicontainer = dic</span>
+            else
+<span class="nc" id="L129">                log.warning(&quot;--di-container=$diContainerClassName did not resolve to an instance of tornadofx.DIContainer, ignoring assignment&quot;)</span>
+<span class="nc" id="L130">        }</span>
+<span class="fc" id="L131">    }</span>
+
+    open fun onBeforeShow(view: UIComponent) {
+
+<span class="fc" id="L135">    }</span>
+
+    override fun stop() {
+<span class="fc" id="L138">        val primaryViewType = determinePrimaryView()</span>
+<span class="fc" id="L139">        val view = find(primaryViewType, scope)</span>
+<span class="fc" id="L140">        primaryStage.unhookGlobalShortcuts()</span>
+<span class="fc" id="L141">        view.unInit()</span>
+<span class="fc" id="L142">        view.removeFromParent()</span>
+<span class="fc" id="L143">        eventbus.clear()</span>
+<span class="fc" id="L144">        scope.deregister()</span>
+<span class="fc" id="L145">        shutdownThreadPools()</span>
+<span class="fc" id="L146">        inheritParamHolder.remove()</span>
+<span class="fc" id="L147">        inheritScopeHolder.remove()</span>
+<span class="fc" id="L148">        trayIcons.forEach {</span>
+<span class="nc" id="L149">            SwingUtilities.invokeLater { SystemTray.getSystemTray().remove(it) }</span>
+<span class="nc" id="L150">        }</span>
+<span class="fc" id="L151">    }</span>
+
+<span class="fc" id="L153">    open fun shouldShowPrimaryStage() = true</span>
+
+<span class="fc" id="L155">    open fun createPrimaryScene(view: UIComponent) = Scene(view.getRootWrapper())</span>
+
+    @Suppress(&quot;UNCHECKED_CAST&quot;)
+    private fun determinePrimaryView(): KClass&lt;out UIComponent&gt; {
+<span class="fc bfc" id="L159" title="All 2 branches covered.">        if (primaryView == NoPrimaryViewSpecified::class) {</span>
+<span class="pc bpc" id="L160" title="2 of 4 branches missed.">            val viewClassName = parameters.named?.get(&quot;view-class&quot;) ?: return NoPrimaryViewSpecified::class</span>
+<span class="nc" id="L161">            val viewClass = Class.forName(viewClassName)</span>
+
+<span class="nc bnc" id="L163" title="All 2 branches missed.">            require(UIComponent::class.java.isAssignableFrom(viewClass)) { &quot;Class specified by --class-name is not a subclass of tornadofx.View&quot; }</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">            return viewClass.kotlin as KClass&lt;out UIComponent&gt;</span>
+        } else {
+<span class="fc" id="L166">            return primaryView</span>
+        }
+    }
+
+    @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc" id="L171">    inline fun &lt;reified T&gt; inject(scope: Scope = FX.defaultScope): ReadOnlyProperty&lt;App, T&gt; where T : Component, T : ScopedInstance = object : ReadOnlyProperty&lt;App, T&gt; {</span>
+<span class="nc" id="L172">        override fun getValue(thisRef: App, property: KProperty&lt;*&gt;) = find&lt;T&gt;(scope)</span>
+<span class="nc" id="L173">    }</span>
+
+<span class="nc" id="L175">    fun trayicon(image: BufferedImage, tooltip: String?, implicitExit: Boolean = false, autoSize: Boolean = false, op: TrayIcon.() -&gt; Unit) {</span>
+<span class="nc" id="L176">        Platform.setImplicitExit(implicitExit)</span>
+<span class="nc" id="L177">        SwingUtilities.invokeLater {</span>
+<span class="nc" id="L178">            Toolkit.getDefaultToolkit()</span>
+<span class="nc" id="L179">            val trayIcon = TrayIcon(image, tooltip)</span>
+<span class="nc" id="L180">            trayIcon.isImageAutoSize = autoSize</span>
+<span class="nc" id="L181">            op(trayIcon)</span>
+<span class="nc" id="L182">            SystemTray.getSystemTray().add(trayIcon)</span>
+<span class="nc" id="L183">            trayIcons.add(trayIcon)</span>
+<span class="nc" id="L184">        }</span>
+<span class="nc" id="L185">    }</span>
+
+<span class="nc" id="L187">    fun trayicon(icon: InputStream, tooltip: String? = null, implicitExit: Boolean = false, autoSize: Boolean = false, op: TrayIcon.() -&gt; Unit) {</span>
+<span class="nc" id="L188">        trayicon(ImageIO.read(icon), tooltip, implicitExit, autoSize, op)</span>
+<span class="nc" id="L189">    }</span>
+
+    fun TrayIcon.menu(label: String, op: PopupMenu.() -&gt; Unit) {
+<span class="nc" id="L192">        popupMenu = PopupMenu(label)</span>
+<span class="nc" id="L193">        op(popupMenu)</span>
+<span class="nc" id="L194">    }</span>
+
+<span class="nc" id="L196">    fun TrayIcon.setOnMouseClicked(fxThread: Boolean = false, button: Int = BUTTON1, clickCount: Int = 1, op: () -&gt; Unit) {</span>
+<span class="nc" id="L197">        addMouseListener(object : MouseAdapter() {</span>
+            override fun mouseClicked(e: MouseEvent) {
+<span class="nc bnc" id="L199" title="All 4 branches missed.">                if (e.button == button &amp;&amp; e.clickCount == clickCount) {</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">                    if (fxThread) {</span>
+<span class="nc" id="L201">                        Platform.runLater {</span>
+<span class="nc" id="L202">                            op()</span>
+<span class="nc" id="L203">                        }</span>
+                    } else {
+<span class="nc" id="L205">                        op()</span>
+                    }
+                }
+<span class="nc" id="L208">            }</span>
+        })
+<span class="nc" id="L210">    }</span>
+
+<span class="nc" id="L212">    fun PopupMenu.item(label: String, shortcut: MenuShortcut? = null, op: MenuItem.() -&gt; Unit): MenuItem {</span>
+<span class="nc" id="L213">        val item = MenuItem(label, shortcut)</span>
+<span class="nc" id="L214">        op(item)</span>
+<span class="nc" id="L215">        add(item)</span>
+<span class="nc" id="L216">        return item</span>
+    }
+
+<span class="nc" id="L219">    fun PopupMenu.checkboxItem(label: String, state: Boolean = false, op: CheckboxMenuItem.() -&gt; Unit): CheckboxMenuItem {</span>
+<span class="nc" id="L220">        val item = CheckboxMenuItem(label, state)</span>
+<span class="nc" id="L221">        op(item)</span>
+<span class="nc" id="L222">        add(item)</span>
+<span class="nc" id="L223">        return item</span>
+    }
+
+<span class="nc" id="L226">    fun MenuItem.setOnAction(fxThread: Boolean = false, action: () -&gt; Unit) {</span>
+<span class="nc" id="L227">        addActionListener {</span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">            if (fxThread) {</span>
+<span class="nc" id="L229">                Platform.runLater {</span>
+<span class="nc" id="L230">                    action()</span>
+<span class="nc" id="L231">                }</span>
+            } else {
+<span class="nc" id="L233">                action()</span>
+            }
+<span class="nc" id="L235">        }</span>
+<span class="nc" id="L236">    }</span>
+
+<span class="nc" id="L238">    fun CheckboxMenuItem.setOnItem(fxThread: Boolean = false, action: (state: Boolean) -&gt; Unit) {</span>
+<span class="nc" id="L239">        addItemListener {</span>
+<span class="nc bnc" id="L240" title="All 2 branches missed.">            val state = it.stateChange == ItemEvent.SELECTED</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">            if (fxThread) {</span>
+<span class="nc" id="L242">                Platform.runLater {</span>
+<span class="nc" id="L243">                    action(state)</span>
+<span class="nc" id="L244">                }</span>
+            } else {
+<span class="nc" id="L246">                action(state)</span>
+            }
+<span class="nc" id="L248">        }</span>
+<span class="nc" id="L249">    }</span>
+
+}
+
+/**
+ * This is the default primary view parameter. It is used to signal that there
+ * is no primary view configured for the application and so the App start process
+ * should not show the primary stage upon startup, unless the --view-class parameter
+ * was passed on the command line.
+ *
+ * If no primary view is shown, the developer must use either the start() hook or some
+ * other means of determining that the application has started. This would be good
+ * for applications where the default view depends upon some state, or where the app
+ * simply starts with a tray icon.
+ *
+ */
+<span class="fc" id="L265">class NoPrimaryViewSpecified : View() {</span>
+<span class="fc" id="L266">    override val root = stackpane()</span>
+}
+
+inline fun &lt;reified T : Application&gt; launch(vararg args: String) = Application.launch(T::class.java, *args)
+
+@JvmName(&quot;launchWithArrayArgs&quot;)
+inline fun &lt;reified T : Application&gt; launch(args: Array&lt;String&gt;) = Application.launch(T::class.java, *args)
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

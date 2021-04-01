@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TornadoFXResizeFeatures.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx.adapters</a> &gt; <span class="el_source">TornadoFXResizeFeatures.kt</span></div><h1>TornadoFXResizeFeatures.kt</h1><pre class="source lang-java linenums">package tornadofx.adapters
+
+import javafx.collections.ObservableMap
+import javafx.scene.control.TableColumn
+import javafx.scene.control.TableView
+import javafx.scene.control.TreeTableColumn
+import javafx.scene.control.TreeTableView
+import javafx.util.Callback
+
+typealias Properties = ObservableMap&lt;Any?, Any?&gt;
+typealias TableViewResizeCallback = Callback&lt;TableView.ResizeFeatures&lt;out Any&gt;, Boolean&gt;
+typealias TreeTableViewResizeCallback = Callback&lt;TreeTableView.ResizeFeatures&lt;out Any&gt;, Boolean&gt;
+
+<span class="nc" id="L14">fun TreeTableView.ResizeFeatures&lt;*&gt;.toTornadoFXResizeFeatures() = TornadoFXTreeTableResizeFeatures(this)</span>
+<span class="nc" id="L15">fun TableView.ResizeFeatures&lt;*&gt;.toTornadoFXFeatures() = TornadoFxTableResizeFeatures(this)</span>
+
+interface TornadoFXResizeFeatures&lt;COLUMN, out TABLE : Any&gt; {
+    val table: TornadoFXTable&lt;COLUMN, TABLE&gt;
+    val delta: Double
+    val column: TornadoFXColumn&lt;COLUMN&gt;?
+}
+
+<span class="nc" id="L23">class TornadoFXTreeTableResizeFeatures(val param: TreeTableView.ResizeFeatures&lt;out Any&gt;) : TornadoFXResizeFeatures&lt;TreeTableColumn&lt;*, *&gt;, TreeTableView&lt;*&gt;&gt; {</span>
+<span class="nc bnc" id="L24" title="All 2 branches missed.">    override val column = param.column?.toTornadoFXColumn()</span>
+<span class="nc" id="L25">    override val table = param.table.toTornadoFXTable()</span>
+<span class="nc" id="L26">    override val delta: Double get() = param.delta</span>
+}
+
+<span class="nc" id="L29">class TornadoFxTableResizeFeatures(val param: TableView.ResizeFeatures&lt;out Any&gt;) : TornadoFXResizeFeatures&lt;TableColumn&lt;*, *&gt;, TableView&lt;*&gt;&gt; {</span>
+<span class="nc" id="L30">    override val table: TornadoFXTable&lt;TableColumn&lt;*, *&gt;, TableView&lt;*&gt;&gt; = TornadoFXNormalTable(param.table)</span>
+<span class="nc" id="L31">    override val delta: Double = param.delta</span>
+<span class="nc bnc" id="L32" title="All 2 branches missed.">    override val column: TornadoFXColumn&lt;TableColumn&lt;*, *&gt;&gt;? = param.column?.let { TornadoFxNormalTableColumn(it) }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

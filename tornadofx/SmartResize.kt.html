@@ -1,0 +1,597 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SmartResize.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">SmartResize.kt</span></div><h1>SmartResize.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.application.Platform
+import javafx.beans.property.ObjectProperty
+import javafx.beans.property.ReadOnlyProperty
+import javafx.beans.property.SimpleObjectProperty
+import javafx.beans.value.ChangeListener
+import javafx.collections.ListChangeListener
+import javafx.collections.ObservableList
+import javafx.scene.control.TableColumn
+import javafx.scene.control.TableView
+import javafx.scene.control.TreeTableColumn
+import javafx.scene.control.TreeTableView
+import javafx.util.Callback
+import tornadofx.ResizeType.*
+import tornadofx.adapters.*
+
+import kotlin.collections.set
+import kotlin.math.abs
+import kotlin.reflect.KClass
+
+//private const val SMART_RESIZE_INSTALLED = &quot;tornadofx.smartResizeInstalled&quot;
+private const val SMART_RESIZE = &quot;tornadofx.smartResize&quot;
+private const val IS_SMART_RESIZING = &quot;tornadofx.isSmartResizing&quot;
+const val RESIZE_TYPE_KEY = &quot;tornadofx.smartColumnResizeType&quot;
+
+private typealias GroupedColumns = Map&lt;KClass&lt;out ResizeType&gt;, List&lt;TornadoFXColumn&lt;out Any?&gt;&gt;&gt;
+
+<span class="nc" id="L29">sealed class ResizeType(val isResizable: Boolean) {</span>
+<span class="nc" id="L30">    class Pref(val width: Number) : ResizeType(true)</span>
+<span class="nc" id="L31">    class Fixed(val width: Number) : ResizeType(false)</span>
+<span class="nc" id="L32">    class Weight(val weight: Number, val padding: Number = 0.0, val minContentWidth: Boolean = false, var minRecorded: Boolean = false) : ResizeType(true)</span>
+<span class="nc" id="L33">    class Pct(val value: Number) : ResizeType(true)</span>
+<span class="nc" id="L34">    class Content(val padding: Number = 0.0, val useAsMin: Boolean = false, val useAsMax: Boolean = false, var minRecorded: Boolean = false, var maxRecorded: Boolean = false) : ResizeType(true)</span>
+<span class="nc" id="L35">    class Remaining : ResizeType(true)</span>
+
+<span class="nc" id="L37">    var delta: Double = 0.0</span>
+}
+
+typealias TableViewResizeCallback = Callback&lt;TableView.ResizeFeatures&lt;out Any&gt;, Boolean&gt;
+typealias TreeTableViewResizeCallback = Callback&lt;TreeTableView.ResizeFeatures&lt;out Any&gt;, Boolean&gt;
+
+
+class SmartResize private constructor() : TableViewResizeCallback {
+
+<span class="nc" id="L46">    override fun call(param: TableView.ResizeFeatures&lt;out Any&gt;) = resizeCall(param.toTornadoFXFeatures()) { table -&gt;</span>
+<span class="nc bnc" id="L47" title="All 2 branches missed.">        if (!isPolicyInstalled(table)) install(table)</span>
+<span class="nc" id="L48">    }</span>
+
+    fun requestResize(table: TableView&lt;*&gt;) {
+<span class="nc" id="L51">        Platform.runLater {</span>
+<span class="nc" id="L52">            call(TableView.ResizeFeatures(table, null, 0.0))</span>
+<span class="nc" id="L53">        }</span>
+<span class="nc" id="L54">    }</span>
+
+    companion object {
+<span class="nc" id="L57">        val POLICY = SmartResize()</span>
+<span class="nc" id="L58">        val ResizeTypeKey = &quot;tornadofx.smartColumnResizeType&quot;</span>
+
+        private var TableView&lt;*&gt;.isSmartResizing: Boolean
+<span class="nc" id="L61">            get() = properties[IS_SMART_RESIZING] == true</span>
+            set(value) {
+<span class="nc" id="L63">                properties[IS_SMART_RESIZING] = value</span>
+<span class="nc" id="L64">            }</span>
+
+<span class="nc" id="L66">        private val policyChangeListener = ChangeListener&lt;Callback&lt;TableView.ResizeFeatures&lt;*&gt;, Boolean&gt;&gt; { observable, _, newValue -&gt;</span>
+<span class="nc bnc" id="L67" title="All 4 branches missed.">            val table = (observable as ObjectProperty&lt;*&gt;).bean as TableView&lt;*&gt;</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">            if (newValue == POLICY) install(table) else uninstall(table)</span>
+<span class="nc" id="L69">        }</span>
+
+<span class="nc" id="L71">        private val itemsChangeListener = ChangeListener&lt;ObservableList&lt;*&gt;&gt; { observable, _, _ -&gt;</span>
+<span class="nc bnc" id="L72" title="All 4 branches missed.">            val table = (observable as ObjectProperty&lt;*&gt;).bean as TableView&lt;*&gt;</span>
+<span class="nc" id="L73">            POLICY.requestResize(table)</span>
+<span class="nc" id="L74">        }</span>
+
+<span class="nc" id="L76">        private val columnsChangeListener = ListChangeListener&lt;TableColumn&lt;*, *&gt;&gt; { s -&gt;</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">            while (s.next()) {</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">                if (s.wasAdded()) s.addedSubList.forEach {</span>
+<span class="nc" id="L79">                    it.widthProperty().addListener(columnWidthChangeListener)</span>
+<span class="nc" id="L80">                }</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">                if (s.wasRemoved()) s.removed.forEach {</span>
+<span class="nc" id="L82">                    it.widthProperty().removeListener(columnWidthChangeListener)</span>
+<span class="nc" id="L83">                }</span>
+            }
+<span class="nc" id="L85">        }</span>
+
+        @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc" id="L88">        private val columnWidthChangeListener = ChangeListener&lt;Number&gt; { observable, oldValue, newValue -&gt;</span>
+<span class="nc bnc" id="L89" title="All 4 branches missed.">            val column = (observable as ReadOnlyProperty&lt;*&gt;).bean as TableColumn&lt;*, *&gt;</span>
+<span class="nc" id="L90">            val table: TableView&lt;out Any&gt;? = column.tableView</span>
+
+<span class="nc bnc" id="L92" title="All 4 branches missed.">            if (table?.isSmartResizing == false) {</span>
+<span class="nc" id="L93">                val rt = column.resizeType</span>
+<span class="nc" id="L94">                val diff = oldValue.toDouble() - newValue.toDouble()</span>
+<span class="nc" id="L95">                rt.delta -= diff</span>
+<span class="nc" id="L96">                POLICY.call(TableView.ResizeFeatures&lt;Any&gt;(table as TableView&lt;Any&gt;?, null, 0.0))</span>
+            }
+<span class="nc" id="L98">        }</span>
+
+
+<span class="nc" id="L101">        private fun isPolicyInstalled(table: TableView&lt;*&gt;) = table.properties[SMART_RESIZE] == true</span>
+
+        private fun install(table: TableView&lt;*&gt;) {
+<span class="nc" id="L104">            table.columnResizePolicyProperty().addListener(policyChangeListener)</span>
+<span class="nc" id="L105">            table.columns.addListener(columnsChangeListener)</span>
+<span class="nc" id="L106">            table.itemsProperty().addListener(itemsChangeListener)</span>
+<span class="nc" id="L107">            table.columns.forEach { it.widthProperty().addListener(columnWidthChangeListener) }</span>
+<span class="nc" id="L108">            table.properties[SMART_RESIZE] = true</span>
+<span class="nc" id="L109">        }</span>
+
+        private fun uninstall(table: TableView&lt;*&gt;) {
+<span class="nc" id="L112">            table.columnResizePolicyProperty().removeListener(policyChangeListener)</span>
+<span class="nc" id="L113">            table.columns.removeListener(columnsChangeListener)</span>
+<span class="nc" id="L114">            table.itemsProperty().removeListener(itemsChangeListener)</span>
+<span class="nc" id="L115">            table.columns.forEach { it.widthProperty().removeListener(columnWidthChangeListener) }</span>
+<span class="nc" id="L116">            table.properties.remove(SMART_RESIZE)</span>
+<span class="nc" id="L117">        }</span>
+    }
+}
+
+class TreeTableSmartResize private constructor() : TreeTableViewResizeCallback {
+
+<span class="nc" id="L123">    override fun call(param: TreeTableView.ResizeFeatures&lt;out Any&gt;) = resizeCall(param.toTornadoFXResizeFeatures()) { table -&gt;</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">        if (!isPolicyInstalled(table)) install(table)</span>
+<span class="nc" id="L125">    }</span>
+
+    fun requestResize(table: TreeTableView&lt;*&gt;) {
+<span class="nc" id="L128">        Platform.runLater {</span>
+<span class="nc" id="L129">            call(TreeTableView.ResizeFeatures(table, null, 0.0))</span>
+<span class="nc" id="L130">        }</span>
+<span class="nc" id="L131">    }</span>
+
+    companion object {
+<span class="nc" id="L134">        val POLICY = TreeTableSmartResize()</span>
+        const val ResizeTypeKey = &quot;tornadofx.smartColumnResizeType&quot;
+
+        internal var TreeTableView&lt;*&gt;.isSmartResizing: Boolean
+<span class="nc" id="L138">            get() = properties[IS_SMART_RESIZING] == true</span>
+            set(value) {
+<span class="nc" id="L140">                properties[IS_SMART_RESIZING] = value</span>
+<span class="nc" id="L141">            }</span>
+
+<span class="nc" id="L143">        private val policyChangeListener = ChangeListener&lt;Callback&lt;TreeTableView.ResizeFeatures&lt;*&gt;, Boolean&gt;&gt; { observable, oldValue, newValue -&gt;</span>
+<span class="nc bnc" id="L144" title="All 4 branches missed.">            val table = (observable as ObjectProperty&lt;*&gt;).bean as TreeTableView&lt;*&gt;</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">            if (newValue == POLICY) install(table) else uninstall(table)</span>
+<span class="nc" id="L146">        }</span>
+
+<span class="nc" id="L148">        private val columnsChangeListener = ListChangeListener&lt;TreeTableColumn&lt;*, *&gt;&gt; { s -&gt;</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">            while (s.next()) {</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">                if (s.wasAdded()) s.addedSubList.forEach {</span>
+<span class="nc" id="L151">                    it.widthProperty().addListener(columnWidthChangeListener)</span>
+<span class="nc" id="L152">                }</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">                if (s.wasRemoved()) s.removed.forEach {</span>
+<span class="nc" id="L154">                    it.widthProperty().removeListener(columnWidthChangeListener)</span>
+<span class="nc" id="L155">                }</span>
+            }
+<span class="nc" id="L157">        }</span>
+
+        @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc" id="L160">        private val columnWidthChangeListener = ChangeListener&lt;Number&gt; { observable, oldValue, newValue -&gt;</span>
+<span class="nc bnc" id="L161" title="All 4 branches missed.">            val column = (observable as ReadOnlyProperty&lt;*&gt;).bean as TreeTableColumn&lt;*, *&gt;</span>
+<span class="nc" id="L162">            val table: TreeTableView&lt;out Any&gt;? = column.treeTableView</span>
+
+<span class="nc bnc" id="L164" title="All 4 branches missed.">            if (table != null &amp;&amp; !table.isSmartResizing) {</span>
+<span class="nc" id="L165">                val rt = column.resizeType</span>
+<span class="nc" id="L166">                val diff = oldValue.toDouble() - newValue.toDouble()</span>
+<span class="nc" id="L167">                rt.delta -= diff</span>
+<span class="nc" id="L168">                POLICY.call(TreeTableView.ResizeFeatures&lt;Any&gt;(table as TreeTableView&lt;Any&gt;?, null, 0.0))</span>
+            }
+
+<span class="nc" id="L171">        }</span>
+
+<span class="nc" id="L173">        private fun isPolicyInstalled(table: TreeTableView&lt;*&gt;) = table.properties[SMART_RESIZE] == true</span>
+
+        private fun install(table: TreeTableView&lt;*&gt;) {
+<span class="nc" id="L176">            table.columnResizePolicyProperty().addListener(policyChangeListener)</span>
+<span class="nc" id="L177">            table.columns.addListener(columnsChangeListener)</span>
+<span class="nc" id="L178">            table.columns.forEach { it.widthProperty().addListener(columnWidthChangeListener) }</span>
+<span class="nc" id="L179">            table.properties[SMART_RESIZE] = true</span>
+<span class="nc" id="L180">        }</span>
+
+        private fun uninstall(table: TreeTableView&lt;*&gt;) {
+<span class="nc" id="L183">            table.columnResizePolicyProperty().removeListener(policyChangeListener)</span>
+<span class="nc" id="L184">            table.columns.removeListener(columnsChangeListener)</span>
+<span class="nc" id="L185">            table.columns.forEach { it.widthProperty().removeListener(columnWidthChangeListener) }</span>
+<span class="nc" id="L186">            table.properties.remove(SMART_RESIZE)</span>
+<span class="nc" id="L187">        }</span>
+    }
+}
+
+fun TableView&lt;*&gt;.smartResize() {
+<span class="nc" id="L192">    columnResizePolicy = SmartResize.POLICY</span>
+<span class="nc" id="L193">}</span>
+
+fun TableView&lt;*&gt;.requestResize() {
+<span class="nc" id="L196">    SmartResize.POLICY.requestResize(this)</span>
+<span class="nc" id="L197">}</span>
+
+fun TreeTableView&lt;*&gt;.smartResize() {
+<span class="nc" id="L200">    columnResizePolicy = TreeTableSmartResize.POLICY</span>
+<span class="nc" id="L201">}</span>
+
+fun TreeTableView&lt;*&gt;.requestResize() {
+<span class="nc" id="L204">    TreeTableSmartResize.POLICY.requestResize(this)</span>
+<span class="nc" id="L205">}</span>
+
+/**
+ * Get the width of the area available for columns inside the TableView
+ */
+<span class="nc" id="L210">fun TableView&lt;*&gt;.getContentWidth() = TableView::class.java.getDeclaredField(&quot;contentWidth&quot;).let {</span>
+<span class="nc" id="L211">    it.isAccessible = true</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">    it.get(this@getContentWidth) as Double</span>
+<span class="nc" id="L213">}</span>
+
+/**
+ * Get the width of the area available for columns inside the TableView
+ */
+<span class="nc" id="L218">fun TreeTableView&lt;*&gt;.getContentWidth() = TreeTableView::class.java.getDeclaredField(&quot;contentWidth&quot;).let {</span>
+<span class="nc" id="L219">    it.isAccessible = true</span>
+<span class="nc bnc" id="L220" title="All 2 branches missed.">    it.get(this@getContentWidth) as Double</span>
+<span class="nc" id="L221">}</span>
+
+val TableView&lt;*&gt;.contentColumns: List&lt;TableColumn&lt;*, *&gt;&gt;
+<span class="nc" id="L224">    get() = columns.flatMap {</span>
+<span class="nc bnc" id="L225" title="All 2 branches missed.">        if (it.columns.isEmpty()) listOf(it) else it.columns</span>
+<span class="nc" id="L226">    }</span>
+
+val TreeTableView&lt;*&gt;.contentColumns: List&lt;TreeTableColumn&lt;*, *&gt;&gt;
+<span class="nc" id="L229">    get() = columns.flatMap {</span>
+<span class="nc bnc" id="L230" title="All 2 branches missed.">        if (it.columns.isEmpty()) listOf(it) else it.columns</span>
+<span class="nc" id="L231">    }</span>
+
+internal var TableColumn&lt;*, *&gt;.resizeType: ResizeType
+<span class="nc" id="L234">    get() = resizeTypeProperty().value</span>
+    set(value) {
+<span class="nc" id="L236">        resizeTypeProperty().value = value</span>
+<span class="nc" id="L237">    }</span>
+
+internal var TreeTableColumn&lt;*, *&gt;.resizeType: ResizeType
+<span class="nc" id="L240">    get() = resizeTypeProperty().value</span>
+    set(value) {
+<span class="nc" id="L242">        resizeTypeProperty().value = value</span>
+<span class="nc" id="L243">    }</span>
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+internal fun TableColumn&lt;*, *&gt;.resizeTypeProperty() =
+<span class="nc" id="L247">        properties.getOrPut(SmartResize.ResizeTypeKey) { SimpleObjectProperty(Content()) } as ObjectProperty&lt;ResizeType&gt;</span>
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+internal fun TreeTableColumn&lt;*, *&gt;.resizeTypeProperty() =
+<span class="nc" id="L251">        properties.getOrPut(TreeTableSmartResize.ResizeTypeKey) { SimpleObjectProperty(Content()) } as ObjectProperty&lt;ResizeType&gt;</span>
+
+<span class="nc" id="L253">fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.fixedWidth(width: Number) = apply {</span>
+<span class="nc" id="L254">    minWidth = width.toDouble()</span>
+<span class="nc" id="L255">    maxWidth = width.toDouble()</span>
+<span class="nc" id="L256">    resizeType = Fixed(width.toDouble())</span>
+<span class="nc" id="L257">}</span>
+
+<span class="nc" id="L259">fun &lt;S, T&gt; TreeTableColumn&lt;S, T&gt;.fixedWidth(width: Number) = apply {</span>
+<span class="nc" id="L260">    minWidth = width.toDouble()</span>
+<span class="nc" id="L261">    maxWidth = width.toDouble()</span>
+<span class="nc" id="L262">    resizeType = Fixed(width.toDouble())</span>
+<span class="nc" id="L263">}</span>
+
+<span class="nc" id="L265">fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.minWidth(width: Number) = apply { minWidth = width.toDouble() }</span>
+<span class="nc" id="L266">fun &lt;S, T&gt; TreeTableColumn&lt;S, T&gt;.minWidth(width: Number) = apply { minWidth = width.toDouble() }</span>
+
+<span class="nc" id="L268">fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.maxWidth(width: Number) = apply { maxWidth = width.toDouble() }</span>
+<span class="nc" id="L269">fun &lt;S, T&gt; TreeTableColumn&lt;S, T&gt;.maxWidth(width: Number) = apply { maxWidth = width.toDouble() }</span>
+
+<span class="nc" id="L271">fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.prefWidth(width: Number) = apply { prefWidth = width.toDouble() }</span>
+<span class="nc" id="L272">fun &lt;S, T&gt; TreeTableColumn&lt;S, T&gt;.prefWidth(width: Number) = apply { prefWidth = width.toDouble() }</span>
+
+<span class="nc" id="L274">fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.remainingWidth() = apply { resizeType = Remaining() }</span>
+<span class="nc" id="L275">fun &lt;S, T&gt; TreeTableColumn&lt;S, T&gt;.remainingWidth() = apply { resizeType = Remaining() }</span>
+
+<span class="nc" id="L277">fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.weightedWidth(weight: Number, padding: Double = 0.0, minContentWidth: Boolean = false) = apply {</span>
+<span class="nc" id="L278">    resizeType = Weight(weight.toDouble(), padding, minContentWidth)</span>
+<span class="nc" id="L279">}</span>
+
+<span class="nc" id="L281">fun &lt;S, T&gt; TreeTableColumn&lt;S, T&gt;.weightedWidth(weight: Number, padding: Double = 0.0, minContentWidth: Boolean = false) = apply {</span>
+<span class="nc" id="L282">    resizeType = Weight(weight.toDouble(), padding, minContentWidth)</span>
+<span class="nc" id="L283">}</span>
+
+<span class="nc" id="L285">fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.pctWidth(pct: Number) = apply {</span>
+<span class="nc" id="L286">    resizeType = Pct(pct.toDouble())</span>
+<span class="nc" id="L287">}</span>
+
+<span class="nc" id="L289">fun &lt;S, T&gt; TreeTableColumn&lt;S, T&gt;.pctWidth(pct: Number) = apply {</span>
+<span class="nc" id="L290">    resizeType = Pct(pct.toDouble())</span>
+<span class="nc" id="L291">}</span>
+
+/**
+ * Make the column fit the content plus an optional padding width. Optionally constrain the min or max width to be this width.
+ */
+<span class="nc" id="L296">fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.contentWidth(padding: Double = 0.0, useAsMin: Boolean = false, useAsMax: Boolean = false) = apply {</span>
+<span class="nc" id="L297">    resizeType = Content(padding, useAsMin, useAsMax)</span>
+<span class="nc" id="L298">}</span>
+
+/**
+ * Make the column fit the content plus an optional padding width. Optionally constrain the min or max width to be this width.
+ */
+<span class="nc" id="L303">fun &lt;S, T&gt; TreeTableColumn&lt;S, T&gt;.contentWidth(padding: Number = 0.0, useAsMin: Boolean = false, useAsMax: Boolean = false) = apply {</span>
+<span class="nc" id="L304">    resizeType = Content(padding, useAsMin, useAsMax)</span>
+<span class="nc" id="L305">}</span>
+
+internal var TornadoFXColumn&lt;*&gt;.resizeType: ResizeType
+<span class="nc" id="L308">    get() = resizeTypeProperty().value</span>
+    set(value) {
+<span class="nc" id="L310">        resizeTypeProperty().value = value</span>
+<span class="nc" id="L311">    }</span>
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+internal fun TornadoFXColumn&lt;*&gt;.resizeTypeProperty() =
+<span class="nc" id="L315">        properties.getOrPut(RESIZE_TYPE_KEY) { SimpleObjectProperty(Content()) } as ObjectProperty&lt;ResizeType&gt;</span>
+
+var TornadoFXTable&lt;*, *&gt;.isSmartResizing: Boolean
+<span class="nc" id="L318">    get() = properties[IS_SMART_RESIZING] == true</span>
+    set(value) {
+<span class="nc" id="L320">        properties[IS_SMART_RESIZING] = value</span>
+<span class="nc" id="L321">    }</span>
+
+<span class="nc" id="L323">fun &lt;S&gt; TornadoFXColumn&lt;S&gt;.fixedWidth(width: Number) = apply {</span>
+<span class="nc" id="L324">    minWidth = width.toDouble()</span>
+<span class="nc" id="L325">    maxWidth = width.toDouble()</span>
+<span class="nc" id="L326">    resizeType = Fixed(width.toDouble())</span>
+<span class="nc" id="L327">}</span>
+
+
+<span class="nc" id="L330">fun &lt;S&gt; TornadoFXColumn&lt;S&gt;.minWidth(width: Number) = apply {</span>
+<span class="nc" id="L331">    minWidth = width.toDouble()</span>
+<span class="nc" id="L332">}</span>
+
+
+<span class="nc" id="L335">fun &lt;S&gt; TornadoFXColumn&lt;S&gt;.maxWidth(width: Number) = apply {</span>
+<span class="nc" id="L336">    maxWidth = width.toDouble()</span>
+<span class="nc" id="L337">}</span>
+
+<span class="nc" id="L339">fun &lt;S&gt; TornadoFXColumn&lt;S&gt;.prefWidth(width: Number) = apply {</span>
+<span class="nc" id="L340">    prefWidth = width.toDouble()</span>
+<span class="nc" id="L341">}</span>
+
+<span class="nc" id="L343">fun &lt;S&gt; TornadoFXColumn&lt;S&gt;.remainingWidth() = apply {</span>
+<span class="nc" id="L344">    resizeType = Remaining()</span>
+<span class="nc" id="L345">}</span>
+
+<span class="nc" id="L347">fun &lt;S&gt; TornadoFXColumn&lt;S&gt;.weightedWidth(weight: Number, padding: Double = 0.0, minContentWidth: Boolean = false) = apply {</span>
+<span class="nc" id="L348">    resizeType = Weight(weight.toDouble(), padding, minContentWidth)</span>
+<span class="nc" id="L349">}</span>
+
+<span class="nc" id="L351">fun &lt;S&gt; TornadoFXColumn&lt;S&gt;.pctWidth(pct: Number) = apply {</span>
+<span class="nc" id="L352">    resizeType = Pct(pct.toDouble())</span>
+<span class="nc" id="L353">}</span>
+
+/**
+ * Make the column fit the content plus an optional padding width. Optionally constrain the min or max width to be this width.
+ */
+<span class="nc" id="L358">fun &lt;S&gt; TornadoFXColumn&lt;S&gt;.contentWidth(padding: Double = 0.0, useAsMin: Boolean = false, useAsMax: Boolean = false) = apply {</span>
+<span class="nc" id="L359">    resizeType = Content(padding, useAsMin, useAsMax)</span>
+<span class="nc" id="L360">}</span>
+
+<span class="nc" id="L362">fun &lt;S, T : Any&gt; TornadoFXTable&lt;S, T&gt;.resizeColumnsToFitContent(resizeColumns: List&lt;TornadoFXColumn&lt;S&gt;&gt; = contentColumns, maxRows: Int = 50, afterResize: () -&gt; Unit = {}) {</span>
+<span class="nc" id="L363">    when (table) {</span>
+<span class="nc bnc" id="L364" title="All 6 branches missed.">        is TableView&lt;*&gt; -&gt; (table as TableView&lt;*&gt;).resizeColumnsToFitContent(resizeColumns.map { it.column as TableColumn&lt;*, *&gt; }, maxRows, afterResize)</span>
+<span class="nc bnc" id="L365" title="All 6 branches missed.">        is TreeTableView&lt;*&gt; -&gt; (table as TreeTableView&lt;*&gt;).resizeColumnsToFitContent(resizeColumns.map { it.column as TreeTableColumn&lt;*, *&gt; }, maxRows, afterResize)</span>
+<span class="nc" id="L366">        else -&gt; throw IllegalArgumentException(&quot;Unable to resize columns for unknown table type $table&quot;)</span>
+    }
+<span class="nc" id="L368">}</span>
+
+fun &lt;TABLE : Any&gt; resizeCall(
+        param: TornadoFXResizeFeatures&lt;*, TABLE&gt;,
+        installIfNeeded: (TABLE) -&gt; Unit
+): Boolean {
+<span class="nc" id="L374">    param.table.isSmartResizing = true</span>
+<span class="nc" id="L375">    val paramColumn = param.column</span>
+<span class="nc" id="L376">    try {</span>
+<span class="nc bnc" id="L377" title="All 2 branches missed.">        if (paramColumn == null) {</span>
+<span class="nc" id="L378">            val contentWidth = param.table.contentWidth</span>
+<span class="nc bnc" id="L379" title="All 2 branches missed.">            if (contentWidth == 0.0) return false</span>
+<span class="nc" id="L380">            installIfNeeded(param.table.table)</span>
+<span class="nc" id="L381">            resizeAllColumns(param.table, contentWidth)</span>
+        } else {
+            // Handle specific column size operation
+<span class="nc" id="L384">            val rt = paramColumn.resizeType</span>
+
+<span class="nc bnc" id="L386" title="All 2 branches missed.">            if (!rt.isResizable) return false</span>
+
+<span class="nc" id="L388">            val targetWidth = paramColumn.width + param.delta</span>
+
+<span class="nc bnc" id="L390" title="All 2 branches missed.">            if (!paramColumn.isLegalWidth(targetWidth)) return false</span>
+
+            // Prepare to adjust the right column by the same amount we subtract or add to this column
+<span class="nc" id="L393">            val rightColDelta = param.delta * -1.0</span>
+<span class="nc" id="L394">            val colIndex = param.table.contentColumns.indexOf(paramColumn)</span>
+
+<span class="nc" id="L396">            val rightCol = param.table.contentColumns</span>
+<span class="nc bnc" id="L397" title="All 6 branches missed.">                    .filterIndexed { i, c -&gt; i &gt; colIndex &amp;&amp; c.resizeType.isResizable }.firstOrNull {</span>
+<span class="nc" id="L398">                        val newWidth = it.width + rightColDelta</span>
+<span class="nc bnc" id="L399" title="All 2 branches missed.">                        it.isLegalWidth(newWidth)</span>
+<span class="nc" id="L400">                    } ?: return false</span>
+
+            // Apply negative delta and set new with for the right column
+<span class="nc" id="L403">            with(rightCol) {</span>
+<span class="nc" id="L404">                resizeType.delta += rightColDelta</span>
+<span class="nc" id="L405">                prefWidth = width + rightColDelta</span>
+<span class="nc" id="L406">            }</span>
+
+            // Apply delta and set new width for the resized column
+<span class="nc" id="L409">            with(paramColumn) {</span>
+<span class="nc" id="L410">                rt.delta += param.delta</span>
+<span class="nc" id="L411">                prefWidth = width + param.delta</span>
+<span class="nc" id="L412">            }</span>
+<span class="nc" id="L413">            return true</span>
+        }
+<span class="nc" id="L415">        return true</span>
+    } finally {
+<span class="nc" id="L417">        param.table.isSmartResizing = false</span>
+    }
+}
+
+private fun &lt;COLUMN, TABLE : Any&gt; resizeAllColumns(table: TornadoFXTable&lt;COLUMN, TABLE&gt;, contentWidth: Double) {
+<span class="nc" id="L422">    fun &lt;S, T : Any&gt; List&lt;TornadoFXColumn&lt;S&gt;&gt;.adjustTo(table: TornadoFXTable&lt;S, T&gt;) = table.resizeColumnsToFitContent(this)</span>
+
+<span class="nc bnc" id="L424" title="All 2 branches missed.">    val groupedColumns = table.contentColumns.filter { it.isVisible }.groupBy { it.resizeType::class }</span>
+
+<span class="nc" id="L426">    var remainingWidth = contentWidth -</span>
+<span class="nc" id="L427">            groupedColumns.resizeFixedColumns() -</span>
+<span class="nc" id="L428">            groupedColumns.resizePreferredColumns()</span>
+
+<span class="nc bnc" id="L430" title="All 2 branches missed.">    groupedColumns[Content::class]?.adjustTo(table)</span>
+
+<span class="nc" id="L432">    remainingWidth -=</span>
+<span class="nc" id="L433">            groupedColumns.resizeContentColumns() +</span>
+<span class="nc" id="L434">            groupedColumns.resizePctColumns(contentWidth)</span>
+
+
+<span class="nc" id="L437">    val totalWeight = groupedColumns.totalWeightOfWeightedColumns() + groupedColumns.countValues(Remaining::class)</span>
+<span class="nc" id="L438">    val widthPerWeight = remainingWidth/totalWeight</span>
+
+<span class="nc" id="L440">    remainingWidth -=  groupedColumns.resizeWeightedColumns(widthPerWeight) +</span>
+<span class="nc" id="L441">            groupedColumns.resizeRemainingColumns(widthPerWeight)</span>
+
+
+<span class="nc bnc" id="L444" title="All 2 branches missed.">    if (remainingWidth &gt; 0.0) table.divideRemainingWith(remainingWidth)</span>
+<span class="nc bnc" id="L445" title="All 2 branches missed.">    else if (remainingWidth &lt; 0.0) table.takeBackOverflowedWith(remainingWidth)</span>
+<span class="nc" id="L446">}</span>
+
+<span class="nc bnc" id="L448" title="All 2 branches missed.">fun &lt;K&gt; Map&lt;K,Collection&lt;*&gt;&gt;.countValues(key: K) = this[key]?.size ?: 0</span>
+
+
+<span class="nc bnc" id="L451" title="All 2 branches missed.">private fun GroupedColumns.totalWeightOfWeightedColumns() = this[Weight::class]?.run {</span>
+<span class="nc bnc" id="L452" title="All 4 branches missed.">    map { it.resizeType as ResizeType.Weight }.sumByDouble { it.weight as Double }</span>
+<span class="nc" id="L453">} ?: 0.0</span>
+
+
+private fun GroupedColumns.resizeWeightedColumns(widthPerWeight: Double): Double {
+<span class="nc" id="L457">    var spaceNeeded = 0.0</span>
+<span class="nc bnc" id="L458" title="All 2 branches missed.">    this[Weight::class]?.forEach {</span>
+<span class="nc bnc" id="L459" title="All 2 branches missed.">        val rt = it.resizeType as ResizeType.Weight</span>
+<span class="nc bnc" id="L460" title="All 4 branches missed.">        if (rt.minContentWidth &amp;&amp; !rt.minRecorded) {</span>
+<span class="nc" id="L461">            it.minWidth = it.width + rt.padding.toDouble()</span>
+<span class="nc" id="L462">            rt.minRecorded = true</span>
+        }
+<span class="nc" id="L464">        it.prefWidth = maxOf(it.minWidth, (widthPerWeight * rt.weight.toDouble()) + rt.delta + rt.padding.toDouble())</span>
+<span class="nc" id="L465">        spaceNeeded += it.width</span>
+<span class="nc" id="L466">    }</span>
+<span class="nc" id="L467">    return spaceNeeded</span>
+}
+
+private fun GroupedColumns.resizeRemainingColumns(widthPerWeight: Double): Double {
+<span class="nc" id="L471">    var spaceNeeded = 0.0</span>
+<span class="nc bnc" id="L472" title="All 2 branches missed.">    this[Remaining::class]?.withEach{</span>
+<span class="nc" id="L473">        prefWidth = maxOf(minWidth, widthPerWeight + resizeType.delta)</span>
+<span class="nc" id="L474">        spaceNeeded += width</span>
+<span class="nc" id="L475">    }</span>
+<span class="nc" id="L476">    return spaceNeeded</span>
+}
+
+private fun &lt;TABLE : Any&gt; TornadoFXTable&lt;out Any?, TABLE&gt;.takeBackOverflowedWith(remainingWidth: Double) {
+<span class="nc" id="L480">    var stillToTake = remainingWidth</span>
+<span class="nc bnc" id="L481" title="All 2 branches missed.">    contentColumns.filter { it.resizeType.isResizable }.reduceSorted(</span>
+            // sort the column by the largest reduction potential: the gap between size and minSize
+            sorter = { minWidth - width },
+<span class="nc bnc" id="L484" title="All 2 branches missed.">            filter = { minWidth &lt; width }</span>
+    ) {
+<span class="nc" id="L486">        val reduceBy = minOf(1.0, abs(stillToTake))</span>
+<span class="nc" id="L487">        val toWidth = it.width - reduceBy</span>
+<span class="nc" id="L488">        it.prefWidth = toWidth</span>
+<span class="nc" id="L489">        stillToTake += reduceBy</span>
+
+<span class="nc bnc" id="L491" title="All 4 branches missed.">        stillToTake &lt; 0.0</span>
+    }
+<span class="nc" id="L493">}</span>
+
+private fun &lt;TABLE : Any&gt; TornadoFXTable&lt;out Any?, TABLE&gt;.divideRemainingWith(remainingWidth: Double) {
+    // Give remaining width to the right-most resizable column
+<span class="nc bnc" id="L497" title="All 2 branches missed.">    val rightMostResizable = contentColumns.lastOrNull { it.resizeType.isResizable }</span>
+<span class="nc bnc" id="L498" title="All 2 branches missed.">    rightMostResizable?.apply {</span>
+<span class="nc" id="L499">        prefWidth = width + remainingWidth</span>
+<span class="nc" id="L500">    }</span>
+<span class="nc" id="L501">}</span>
+
+private fun GroupedColumns.resizePctColumns(contentWidth: Double): Double {
+<span class="nc" id="L504">    var spaceNeeded = 0.0</span>
+<span class="nc bnc" id="L505" title="All 2 branches missed.">    this[Pct::class]?.also { pctColumn -&gt;</span>
+<span class="nc" id="L506">        val widthPerPct = contentWidth / 100.0</span>
+<span class="nc" id="L507">        pctColumn.forEach {</span>
+<span class="nc bnc" id="L508" title="All 2 branches missed.">            val rt = it.resizeType as ResizeType.Pct</span>
+<span class="nc" id="L509">            it.prefWidth = (widthPerPct * rt.value.toDouble()) + rt.delta.toDouble()</span>
+<span class="nc" id="L510">            spaceNeeded += it.width</span>
+<span class="nc" id="L511">        }</span>
+<span class="nc" id="L512">    }</span>
+<span class="nc" id="L513">    return spaceNeeded</span>
+}
+
+private fun GroupedColumns.resizeContentColumns(): Double {
+    // Content columns are resized to their content and adjusted for resize-delta that affected them
+<span class="nc" id="L518">    var spaceNeeded = 0.0</span>
+<span class="nc bnc" id="L519" title="All 2 branches missed.">    this[Content::class]?.also { contentColumns -&gt;</span>
+<span class="nc" id="L520">        contentColumns.forEach {</span>
+<span class="nc bnc" id="L521" title="All 2 branches missed.">            val rt = it.resizeType as ResizeType.Content</span>
+
+<span class="nc" id="L523">            it.prefWidth = it.width + rt.delta + rt.padding.toDouble()</span>
+
+<span class="nc bnc" id="L525" title="All 2 branches missed.">            if (rt.hasUnrecordedMin()) it.recordMinFrom(rt)</span>
+<span class="nc bnc" id="L526" title="All 2 branches missed.">            if (rt.hasUnrecordedMax()) it.recordMaxFrom(rt)</span>
+
+<span class="nc" id="L528">            spaceNeeded += it.width</span>
+<span class="nc" id="L529">        }</span>
+<span class="nc" id="L530">    }</span>
+<span class="nc" id="L531">    return spaceNeeded</span>
+}
+
+private const val DEFAULT_COLUMN_WIDTH = 80.0
+<span class="nc bnc" id="L535" title="All 4 branches missed.">private fun ResizeType.Content.hasUnrecordedMin() = !minRecorded &amp;&amp; useAsMin</span>
+private fun TornadoFXColumn&lt;*&gt;.recordMinFrom(content: ResizeType.Content) {
+<span class="nc bnc" id="L537" title="All 2 branches missed.">    if (width != DEFAULT_COLUMN_WIDTH) {</span>
+<span class="nc" id="L538">        minWidth = width</span>
+<span class="nc" id="L539">        content.minRecorded = true</span>
+    }
+<span class="nc" id="L541">}</span>
+
+<span class="nc bnc" id="L543" title="All 4 branches missed.">private fun ResizeType.Content.hasUnrecordedMax() = !maxRecorded &amp;&amp; useAsMax</span>
+private fun TornadoFXColumn&lt;*&gt;.recordMaxFrom(content: ResizeType.Content) {
+<span class="nc bnc" id="L545" title="All 2 branches missed.">    if (width != DEFAULT_COLUMN_WIDTH) {</span>
+<span class="nc" id="L546">        maxWidth = width</span>
+<span class="nc" id="L547">        content.maxRecorded = true</span>
+    }
+<span class="nc" id="L549">}</span>
+
+private fun GroupedColumns.resizePreferredColumns(): Double {
+<span class="nc" id="L552">    var spaceNeeded = 0.0</span>
+<span class="nc bnc" id="L553" title="All 2 branches missed.">    this[Pref::class]?.forEach {</span>
+<span class="nc bnc" id="L554" title="All 2 branches missed.">        val rt = it.resizeType as ResizeType.Pref</span>
+<span class="nc" id="L555">        it.prefWidth = rt.width.toDouble() + rt.delta.toDouble()</span>
+<span class="nc" id="L556">        spaceNeeded += it.width</span>
+<span class="nc" id="L557">    }</span>
+<span class="nc" id="L558">    return spaceNeeded</span>
+}
+
+
+
+private fun GroupedColumns.resizeFixedColumns(): Double {
+<span class="nc" id="L564">    var spaceNeeded = 0.0</span>
+<span class="nc bnc" id="L565" title="All 2 branches missed.">    this[Fixed::class]?.forEach {</span>
+<span class="nc bnc" id="L566" title="All 2 branches missed.">        val rt = it.resizeType as Fixed</span>
+<span class="nc" id="L567">        it.prefWidth = rt.width.toDouble()</span>
+<span class="nc" id="L568">        spaceNeeded += it.width</span>
+<span class="nc" id="L569">    }</span>
+<span class="nc" id="L570">    return spaceNeeded</span>
+}
+
+/**
+ * Removes elements from the list in a sorted way with a cycle:
+ *
+ * 1. removes elements that fail the [filter]
+ * 2. find the first sorted element with the [sorter]
+ * 3. change the state of the element with the [iteration]
+ * 4. if [iteration] returns true, start again.
+ *
+ * @return the reduced list
+ */
+private inline fun &lt;T, R : Comparable&lt;R&gt;&gt; List&lt;T&gt;.reduceSorted(
+        crossinline sorter: T.() -&gt; R,
+        noinline filter: T.() -&gt; Boolean,
+        iteration: (T) -&gt; Boolean
+): List&lt;T&gt; {
+<span class="nc" id="L588">    val removingList = asSequence().filter(filter).sortedBy(sorter).toMutableList()</span>
+<span class="nc bnc" id="L589" title="All 2 branches missed.">    while (removingList.any()) {</span>
+<span class="nc" id="L590">        val element = removingList.first()</span>
+<span class="nc bnc" id="L591" title="All 2 branches missed.">        if (!iteration(element)) break</span>
+<span class="nc bnc" id="L592" title="All 2 branches missed.">        if (!element.filter()) removingList.remove(element)</span>
+<span class="nc" id="L593">        removingList.sortBy(sorter)</span>
+    }
+<span class="nc" id="L595">    return removingList</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

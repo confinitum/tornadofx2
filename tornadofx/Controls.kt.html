@@ -1,0 +1,440 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Controls.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Controls.kt</span></div><h1>Controls.kt</h1><pre class="source lang-java linenums">@file:Suppress(&quot;UNCHECKED_CAST&quot;)
+
+package tornadofx
+
+import javafx.beans.property.ObjectProperty
+import javafx.beans.property.Property
+import javafx.beans.property.SimpleObjectProperty
+import javafx.beans.value.ObservableValue
+import javafx.collections.ObservableMap
+import javafx.event.EventTarget
+import javafx.geometry.Orientation
+import javafx.scene.Node
+import javafx.scene.control.*
+import javafx.scene.image.Image
+import javafx.scene.image.ImageView
+import javafx.scene.layout.Pane
+import javafx.scene.paint.Color
+import javafx.scene.text.Text
+import javafx.scene.text.TextFlow
+import javafx.scene.web.HTMLEditor
+import javafx.scene.web.WebView
+import javafx.util.StringConverter
+import java.time.LocalDate
+
+<span class="nc" id="L25">fun EventTarget.webview(op: WebView.() -&gt; Unit = {}) = WebView().attachTo(this, op)</span>
+
+enum class ColorPickerMode { Button, MenuButton, SplitMenuButton }
+
+fun EventTarget.colorpicker(
+<span class="nc" id="L30">        color: Color? = null,</span>
+<span class="nc" id="L31">        mode: ColorPickerMode = ColorPickerMode.Button,</span>
+<span class="nc" id="L32">        op: ColorPicker.() -&gt; Unit = {}</span>
+<span class="nc" id="L33">) = ColorPicker().attachTo(this, op) {</span>
+<span class="nc bnc" id="L34" title="All 2 branches missed.">    if (mode == ColorPickerMode.MenuButton) it.addClass(ColorPicker.STYLE_CLASS_BUTTON)</span>
+<span class="nc bnc" id="L35" title="All 2 branches missed.">    else if (mode == ColorPickerMode.SplitMenuButton) it.addClass(ColorPicker.STYLE_CLASS_SPLIT_BUTTON)</span>
+<span class="nc bnc" id="L36" title="All 2 branches missed.">    if (color != null) it.value = color</span>
+<span class="nc" id="L37">}</span>
+
+fun EventTarget.colorpicker(
+        colorProperty: ObjectProperty&lt;Color&gt;,
+<span class="nc" id="L41">        mode: ColorPickerMode = ColorPickerMode.Button,</span>
+<span class="nc" id="L42">        op: ColorPicker.() -&gt; Unit = {}</span>
+<span class="nc" id="L43">) = ColorPicker().apply { bind(colorProperty) }.attachTo(this, op) {</span>
+<span class="nc bnc" id="L44" title="All 2 branches missed.">    if (mode == ColorPickerMode.MenuButton) it.addClass(ColorPicker.STYLE_CLASS_BUTTON)</span>
+<span class="nc bnc" id="L45" title="All 2 branches missed.">    else if (mode == ColorPickerMode.SplitMenuButton) it.addClass(ColorPicker.STYLE_CLASS_SPLIT_BUTTON)</span>
+<span class="nc" id="L46">}</span>
+
+<span class="nc" id="L48">fun EventTarget.textflow(op: TextFlow.() -&gt; Unit = {}) = TextFlow().attachTo(this, op)</span>
+
+<span class="fc" id="L50">fun EventTarget.text(op: Text.() -&gt; Unit = {}) = Text().attachTo(this, op)</span>
+
+internal val EventTarget.properties: ObservableMap&lt;Any, Any&gt;
+<span class="nc" id="L53">    get() = when (this) {</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">        is Node -&gt; properties</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">        is Tab -&gt; properties</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        is MenuItem -&gt; properties</span>
+<span class="nc" id="L57">        else -&gt; throw IllegalArgumentException(&quot;Don't know how to extract properties object from $this&quot;)</span>
+<span class="nc" id="L58">    }</span>
+
+var EventTarget.tagProperty: Property&lt;Any?&gt;
+<span class="nc" id="L61">    get() = properties.getOrPut(&quot;tornadofx.value&quot;) {</span>
+<span class="nc" id="L62">        SimpleObjectProperty&lt;Any?&gt;()</span>
+<span class="nc" id="L63">    } as SimpleObjectProperty&lt;Any?&gt;</span>
+    set(value) {
+<span class="nc" id="L65">        properties[&quot;tornadofx.value&quot;] = value</span>
+<span class="nc" id="L66">    }</span>
+
+var EventTarget.tag: Any?
+<span class="nc" id="L69">    get() = tagProperty.value</span>
+    set(value) {
+<span class="nc" id="L71">        tagProperty.value = value</span>
+<span class="nc" id="L72">    }</span>
+
+@Deprecated(&quot;Properties set on the fake node would be lost. Do not use this function.&quot;, ReplaceWith(&quot;Manually adding children&quot;))
+fun children(addTo: MutableList&lt;Node&gt;, op: Pane.() -&gt; Unit) {
+<span class="nc" id="L76">    val fake = Pane().also(op)</span>
+<span class="nc" id="L77">    addTo.addAll(fake.children)</span>
+<span class="nc" id="L78">}</span>
+
+
+<span class="pc" id="L81">fun EventTarget.text(initialValue: String? = null, op: Text.() -&gt; Unit = {}) = Text().attachTo(this, op) {</span>
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">    if (initialValue != null) it.text = initialValue</span>
+<span class="fc" id="L83">}</span>
+
+<span class="nc" id="L85">fun EventTarget.text(property: Property&lt;String&gt;, op: Text.() -&gt; Unit = {}) = text().apply {</span>
+<span class="nc" id="L86">    bind(property)</span>
+<span class="nc" id="L87">    op(this)</span>
+<span class="nc" id="L88">}</span>
+
+<span class="nc" id="L90">fun EventTarget.text(observable: ObservableValue&lt;String&gt;, op: Text.() -&gt; Unit = {}) = text().apply {</span>
+<span class="nc" id="L91">    bind(observable)</span>
+<span class="nc" id="L92">    op(this)</span>
+<span class="nc" id="L93">}</span>
+
+<span class="fc" id="L95">fun EventTarget.textfield(value: String? = null, op: TextField.() -&gt; Unit = {}) = TextField().attachTo(this, op) {</span>
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">    if (value != null) it.text = value</span>
+<span class="fc" id="L97">}</span>
+
+<span class="fc" id="L99">fun EventTarget.textfield(property: ObservableValue&lt;String&gt;, op: TextField.() -&gt; Unit = {}) = textfield().apply {</span>
+<span class="fc" id="L100">    bind(property)</span>
+<span class="fc" id="L101">    op(this)</span>
+<span class="fc" id="L102">}</span>
+
+@JvmName(&quot;textfieldNumber&quot;)
+<span class="fc" id="L105">fun EventTarget.textfield(property: ObservableValue&lt;Number&gt;, op: TextField.() -&gt; Unit = {}) = textfield().apply {</span>
+<span class="fc" id="L106">    bind(property)</span>
+<span class="fc" id="L107">    op(this)</span>
+<span class="fc" id="L108">}</span>
+
+@JvmName(&quot;textfieldInt&quot;)
+<span class="nc" id="L111">fun EventTarget.textfield(property: ObservableValue&lt;Int&gt;, op: TextField.() -&gt; Unit = {}) = textfield().apply {</span>
+<span class="nc" id="L112">    bind(property)</span>
+<span class="nc" id="L113">    op(this)</span>
+<span class="nc" id="L114">}</span>
+<span class="nc" id="L115">fun EventTarget.passwordfield(value: String? = null, op: PasswordField.() -&gt; Unit = {}) = PasswordField().attachTo(this, op) {</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">    if (value != null) it.text = value</span>
+<span class="nc" id="L117">}</span>
+
+<span class="nc" id="L119">fun EventTarget.passwordfield(property: ObservableValue&lt;String&gt;, op: PasswordField.() -&gt; Unit = {}) = passwordfield().apply {</span>
+<span class="nc" id="L120">    bind(property)</span>
+<span class="nc" id="L121">    op(this)</span>
+<span class="nc" id="L122">}</span>
+
+<span class="fc" id="L124">fun &lt;T&gt; EventTarget.textfield(property: Property&lt;T&gt;, converter: StringConverter&lt;T&gt;, op: TextField.() -&gt; Unit = {}) = textfield().apply {</span>
+<span class="fc" id="L125">    textProperty().bindBidirectional(property, converter)</span>
+<span class="fc" id="L126">    ViewModel.register(textProperty(), property)</span>
+<span class="fc" id="L127">    op(this)</span>
+<span class="fc" id="L128">}</span>
+
+<span class="nc" id="L130">fun EventTarget.datepicker(op: DatePicker.() -&gt; Unit = {}) = DatePicker().attachTo(this, op)</span>
+<span class="nc" id="L131">fun EventTarget.datepicker(property: Property&lt;LocalDate&gt;, op: DatePicker.() -&gt; Unit = {}) = datepicker().apply {</span>
+<span class="nc" id="L132">    bind(property)</span>
+<span class="nc" id="L133">    op(this)</span>
+<span class="nc" id="L134">}</span>
+
+<span class="nc" id="L136">fun EventTarget.textarea(value: String? = null, op: TextArea.() -&gt; Unit = {}) = TextArea().attachTo(this, op) {</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">    if (value != null) it.text = value</span>
+<span class="nc" id="L138">}</span>
+
+<span class="nc" id="L140">fun EventTarget.textarea(property: ObservableValue&lt;String&gt;, op: TextArea.() -&gt; Unit = {}) = textarea().apply {</span>
+<span class="nc" id="L141">    bind(property)</span>
+<span class="nc" id="L142">    op(this)</span>
+<span class="nc" id="L143">}</span>
+
+<span class="nc" id="L145">fun &lt;T&gt; EventTarget.textarea(property: Property&lt;T&gt;, converter: StringConverter&lt;T&gt;, op: TextArea.() -&gt; Unit = {}) = textarea().apply {</span>
+<span class="nc" id="L146">    textProperty().bindBidirectional(property, converter)</span>
+<span class="nc" id="L147">    ViewModel.register(textProperty(), property)</span>
+<span class="nc" id="L148">    op(this)</span>
+<span class="nc" id="L149">}</span>
+
+<span class="nc" id="L151">fun EventTarget.buttonbar(buttonOrder: String? = null, op: (ButtonBar.() -&gt; Unit)) = ButtonBar().attachTo(this, op) {</span>
+<span class="nc bnc" id="L152" title="All 2 branches missed.">    if (buttonOrder != null) it.buttonOrder = buttonOrder</span>
+<span class="nc" id="L153">}</span>
+
+<span class="nc" id="L155">fun EventTarget.htmleditor(html: String? = null, op: HTMLEditor.() -&gt; Unit = {}) = HTMLEditor().attachTo(this, op) {</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">    if (html != null) it.htmlText = html</span>
+<span class="nc" id="L157">}</span>
+
+<span class="nc" id="L159">fun EventTarget.checkbox(text: String? = null, property: Property&lt;Boolean&gt;? = null, op: CheckBox.() -&gt; Unit = {}) = CheckBox(text).attachTo(this, op) {</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">    if (property != null) it.bind(property)</span>
+<span class="nc" id="L161">}</span>
+
+<span class="nc" id="L163">fun EventTarget.progressindicator(op: ProgressIndicator.() -&gt; Unit = {}) = ProgressIndicator().attachTo(this, op)</span>
+<span class="nc" id="L164">fun EventTarget.progressindicator(property: Property&lt;Number&gt;, op: ProgressIndicator.() -&gt; Unit = {}) = progressindicator().apply {</span>
+<span class="nc" id="L165">    bind(property)</span>
+<span class="nc" id="L166">    op(this)</span>
+<span class="nc" id="L167">}</span>
+
+<span class="nc" id="L169">fun EventTarget.progressbar(initialValue: Double? = null, op: ProgressBar.() -&gt; Unit = {}) = ProgressBar().attachTo(this, op) {</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">    if (initialValue != null) it.progress = initialValue</span>
+<span class="nc" id="L171">}</span>
+
+<span class="nc" id="L173">fun EventTarget.progressbar(property: ObservableValue&lt;Number&gt;, op: ProgressBar.() -&gt; Unit = {}) = progressbar().apply {</span>
+<span class="nc" id="L174">    bind(property)</span>
+<span class="nc" id="L175">    op(this)</span>
+<span class="nc" id="L176">}</span>
+
+fun EventTarget.slider(
+<span class="nc" id="L179">        min: Number? = null,</span>
+<span class="nc" id="L180">        max: Number? = null,</span>
+<span class="nc" id="L181">        value: Number? = null,</span>
+<span class="nc" id="L182">        orientation: Orientation? = null,</span>
+<span class="nc" id="L183">        op: Slider.() -&gt; Unit = {}</span>
+<span class="fc" id="L184">) = Slider().attachTo(this, op) {</span>
+<span class="pc bpc" id="L185" title="1 of 2 branches missed.">    if (min != null) it.min = min.toDouble()</span>
+<span class="pc bpc" id="L186" title="1 of 2 branches missed.">    if (max != null) it.max = max.toDouble()</span>
+<span class="pc bpc" id="L187" title="1 of 2 branches missed.">    if (value != null) it.value = value.toDouble()</span>
+<span class="pc bpc" id="L188" title="1 of 2 branches missed.">    if (orientation != null) it.orientation = orientation</span>
+<span class="fc" id="L189">}</span>
+
+fun &lt;T&gt; EventTarget.slider(
+    range: ClosedRange&lt;T&gt;,
+<span class="fc" id="L193">    value: Number? = null,</span>
+<span class="fc" id="L194">    orientation: Orientation? = null,</span>
+<span class="fc" id="L195">    op: Slider.() -&gt; Unit = {}</span>
+): Slider
+        where T : Comparable&lt;T&gt;,
+              T : Number {
+<span class="fc" id="L199">    return slider(range.start, range.endInclusive, value, orientation, op)</span>
+}
+
+
+// Buttons
+<span class="pc" id="L204">fun EventTarget.button(text: String = &quot;&quot;, graphic: Node? = null, op: Button.() -&gt; Unit = {}) = Button(text).attachTo(this, op) {</span>
+<span class="pc bpc" id="L205" title="1 of 2 branches missed.">    if (graphic != null) it.graphic = graphic</span>
+<span class="fc" id="L206">}</span>
+
+<span class="nc" id="L208">fun EventTarget.menubutton(text: String = &quot;&quot;, graphic: Node? = null, op: MenuButton.() -&gt; Unit = {}) = MenuButton(text).attachTo(this, op) {</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">    if (graphic != null) it.graphic = graphic</span>
+<span class="nc" id="L210">}</span>
+
+<span class="pc" id="L212">fun EventTarget.splitmenubutton(text: String? = null, graphic: Node? = null, op: SplitMenuButton.() -&gt; Unit = {}) = SplitMenuButton().attachTo(this, op) {</span>
+<span class="pc bpc" id="L213" title="1 of 2 branches missed.">    if (text != null) it.text = text</span>
+<span class="pc bpc" id="L214" title="1 of 2 branches missed.">    if (graphic != null) it.graphic = graphic</span>
+<span class="fc" id="L215">}</span>
+
+<span class="nc" id="L217">fun EventTarget.button(text: ObservableValue&lt;String&gt;, graphic: Node? = null, op: Button.() -&gt; Unit = {}) = Button().attachTo(this, op) {</span>
+<span class="nc" id="L218">    it.textProperty().bind(text)</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">    if (graphic != null) it.graphic = graphic</span>
+<span class="nc" id="L220">}</span>
+
+<span class="nc" id="L222">fun ToolBar.button(text: String = &quot;&quot;, graphic: Node? = null, op: Button.() -&gt; Unit = {}) = Button(text).also {</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">    if (graphic != null) it.graphic = graphic</span>
+<span class="nc" id="L224">    items += it</span>
+<span class="nc" id="L225">    op(it)</span>
+<span class="nc" id="L226">}</span>
+
+<span class="nc" id="L228">fun ToolBar.button(text: ObservableValue&lt;String&gt;, graphic: Node? = null, op: Button.() -&gt; Unit = {}) = Button().also {</span>
+<span class="nc" id="L229">    it.textProperty().bind(text)</span>
+<span class="nc bnc" id="L230" title="All 2 branches missed.">    if (graphic != null) it.graphic = graphic</span>
+<span class="nc" id="L231">    items += it</span>
+<span class="nc" id="L232">    op(it)</span>
+<span class="nc" id="L233">}</span>
+
+<span class="nc" id="L235">fun ButtonBar.button(text: String = &quot;&quot;, type: ButtonBar.ButtonData? = null, graphic: Node? = null, op: Button.() -&gt; Unit = {}) = Button(text).also {</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">    if (type != null) ButtonBar.setButtonData(it, type)</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">    if (graphic != null) it.graphic = graphic</span>
+<span class="nc" id="L238">    buttons += it</span>
+<span class="nc" id="L239">    op(it)</span>
+<span class="nc" id="L240">}</span>
+
+<span class="nc" id="L242">fun ButtonBar.button(text: ObservableValue&lt;String&gt;, type: ButtonBar.ButtonData? = null, graphic: Node? = null, op: Button.() -&gt; Unit = {}) = Button().also {</span>
+<span class="nc" id="L243">    it.textProperty().bind(text)</span>
+<span class="nc bnc" id="L244" title="All 2 branches missed.">    if (type != null) ButtonBar.setButtonData(it, type)</span>
+<span class="nc bnc" id="L245" title="All 2 branches missed.">    if (graphic != null) it.graphic = graphic</span>
+<span class="nc" id="L246">    buttons += it</span>
+<span class="nc" id="L247">    op(it)</span>
+<span class="nc" id="L248">}</span>
+
+<span class="nc" id="L250">fun Node.togglegroup(property: ObservableValue&lt;Any&gt;? = null, op: ToggleGroup.() -&gt; Unit = {}) = ToggleGroup().also {tg -&gt;</span>
+<span class="nc" id="L251">    properties[&quot;tornadofx.togglegroup&quot;] = tg</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">    property?.let { tg.bind(it) }</span>
+<span class="nc" id="L253">    op(tg)</span>
+<span class="nc" id="L254">}</span>
+
+/**
+ * Bind the selectedValueProperty of this toggle group to the given property. Passing in a writeable value
+ * will result in a bidirectional binding, while passing in a read only value will result in a unidirectional binding.
+ *
+ * If the toggles are configured with the value parameter (@see #togglebutton and #radiogroup), the corresponding
+ * button will be selected when the value is changed. Likewise, if the selected toggle is changed,
+ * the property value will be updated if it is writeable.
+ */
+<span class="nc" id="L264">fun &lt;T&gt; ToggleGroup.bind(property: ObservableValue&lt;T&gt;) = selectedValueProperty&lt;T&gt;().apply {</span>
+<span class="nc bnc" id="L265" title="All 6 branches missed.">    (property as? Property&lt;T&gt;)?.also { bindBidirectional(it) }</span>
+<span class="nc" id="L266">            ?: bind(property)</span>
+<span class="nc" id="L267">}</span>
+
+/**
+ * Generates a writable property that represents the selected value for this toggele group.
+ * If the toggles are configured with a value (@see #togglebutton and #radiogroup) the corresponding
+ * toggle will be selected when this value is changed. Likewise, if the toggle is changed by clicking
+ * it, the value for the toggle will be written to this property.
+ *
+ * To bind to this property, use the #ToggleGroup.bind() function.
+ */
+<span class="nc" id="L277">fun &lt;T&gt; ToggleGroup.selectedValueProperty(): ObjectProperty&lt;T&gt; = properties.getOrPut(&quot;tornadofx.selectedValueProperty&quot;) {</span>
+<span class="nc" id="L278">    SimpleObjectProperty&lt;T&gt;().apply {</span>
+<span class="nc" id="L279">        selectedToggleProperty().onChange {</span>
+<span class="nc bnc" id="L280" title="All 4 branches missed.">            value = it?.properties?.get(&quot;tornadofx.toggleGroupValue&quot;) as T?</span>
+<span class="nc" id="L281">        }</span>
+<span class="nc" id="L282">        onChange { selectedValue -&gt;</span>
+<span class="nc bnc" id="L283" title="All 4 branches missed.">            selectToggle(toggles.find { it.properties[&quot;tornadofx.toggleGroupValue&quot;] == selectedValue })</span>
+<span class="nc" id="L284">        }</span>
+<span class="nc" id="L285">    }</span>
+<span class="nc" id="L286">} as ObjectProperty&lt;T&gt;</span>
+
+/**
+ * Create a togglebutton inside the current or given toggle group. The optional value parameter will be matched against
+ * the extension property `selectedValueProperty()` on Toggle Group. If the #ToggleGroup.selectedValueProperty is used,
+ * it's value will be updated to reflect the value for this radio button when it's selected.
+ *
+ * Likewise, if the `selectedValueProperty` of the ToggleGroup is updated to a value that matches the value for this
+ * togglebutton, it will be automatically selected.
+ */
+fun EventTarget.togglebutton(
+<span class="nc" id="L297">        text: String? = null,</span>
+<span class="nc" id="L298">        group: ToggleGroup? = getToggleGroup(),</span>
+<span class="nc" id="L299">        selectFirst: Boolean = true,</span>
+<span class="nc" id="L300">        value: Any? = null,</span>
+<span class="nc" id="L301">        op: ToggleButton.() -&gt; Unit = {}</span>
+<span class="nc" id="L302">) = ToggleButton().attachTo(this, op) {</span>
+<span class="nc bnc" id="L303" title="All 6 branches missed.">    it.text = if (value != null &amp;&amp; text == null) value.toString() else text ?: &quot;&quot;</span>
+<span class="nc bnc" id="L304" title="All 2 branches missed.">    it.properties[&quot;tornadofx.toggleGroupValue&quot;] = value ?: text</span>
+<span class="nc bnc" id="L305" title="All 2 branches missed.">    if (group != null) it.toggleGroup = group</span>
+<span class="nc bnc" id="L306" title="All 6 branches missed.">    if (it.toggleGroup?.selectedToggle == null &amp;&amp; selectFirst) it.isSelected = true</span>
+<span class="nc" id="L307">}</span>
+
+fun EventTarget.togglebutton(
+<span class="nc" id="L310">        text: ObservableValue&lt;String&gt;? = null,</span>
+<span class="nc" id="L311">        group: ToggleGroup? = getToggleGroup(),</span>
+<span class="nc" id="L312">        selectFirst: Boolean = true,</span>
+<span class="nc" id="L313">        value: Any? = null,</span>
+<span class="nc" id="L314">        op: ToggleButton.() -&gt; Unit = {}</span>
+<span class="nc" id="L315">) = ToggleButton().attachTo(this, op) {</span>
+<span class="nc" id="L316">    it.textProperty().bind(text)</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">    it.properties[&quot;tornadofx.toggleGroupValue&quot;] = value ?: text</span>
+<span class="nc bnc" id="L318" title="All 2 branches missed.">    if (group != null) it.toggleGroup = group</span>
+<span class="nc bnc" id="L319" title="All 6 branches missed.">    if (it.toggleGroup?.selectedToggle == null &amp;&amp; selectFirst) it.isSelected = true</span>
+<span class="nc" id="L320">}</span>
+
+fun EventTarget.togglebutton(
+<span class="nc" id="L323">        group: ToggleGroup? = getToggleGroup(),</span>
+<span class="nc" id="L324">        selectFirst: Boolean = true,</span>
+<span class="nc" id="L325">        value: Any? = null,</span>
+<span class="nc" id="L326">        op: ToggleButton.() -&gt; Unit = {}</span>
+<span class="nc" id="L327">) = ToggleButton().attachTo(this, op) {</span>
+<span class="nc" id="L328">    it.properties[&quot;tornadofx.toggleGroupValue&quot;] = value</span>
+<span class="nc bnc" id="L329" title="All 2 branches missed.">    if (group != null) it.toggleGroup = group</span>
+<span class="nc bnc" id="L330" title="All 6 branches missed.">    if (it.toggleGroup?.selectedToggle == null &amp;&amp; selectFirst) it.isSelected = true</span>
+<span class="nc" id="L331">}</span>
+
+fun ToggleButton.whenSelected(op: () -&gt; Unit) {
+<span class="nc bnc" id="L334" title="All 2 branches missed.">    selectedProperty().onChange { if (it) op() }</span>
+<span class="nc" id="L335">}</span>
+
+/**
+ * Create a radiobutton inside the current or given toggle group. The optional value parameter will be matched against
+ * the extension property `selectedValueProperty()` on Toggle Group. If the #ToggleGroup.selectedValueProperty is used,
+ * it's value will be updated to reflect the value for this radio button when it's selected.
+ *
+ * Likewise, if the `selectedValueProperty` of the ToggleGroup is updated to a value that matches the value for this
+ * radiobutton, it will be automatically selected.
+ */
+fun EventTarget.radiobutton(
+<span class="nc" id="L346">        text: String? = null,</span>
+<span class="nc" id="L347">        group: ToggleGroup? = getToggleGroup(),</span>
+<span class="nc" id="L348">        value: Any? = null,</span>
+<span class="nc" id="L349">        op: RadioButton.() -&gt; Unit = {}</span>
+<span class="nc" id="L350">) = RadioButton().attachTo(this, op) {</span>
+<span class="nc bnc" id="L351" title="All 6 branches missed.">    it.text = if (value != null &amp;&amp; text == null) value.toString() else text ?: &quot;&quot;</span>
+<span class="nc bnc" id="L352" title="All 2 branches missed.">    it.properties[&quot;tornadofx.toggleGroupValue&quot;] = value ?: text</span>
+<span class="nc bnc" id="L353" title="All 2 branches missed.">    if (group != null) it.toggleGroup = group</span>
+<span class="nc" id="L354">}</span>
+
+<span class="fc" id="L356">fun EventTarget.label(text: String = &quot;&quot;, graphic: Node? = null, op: Label.() -&gt; Unit = {}) = Label(text).attachTo(this, op) {</span>
+<span class="pc bpc" id="L357" title="1 of 2 branches missed.">    if (graphic != null) it.graphic = graphic</span>
+<span class="fc" id="L358">}</span>
+
+inline fun &lt;reified T&gt; EventTarget.label(
+        observable: ObservableValue&lt;T&gt;,
+<span class="nc bnc" id="L362" title="All 2 branches missed.">        graphicProperty: ObservableValue&lt;Node&gt;? = null,</span>
+<span class="nc bnc" id="L363" title="All 2 branches missed.">        converter: StringConverter&lt;in T&gt;? = null,</span>
+<span class="nc" id="L364">        noinline op: Label.() -&gt; Unit = {}</span>
+<span class="nc" id="L365">) = label().apply {</span>
+<span class="nc bnc" id="L366" title="All 2 branches missed.">    if (converter == null) {</span>
+<span class="nc bnc" id="L367" title="All 2 branches missed.">        if (T::class == String::class) {</span>
+            @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc" id="L369">            textProperty().bind(observable as ObservableValue&lt;String&gt;)</span>
+        } else {
+<span class="nc bnc" id="L371" title="All 2 branches missed.">            textProperty().bind(observable.stringBinding { it?.toString() })</span>
+<span class="nc" id="L372">        }</span>
+    } else {
+<span class="nc" id="L374">        textProperty().bind(observable.stringBinding { converter.toString(it) })</span>
+    }
+<span class="nc bnc" id="L376" title="All 2 branches missed.">    if (graphic != null) graphicProperty().bind(graphicProperty)</span>
+<span class="nc" id="L377">    op(this)</span>
+<span class="nc" id="L378">}</span>
+
+<span class="nc" id="L380">fun EventTarget.hyperlink(text: String = &quot;&quot;, graphic: Node? = null, op: Hyperlink.() -&gt; Unit = {}) = Hyperlink(text, graphic).attachTo(this, op)</span>
+<span class="nc" id="L381">fun EventTarget.hyperlink(observable: ObservableValue&lt;String&gt;, graphic: Node? = null, op: Hyperlink.() -&gt; Unit = {}) = hyperlink(graphic = graphic).apply {</span>
+<span class="nc" id="L382">    bind(observable)</span>
+<span class="nc" id="L383">    op(this)</span>
+<span class="nc" id="L384">}</span>
+
+<span class="nc" id="L386">fun EventTarget.menubar(op: MenuBar.() -&gt; Unit = {}) = MenuBar().attachTo(this, op)</span>
+
+<span class="nc" id="L388">fun EventTarget.imageview(url: String? = null, lazyload: Boolean = true, op: ImageView.() -&gt; Unit = {}) =</span>
+<span class="nc bnc" id="L389" title="All 2 branches missed.">        opcr(this, if (url == null) ImageView() else ImageView(Image(url, lazyload)), op)</span>
+
+fun EventTarget.imageview(
+        url: ObservableValue&lt;String&gt;,
+<span class="fc" id="L393">        lazyload: Boolean = true,</span>
+<span class="fc" id="L394">        op: ImageView.() -&gt; Unit = {}</span>
+<span class="fc" id="L395">) = ImageView().attachTo(this, op) { imageView -&gt;</span>
+<span class="fc bfc" id="L396" title="All 2 branches covered.">    imageView.imageProperty().bind(objectBinding(url) { value?.let { Image(it, lazyload) } })</span>
+<span class="fc" id="L397">}</span>
+
+<span class="nc" id="L399">fun EventTarget.imageview(image: ObservableValue&lt;Image?&gt;, op: ImageView.() -&gt; Unit = {}) = ImageView().attachTo(this, op) {</span>
+<span class="nc" id="L400">    it.imageProperty().bind(image)</span>
+<span class="nc" id="L401">}</span>
+
+<span class="nc" id="L403">fun EventTarget.imageview(image: Image, op: ImageView.() -&gt; Unit = {}) = ImageView(image).attachTo(this, op)</span>
+
+/**
+ * Listen to changes and update the value of the property if the given mutator results in a different value
+ */
+<span class="nc" id="L408">fun &lt;T : Any?&gt; Property&lt;T&gt;.mutateOnChange(mutator: (T?) -&gt; T?) = onChange {</span>
+<span class="nc" id="L409">    val changed = mutator(value)</span>
+<span class="nc bnc" id="L410" title="All 2 branches missed.">    if (changed != value) value = changed</span>
+<span class="nc" id="L411">}</span>
+
+/**
+ * Remove leading or trailing whitespace from a Text Input Control.
+ */
+<span class="nc" id="L416">fun TextInputControl.trimWhitespace() = focusedProperty().onChange { focused -&gt;</span>
+<span class="nc bnc" id="L417" title="All 6 branches missed.">    if (!focused &amp;&amp; text != null) text = text.trim()</span>
+<span class="nc" id="L418">}</span>
+
+/**
+ * Remove any whitespace from a Text Input Control.
+ */
+<span class="nc bnc" id="L423" title="All 2 branches missed.">fun TextInputControl.stripWhitespace() = textProperty().mutateOnChange { it?.replace(Regex(&quot;\\s*&quot;), &quot;&quot;) }</span>
+
+/**
+ * Remove any non integer values from a Text Input Control.
+ */
+<span class="nc bnc" id="L428" title="All 2 branches missed.">fun TextInputControl.stripNonInteger() = textProperty().mutateOnChange { it?.replace(Regex(&quot;[^0-9-]&quot;), &quot;&quot;) }</span>
+
+/**
+ * Remove any non integer values from a Text Input Control.
+ */
+<span class="nc" id="L433">fun TextInputControl.stripNonNumeric(vararg allowedChars: String = arrayOf(&quot;.&quot;, &quot;,&quot;, &quot;-&quot;)) =</span>
+<span class="nc bnc" id="L434" title="All 2 branches missed.">        textProperty().mutateOnChange { it?.replace(Regex(&quot;[^0-9${allowedChars.joinToString(&quot;&quot;)}]&quot;), &quot;&quot;) }</span>
+
+<span class="nc" id="L436">fun ChoiceBox&lt;*&gt;.action(op: () -&gt; Unit) = setOnAction { op() }</span>
+<span class="nc" id="L437">fun ButtonBase.action(op: () -&gt; Unit) = setOnAction { op() }</span>
+<span class="nc" id="L438">fun TextField.action(op: () -&gt; Unit) = setOnAction { op() }</span>
+<span class="nc" id="L439">fun MenuItem.action(op: () -&gt; Unit) = setOnAction { op() }</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

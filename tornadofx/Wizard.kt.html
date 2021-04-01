@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Wizard.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Wizard.kt</span></div><h1>Wizard.kt</h1><pre class="source lang-java linenums">@file:Suppress(&quot;unused&quot;)
+
+package tornadofx
+
+import javafx.application.Platform
+import javafx.beans.binding.BooleanExpression
+import javafx.beans.property.BooleanProperty
+import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.property.SimpleObjectProperty
+import javafx.beans.property.SimpleStringProperty
+import javafx.collections.FXCollections
+import javafx.collections.ObservableList
+import javafx.scene.Node
+import javafx.scene.control.ButtonBar
+import javafx.scene.control.TextArea
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
+import javafx.scene.layout.BorderStrokeStyle
+import javafx.scene.paint.Color
+import javafx.scene.text.FontWeight
+import java.util.*
+
+<span class="nc" id="L23">abstract class Wizard @JvmOverloads constructor(title: String? = null, heading: String? = null) : View(title) {</span>
+<span class="nc" id="L24">    private val wizardBundle: ResourceBundle = ResourceBundle.getBundle(&quot;tornadofx/i18n/Wizard&quot;)</span>
+
+<span class="nc" id="L26">    val pages: ObservableList&lt;UIComponent&gt; = FXCollections.observableArrayList&lt;UIComponent&gt;()</span>
+
+<span class="nc" id="L28">    val currentPageProperty = SimpleObjectProperty&lt;UIComponent&gt;()</span>
+<span class="nc" id="L29">    var currentPage: UIComponent by currentPageProperty</span>
+
+<span class="nc" id="L31">    val enterProgressesProperty: BooleanProperty = SimpleBooleanProperty(false)</span>
+<span class="nc" id="L32">    var enterProgresses by enterProgressesProperty</span>
+
+<span class="nc bnc" id="L34" title="All 4 branches missed.">    val hasNext = booleanBinding(currentPageProperty, pages) { value != null &amp;&amp; pages.indexOf(value) &lt; pages.size - 1 }</span>
+<span class="nc bnc" id="L35" title="All 4 branches missed.">    val hasPrevious = booleanBinding(currentPageProperty, pages) { value != null &amp;&amp; pages.indexOf(value) &gt; 0 }</span>
+<span class="nc" id="L36">    val allPagesComplete: BooleanExpression get() = booleanListBinding(pages) { complete }</span>
+
+<span class="nc" id="L38">    val currentPageComplete: BooleanExpression = SimpleBooleanProperty(false)</span>
+
+<span class="nc" id="L40">    override val complete = SimpleBooleanProperty(false)</span>
+
+<span class="nc" id="L42">    open val canFinish: BooleanExpression = SimpleBooleanProperty(true)</span>
+<span class="nc" id="L43">    open val canGoNext: BooleanExpression = hasNext</span>
+<span class="nc" id="L44">    open val canGoBack: BooleanExpression = hasPrevious</span>
+
+<span class="nc" id="L46">    val stepsTextProperty = SimpleStringProperty(wizardBundle[&quot;steps&quot;])</span>
+<span class="nc" id="L47">    val backButtonTextProperty = SimpleStringProperty(wizardBundle[&quot;back&quot;])</span>
+<span class="nc" id="L48">    val nextButtonTextProperty = SimpleStringProperty(wizardBundle[&quot;next&quot;])</span>
+<span class="nc" id="L49">    val finishButtonTextProperty = SimpleStringProperty(wizardBundle[&quot;finish&quot;])</span>
+<span class="nc" id="L50">    val cancelButtonTextProperty = SimpleStringProperty(wizardBundle[&quot;cancel&quot;])</span>
+
+<span class="nc" id="L52">    val showStepsHeaderProperty = SimpleBooleanProperty(true)</span>
+<span class="nc" id="L53">    var showStepsHeader by showStepsHeaderProperty</span>
+
+<span class="nc" id="L55">    val stepLinksCommitsProperty = SimpleBooleanProperty(true)</span>
+<span class="nc" id="L56">    var stepLinksCommits by stepLinksCommitsProperty</span>
+
+<span class="nc" id="L58">    val showStepsProperty = SimpleBooleanProperty(true)</span>
+<span class="nc" id="L59">    var showSteps by showStepsProperty</span>
+
+<span class="nc" id="L61">    val numberedStepsProperty = SimpleBooleanProperty(true)</span>
+<span class="nc" id="L62">    var numberedSteps by numberedStepsProperty</span>
+
+<span class="nc" id="L64">    val enableStepLinksProperty = SimpleBooleanProperty(false)</span>
+<span class="nc" id="L65">    var enableStepLinks by enableStepLinksProperty</span>
+
+<span class="nc" id="L67">    val showHeaderProperty = SimpleBooleanProperty(true)</span>
+<span class="nc" id="L68">    var showHeader by showHeaderProperty</span>
+
+<span class="nc" id="L70">    val graphicProperty = SimpleObjectProperty&lt;Node&gt;()</span>
+<span class="nc" id="L71">    var graphic: Node by graphicProperty</span>
+
+<span class="nc" id="L73">    open fun getNextPage() = pages.indexOf(currentPage) + 1</span>
+<span class="nc" id="L74">    open fun getPreviousPage() = pages.indexOf(currentPage) - 1</span>
+
+    open fun onCancel() {
+<span class="nc" id="L77">        cancel()</span>
+<span class="nc" id="L78">    }</span>
+
+    fun cancel() {
+<span class="nc" id="L81">        close()</span>
+<span class="nc" id="L82">    }</span>
+
+    fun next() {
+<span class="nc" id="L85">        currentPage.onSave()</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        if (currentPage.isComplete) {</span>
+<span class="nc" id="L87">            currentPage = pages[getNextPage()]</span>
+        }
+<span class="nc" id="L89">    }</span>
+
+    fun back() {
+<span class="nc" id="L92">        currentPage = pages[getPreviousPage()]</span>
+<span class="nc" id="L93">    }</span>
+
+<span class="nc" id="L95">    override val root = borderpane {</span>
+<span class="nc" id="L96">        addClass(WizardStyles.wizard)</span>
+<span class="nc" id="L97">        top {</span>
+<span class="nc" id="L98">            hbox {</span>
+<span class="nc" id="L99">                addClass(WizardStyles.header)</span>
+<span class="nc" id="L100">                removeWhen(showHeaderProperty.not())</span>
+<span class="nc" id="L101">                vbox(5) {</span>
+<span class="nc" id="L102">                    label(titleProperty)</span>
+<span class="nc" id="L103">                    label(headingProperty) {</span>
+<span class="nc" id="L104">                        addClass(WizardStyles.heading)</span>
+<span class="nc" id="L105">                        visibleWhen(titleProperty.isEqualTo(headingProperty).not())</span>
+<span class="nc" id="L106">                    }</span>
+<span class="nc" id="L107">                }</span>
+<span class="nc" id="L108">                spacer()</span>
+<span class="nc" id="L109">                label {</span>
+<span class="nc" id="L110">                    addClass(WizardStyles.graphic)</span>
+<span class="nc" id="L111">                    graphicProperty().bind(this@Wizard.graphicProperty)</span>
+<span class="nc" id="L112">                }</span>
+<span class="nc" id="L113">            }</span>
+<span class="nc" id="L114">        }</span>
+<span class="nc" id="L115">        center {</span>
+<span class="nc" id="L116">            stackpane {</span>
+<span class="nc" id="L117">                addClass(WizardStyles.content)</span>
+<span class="nc" id="L118">                bindChildren(pages) { page -&gt;</span>
+<span class="nc" id="L119">                    val isPageActive = currentPageProperty.isEqualTo(page)</span>
+<span class="nc" id="L120">                    page.root.apply {</span>
+<span class="nc" id="L121">                        visibleWhen { isPageActive }</span>
+<span class="nc" id="L122">                    }</span>
+                }
+<span class="nc" id="L124">            }</span>
+<span class="nc" id="L125">        }</span>
+<span class="nc" id="L126">        left {</span>
+<span class="nc" id="L127">            vbox {</span>
+<span class="nc" id="L128">                addClass(WizardStyles.stepInfo)</span>
+<span class="nc" id="L129">                removeWhen { showStepsProperty.not() }</span>
+<span class="nc" id="L130">                label(stepsTextProperty) {</span>
+<span class="nc" id="L131">                    addClass(WizardStyles.stepsHeading)</span>
+<span class="nc" id="L132">                    removeWhen { showStepsHeaderProperty.not() }</span>
+<span class="nc" id="L133">                }</span>
+<span class="nc" id="L134">                vbox(5) {</span>
+<span class="nc" id="L135">                    bindChildren(pages) { page -&gt;</span>
+<span class="nc" id="L136">                        val isPageActive = currentPageProperty.isEqualTo(page)</span>
+
+<span class="nc" id="L138">                        hyperlink(&quot;&quot;) {</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">                            textProperty().bind(stringBinding(numberedStepsProperty) { &quot;${if (numberedSteps) (pages.indexOf(page) + 1).toString() + &quot;. &quot; else &quot;&quot;}${page.title}&quot; })</span>
+<span class="nc" id="L140">                            toggleClass(WizardStyles.bold, isPageActive)</span>
+<span class="nc" id="L141">                            action {</span>
+<span class="nc bnc" id="L142" title="All 4 branches missed.">                                if (stepLinksCommits &amp;&amp; pages.indexOf(page) &gt; pages.indexOf(currentPage)) {</span>
+<span class="nc" id="L143">                                    currentPage.onSave()</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">                                    if (currentPage.isComplete) currentPage = page</span>
+                                } else {
+<span class="nc" id="L146">                                    currentPage = page</span>
+                                }
+<span class="nc" id="L148">                            }</span>
+<span class="nc" id="L149">                            enableWhen { enableStepLinksProperty }</span>
+<span class="nc" id="L150">                        }</span>
+                    }
+<span class="nc" id="L152">                }</span>
+<span class="nc" id="L153">            }</span>
+<span class="nc" id="L154">        }</span>
+<span class="nc" id="L155">        bottom {</span>
+<span class="nc" id="L156">            buttonbar {</span>
+<span class="nc" id="L157">                addClass(WizardStyles.buttons)</span>
+<span class="nc" id="L158">                button(type = ButtonBar.ButtonData.BACK_PREVIOUS) {</span>
+<span class="nc" id="L159">                    textProperty().bind(backButtonTextProperty)</span>
+<span class="nc" id="L160">                    runLater {</span>
+<span class="nc" id="L161">                        enableWhen(canGoBack)</span>
+<span class="nc" id="L162">                    }</span>
+<span class="nc" id="L163">                    action { back() }</span>
+<span class="nc" id="L164">                }</span>
+<span class="nc" id="L165">                button(type = ButtonBar.ButtonData.NEXT_FORWARD) {</span>
+<span class="nc" id="L166">                    textProperty().bind(nextButtonTextProperty)</span>
+<span class="nc" id="L167">                    runLater {</span>
+<span class="nc" id="L168">                        enableWhen(canGoNext.and(hasNext).and(currentPageComplete))</span>
+<span class="nc" id="L169">                    }</span>
+<span class="nc" id="L170">                    action { next() }</span>
+<span class="nc" id="L171">                }</span>
+<span class="nc" id="L172">                button(type = ButtonBar.ButtonData.CANCEL_CLOSE) {</span>
+<span class="nc" id="L173">                    textProperty().bind(cancelButtonTextProperty)</span>
+<span class="nc" id="L174">                    action { onCancel() }</span>
+<span class="nc" id="L175">                }</span>
+<span class="nc" id="L176">                button(type = ButtonBar.ButtonData.FINISH) {</span>
+<span class="nc" id="L177">                    textProperty().bind(finishButtonTextProperty)</span>
+<span class="nc" id="L178">                    runLater {</span>
+<span class="nc" id="L179">                        enableWhen(canFinish)</span>
+<span class="nc" id="L180">                    }</span>
+<span class="nc" id="L181">                    action {</span>
+<span class="nc" id="L182">                        currentPage.onSave()</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">                        if (currentPage.isComplete) {</span>
+<span class="nc" id="L184">                            onSave()</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">                            if (isComplete) close()</span>
+                        }
+<span class="nc" id="L187">                    }</span>
+<span class="nc" id="L188">                }</span>
+<span class="nc" id="L189">            }</span>
+<span class="nc" id="L190">        }</span>
+<span class="nc" id="L191">    }</span>
+
+<span class="nc" id="L193">    private val completeListeners = mutableListOf&lt;() -&gt; Unit&gt;()</span>
+
+    fun onComplete(resultListener: () -&gt; Unit) {
+<span class="nc" id="L196">        completeListeners.add(resultListener)</span>
+<span class="nc" id="L197">    }</span>
+
+    fun onComplete(resultListener: Runnable) {
+<span class="nc" id="L200">        completeListeners.add({ resultListener.run() })</span>
+<span class="nc" id="L201">    }</span>
+
+    override fun onSave() {
+<span class="nc" id="L204">        super.onSave()</span>
+<span class="nc" id="L205">        isComplete = true</span>
+<span class="nc" id="L206">    }</span>
+
+<span class="nc" id="L208">    init {</span>
+<span class="nc" id="L209">        importStylesheet&lt;WizardStyles&gt;()</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">        this.heading = heading ?: &quot;&quot;</span>
+<span class="nc" id="L211">        currentPageProperty.addListener { _, oldPage, newPage -&gt;</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">            if (newPage != null) {</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">                (currentPageComplete as BooleanProperty).bind(newPage.complete)</span>
+<span class="nc" id="L214">                Platform.runLater {</span>
+<span class="nc bnc" id="L215" title="All 6 branches missed.">                    newPage.root.lookupAll(&quot;*&quot;).find { it.isFocusTraversable }?.requestFocus()</span>
+<span class="nc" id="L216">                    newPage.callOnDock()</span>
+<span class="nc" id="L217">                }</span>
+            }
+<span class="nc bnc" id="L219" title="All 2 branches missed.">            oldPage?.callOnUndock()</span>
+<span class="nc" id="L220">        }</span>
+
+<span class="nc" id="L222">        runLater {</span>
+            // For when the instance is created
+<span class="nc bnc" id="L224" title="All 2 branches missed.">            currentStage?.setOnCloseRequest {</span>
+<span class="nc" id="L225">                it.consume()</span>
+<span class="nc" id="L226">                onCancel()</span>
+<span class="nc" id="L227">            }</span>
+            // For when the instance is reused and the stage is changed
+<span class="nc" id="L229">            root.sceneProperty().select { it.windowProperty() }.onChange {</span>
+<span class="nc bnc" id="L230" title="All 2 branches missed.">                it?.setOnCloseRequest {</span>
+<span class="nc" id="L231">                    it.consume()</span>
+<span class="nc" id="L232">                    onCancel()</span>
+<span class="nc" id="L233">                }</span>
+<span class="nc" id="L234">            }</span>
+<span class="nc" id="L235">        }</span>
+<span class="nc" id="L236">    }</span>
+
+    override fun onDock() {
+<span class="nc" id="L239">        complete.onChange {</span>
+<span class="nc bnc" id="L240" title="All 2 branches missed.">            if (it) completeListeners.withEach { this() }</span>
+<span class="nc" id="L241">        }</span>
+
+        // Enter completes current page and goes to next, finishes on last
+<span class="nc" id="L244">        root.addEventFilter(KeyEvent.KEY_PRESSED) {</span>
+<span class="nc bnc" id="L245" title="All 4 branches missed.">            if (enterProgresses &amp;&amp; it.code == KeyCode.ENTER) {</span>
+<span class="nc bnc" id="L246" title="All 4 branches missed.">                if (it.target is TextArea &amp;&amp; !it.isControlDown) return@addEventFilter</span>
+
+<span class="nc bnc" id="L248" title="All 2 branches missed.">                if (allPagesComplete.value) {</span>
+<span class="nc" id="L249">                    currentPage.onSave()</span>
+<span class="nc" id="L250">                    onSave()</span>
+<span class="nc" id="L251">                    close()</span>
+<span class="nc bnc" id="L252" title="All 4 branches missed.">                } else if (currentPageComplete.value &amp;&amp; canGoNext.value) {</span>
+<span class="nc" id="L253">                    next()</span>
+                }
+            }
+<span class="nc" id="L256">        }</span>
+<span class="nc" id="L257">    }</span>
+}
+
+<span class="nc" id="L260">class WizardStyles : Stylesheet() {</span>
+    companion object {
+<span class="nc" id="L262">        val wizard by cssclass()</span>
+<span class="nc" id="L263">        val header by cssclass()</span>
+<span class="nc" id="L264">        val stepInfo by cssclass()</span>
+<span class="nc" id="L265">        val stepsHeading by cssclass()</span>
+<span class="nc" id="L266">        val heading by cssclass()</span>
+<span class="nc" id="L267">        val graphic by cssclass()</span>
+<span class="nc" id="L268">        val content by cssclass()</span>
+<span class="nc" id="L269">        val buttons by cssclass()</span>
+<span class="nc" id="L270">        val bold by cssclass()</span>
+    }
+
+<span class="nc" id="L273">    init {</span>
+<span class="nc" id="L274">        wizard {</span>
+<span class="nc" id="L275">            hyperlink {</span>
+<span class="nc" id="L276">                borderStyle += BorderStrokeStyle.NONE</span>
+<span class="nc" id="L277">                borderWidth += box(0.px)</span>
+<span class="nc" id="L278">                underline = false</span>
+<span class="nc" id="L279">            }</span>
+<span class="nc" id="L280">            hyperlink and visited {</span>
+<span class="nc" id="L281">                unsafe(&quot;-fx-text-fill&quot;, raw(&quot;-fx-accent&quot;))</span>
+
+<span class="nc" id="L283">            }</span>
+<span class="nc" id="L284">            hyperlink and visited and hover {</span>
+<span class="nc" id="L285">                unsafe(&quot;-fx-text-fill&quot;, raw(&quot;-fx-accent&quot;))</span>
+<span class="nc" id="L286">            }</span>
+<span class="nc" id="L287">            hyperlink and disabled {</span>
+<span class="nc" id="L288">                textFill = Color.BLACK</span>
+<span class="nc" id="L289">                opacity = 1.0</span>
+<span class="nc" id="L290">            }</span>
+<span class="nc" id="L291">            bold {</span>
+<span class="nc" id="L292">                fontWeight = FontWeight.BOLD</span>
+<span class="nc" id="L293">            }</span>
+<span class="nc" id="L294">            stepInfo {</span>
+<span class="nc" id="L295">                backgroundColor += Color.WHITE</span>
+<span class="nc" id="L296">                padding = box(15.px)</span>
+<span class="nc" id="L297">                stepsHeading {</span>
+<span class="nc" id="L298">                    fontWeight = FontWeight.BOLD</span>
+<span class="nc" id="L299">                    underline = true</span>
+<span class="nc" id="L300">                    padding = box(15.px, 0.px)</span>
+<span class="nc" id="L301">                }</span>
+<span class="nc" id="L302">            }</span>
+<span class="nc" id="L303">            header {</span>
+<span class="nc" id="L304">                label {</span>
+<span class="nc" id="L305">                    fontSize = 16.px</span>
+<span class="nc" id="L306">                    fontWeight = FontWeight.BOLD</span>
+<span class="nc" id="L307">                }</span>
+<span class="nc" id="L308">                heading {</span>
+<span class="nc" id="L309">                    fontSize = 12.px</span>
+<span class="nc" id="L310">                    fontWeight = FontWeight.NORMAL</span>
+<span class="nc" id="L311">                }</span>
+<span class="nc" id="L312">                padding = box(10.px)</span>
+<span class="nc" id="L313">                spacing = 10.px</span>
+<span class="nc" id="L314">                borderColor += box(Color.TRANSPARENT, Color.TRANSPARENT, Color.LIGHTGRAY, Color.TRANSPARENT)</span>
+<span class="nc" id="L315">                backgroundColor += Color.WHITE</span>
+<span class="nc" id="L316">                graphic {</span>
+<span class="nc" id="L317">                    prefWidth = 48.px</span>
+<span class="nc" id="L318">                    prefHeight = 48.px</span>
+<span class="nc" id="L319">                }</span>
+<span class="nc" id="L320">            }</span>
+<span class="nc" id="L321">            content {</span>
+<span class="nc" id="L322">                padding = box(10.px)</span>
+<span class="nc" id="L323">            }</span>
+<span class="nc" id="L324">            buttons {</span>
+<span class="nc" id="L325">                padding = box(10.px)</span>
+<span class="nc" id="L326">                borderColor += box(Color.LIGHTGRAY, Color.TRANSPARENT, Color.TRANSPARENT, Color.TRANSPARENT)</span>
+<span class="nc" id="L327">            }</span>
+<span class="nc" id="L328">        }</span>
+<span class="nc" id="L329">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,497 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Json.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Json.kt</span></div><h1>Json.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.property.*
+import javafx.beans.value.ObservableValue
+import tornadofx.FX.Companion.log
+import tornadofx.JsonConfig.AddEmptyStrings
+import java.io.InputStream
+import java.io.OutputStream
+import java.io.StringWriter
+import java.lang.reflect.ParameterizedType
+import java.math.BigDecimal
+import java.math.BigInteger
+import java.net.URL
+import java.nio.file.Files
+import java.nio.file.OpenOption
+import java.nio.file.Path
+import java.nio.file.StandardOpenOption.*
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.util.*
+import javax.json.*
+import javax.json.JsonValue.ValueType.NULL
+import javax.json.stream.JsonGenerator
+import kotlin.reflect.KMutableProperty1
+import kotlin.reflect.KProperty
+import kotlin.reflect.KProperty1
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.jvm.javaField
+import kotlin.reflect.jvm.javaType
+
+interface JsonModel {
+    /**
+     * Fetch JSON values and update the model properties
+     * @param json The json to extract values from
+     */
+    fun updateModel(json: JsonObject) {
+
+<span class="nc" id="L39">    }</span>
+
+    /**
+     * Build a JSON representation of the model properties
+     * @param json A builder that should be filled with the model properties
+     */
+    fun toJSON(json: JsonBuilder) {
+
+<span class="nc" id="L47">    }</span>
+
+    /**
+     * Build a JSON representation of the model directly to JsonObject
+     */
+    fun toJSON(): JsonObject {
+<span class="fc" id="L53">        val builder = JsonBuilder()</span>
+<span class="fc" id="L54">        toJSON(builder)</span>
+<span class="fc" id="L55">        return builder.build()</span>
+    }
+
+    /**
+     * Copy all properties from this object to the given target object by converting to JSON and then updating the target.
+     * @param target The target object to update with the properties of this model
+     */
+    fun copy(target: JsonModel) {
+<span class="nc" id="L63">        val builder = JsonBuilder()</span>
+<span class="nc" id="L64">        toJSON(builder)</span>
+<span class="nc" id="L65">        target.updateModel(builder.build())</span>
+<span class="nc" id="L66">    }</span>
+
+    /**
+     * Copy all properties from the given source object to this object by converting to JSON and then updating this object.
+     * @param source The source object to extract properties from
+     */
+    fun update(source: JsonModel) {
+<span class="nc" id="L73">        val builder = JsonBuilder()</span>
+<span class="nc" id="L74">        source.toJSON(builder)</span>
+<span class="nc" id="L75">        updateModel(builder.build())</span>
+<span class="nc" id="L76">    }</span>
+
+    /**
+     * Duplicate this model object by creating a new object of the same type and copy over all the model properties.
+
+     * @param &lt;T&gt; The type of object
+     * *
+     * @return A new object of type T with the model properties of this object
+     */
+    @Suppress(&quot;UNCHECKED_CAST&quot;)
+    fun &lt;T : JsonModel&gt; copy(): T {
+<span class="nc" id="L87">        try {</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">            val clone = javaClass.newInstance() as T</span>
+<span class="nc" id="L89">            val builder = JsonBuilder()</span>
+<span class="nc" id="L90">            toJSON(builder)</span>
+<span class="nc" id="L91">            clone.updateModel(builder.build())</span>
+<span class="nc" id="L92">            return clone</span>
+<span class="nc" id="L93">        } catch (e: InstantiationException) {</span>
+<span class="nc" id="L94">            throw RuntimeException(e)</span>
+<span class="nc" id="L95">        } catch (e: IllegalAccessException) {</span>
+<span class="nc" id="L96">            throw RuntimeException(e)</span>
+        }
+
+    }
+
+}
+
+<span class="fc" id="L103">object JsonConfig {</span>
+<span class="nc" id="L104">    var DefaultDateTimeMillis = false</span>
+<span class="pc" id="L105">    var AddEmptyStrings = false</span>
+}
+
+/**
+ * Nullable getters are lowercase, not null getters are prependend with get + camelcase
+ * JsonObject already provide some not null getters like getString, getBoolean etc, the rest
+ * are added here
+ */
+
+<span class="pc bpc" id="L114" title="2 of 6 branches missed.">fun JsonObject.isNotNullOrNULL(key: String): Boolean = containsKey(key) &amp;&amp; get(key)?.valueType != NULL</span>
+
+<span class="fc" id="L116">fun &lt;T&gt; JsonObject.firstNonNull(vararg keys: String, extractor: (key: String) -&gt; T): T? = keys</span>
+<span class="fc bfc" id="L117" title="All 2 branches covered.">        .firstOrNull { isNotNullOrNULL(it) }</span>
+<span class="pc" id="L118">        ?.let { extractor(it) }</span>
+
+<span class="fc" id="L120">fun JsonObject.string(vararg key: String): String? = firstNonNull(*key) { getString(it) }</span>
+<span class="nc" id="L121">fun JsonObject.getString(vararg key: String): String = string(*key)!!</span>
+
+<span class="nc bnc" id="L123" title="All 2 branches missed.">fun JsonObject.double(vararg key: String): Double? = jsonNumber(*key)?.doubleValue()</span>
+<span class="nc" id="L124">fun JsonObject.getDouble(vararg key: String): Double = double(*key)!!</span>
+
+<span class="nc" id="L126">fun JsonObject.jsonNumber(vararg key: String): JsonNumber? = firstNonNull(*key) { getJsonNumber(it) }</span>
+<span class="nc" id="L127">fun JsonObject.getJsonNumber(vararg key: String): JsonNumber = jsonNumber(*key)!!</span>
+
+<span class="nc" id="L129">fun JsonObject.float(vararg key: String): Float? = firstNonNull(*key) { getFloat(it) }</span>
+<span class="nc" id="L130">fun JsonObject.getFloat(vararg key: String): Float = float(*key)!!</span>
+
+<span class="nc bnc" id="L132" title="All 2 branches missed.">fun JsonObject.bigdecimal(vararg key: String): BigDecimal? = jsonNumber(*key)?.bigDecimalValue()</span>
+<span class="nc" id="L133">fun JsonObject.getBigDecimal(vararg key: String): BigDecimal = bigdecimal(*key)!!</span>
+
+<span class="nc bnc" id="L135" title="All 2 branches missed.">fun JsonObject.long(vararg key: String): Long? = jsonNumber(*key)?.longValue()</span>
+<span class="nc" id="L136">fun JsonObject.getLong(vararg key: String) = long(*key)!!</span>
+
+<span class="fc" id="L138">fun JsonObject.bool(vararg key: String): Boolean? = firstNonNull(*key) { getBoolean(it) }</span>
+<span class="fc" id="L139">fun JsonObject.boolean(vararg key: String) = bool(*key) // Alias</span>
+
+<span class="pc bpc" id="L141" title="1 of 2 branches missed.">fun JsonObject.date(vararg key: String): LocalDate? = string(*key)?.let { LocalDate.parse(it) }</span>
+<span class="nc" id="L142">fun JsonObject.getDate(vararg key: String): LocalDate = date(*key)!!</span>
+
+<span class="nc bnc" id="L144" title="All 2 branches missed.">fun JsonNumber.datetime(millis: Boolean = JsonConfig.DefaultDateTimeMillis): LocalDateTime = LocalDateTime.ofEpochSecond(longValue() / (if (millis) 1000 else 1), 0, ZoneOffset.UTC)</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">fun JsonObject.datetime(vararg key: String, millis: Boolean = JsonConfig.DefaultDateTimeMillis): LocalDateTime? = jsonNumber(*key)?.datetime(millis)</span>
+<span class="nc" id="L146">fun JsonObject.getDateTime(vararg key: String, millis: Boolean = JsonConfig.DefaultDateTimeMillis): LocalDateTime = getJsonNumber(*key).datetime(millis)</span>
+
+<span class="nc bnc" id="L148" title="All 2 branches missed.">fun JsonObject.uuid(vararg key: String): UUID? = string(*key)?.let { UUID.fromString(it) }</span>
+<span class="nc" id="L149">fun JsonObject.getUUID(vararg key: String) = uuid(*key)!!</span>
+
+<span class="fc" id="L151">fun JsonObject.int(vararg key: String): Int? = firstNonNull(*key) { getInt(it) }</span>
+<span class="nc" id="L152">fun JsonObject.getInt(vararg key: String): Int = int(*key)!!</span>
+
+<span class="nc" id="L154">fun JsonObject.jsonObject(vararg key: String): JsonObject? = firstNonNull(*key) { getJsonObject(it) }</span>
+<span class="nc" id="L155">inline fun &lt;reified T : JsonModel&gt; JsonObject.jsonModel(vararg key: String) = firstNonNull(*key) { T::class.java.newInstance().apply { updateModel(getJsonObject(it)) } }</span>
+
+<span class="nc" id="L157">fun JsonObject.jsonArray(vararg key: String): JsonArray? = firstNonNull(*key) { getJsonArray(it) }</span>
+
+<span class="fc" id="L159">class JsonBuilder {</span>
+<span class="fc" id="L160">    private val delegate: JsonObjectBuilder = Json.createObjectBuilder()</span>
+
+    fun &lt;S, T : ObservableValue&lt;S&gt;&gt; add(key: String, observable: T) {
+<span class="nc bnc" id="L163" title="All 2 branches missed.">        observable.value?.apply {</span>
+<span class="nc" id="L164">            when (this) {</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">                is Number -&gt; add(key, this)</span>
+<span class="nc bnc" id="L166" title="All 2 branches missed.">                is Boolean -&gt; add(key, this)</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">                is UUID -&gt; add(key, this)</span>
+<span class="nc bnc" id="L168" title="All 2 branches missed.">                is LocalDate -&gt; add(key, this)</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">                is LocalDateTime -&gt; add(key, this)</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">                is String -&gt; add(key, this)</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">                is JsonModel -&gt; add(key, this)</span>
+            }
+<span class="nc" id="L173">        }</span>
+<span class="nc" id="L174">    }</span>
+
+<span class="fc" id="L176">    fun add(key: String, value: Number?) = apply {</span>
+<span class="fc" id="L177">        when (value) {</span>
+<span class="pc bpc" id="L178" title="1 of 2 branches missed.">            is Int -&gt; delegate.add(key, value)</span>
+<span class="nc bnc" id="L179" title="All 2 branches missed.">            is BigDecimal -&gt; delegate.add(key, value)</span>
+<span class="nc bnc" id="L180" title="All 2 branches missed.">            is BigInteger -&gt; delegate.add(key, value)</span>
+<span class="nc bnc" id="L181" title="All 2 branches missed.">            is Float -&gt; delegate.add(key, value.toDouble())</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">            is Double -&gt; delegate.add(key, value)</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">            is Long -&gt; delegate.add(key, value)</span>
+        }
+<span class="fc" id="L185">    }</span>
+
+<span class="fc" id="L187">    fun add(key: String, value: Boolean?) = apply {</span>
+<span class="pc bpc" id="L188" title="1 of 2 branches missed.">        if (value != null)</span>
+<span class="fc" id="L189">            delegate.add(key, value)</span>
+<span class="fc" id="L190">    }</span>
+
+<span class="nc" id="L192">    fun add(key: String, value: UUID?) = apply {</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        if (value != null)</span>
+<span class="nc" id="L194">            delegate.add(key, value.toString())</span>
+<span class="nc" id="L195">    }</span>
+
+<span class="fc" id="L197">    fun add(key: String, value: LocalDate?) = apply {</span>
+<span class="pc bpc" id="L198" title="1 of 2 branches missed.">        if (value != null)</span>
+<span class="fc" id="L199">            delegate.add(key, value.toString())</span>
+<span class="fc" id="L200">    }</span>
+
+<span class="nc" id="L202">    fun add(key: String, value: LocalDateTime?, millis: Boolean = JsonConfig.DefaultDateTimeMillis) = apply {</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">        if (value != null)</span>
+<span class="nc bnc" id="L204" title="All 2 branches missed.">            delegate.add(key, value.toEpochSecond(ZoneOffset.UTC) * (if (millis) 1000 else 1))</span>
+<span class="nc" id="L205">    }</span>
+
+<span class="fc" id="L207">    fun add(key: String, value: String?) = apply {</span>
+<span class="pc bpc" id="L208" title="4 of 8 branches missed.">        if (value != null &amp;&amp; (AddEmptyStrings || value.isNotBlank()))</span>
+<span class="fc" id="L209">            delegate.add(key, value)</span>
+<span class="fc" id="L210">    }</span>
+
+<span class="nc" id="L212">    fun add(key: String, value: JsonBuilder?) = apply {</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">        if (value != null)</span>
+<span class="nc" id="L214">            delegate.add(key, value.build())</span>
+<span class="nc" id="L215">    }</span>
+
+<span class="nc" id="L217">    fun add(key: String, value: JsonObjectBuilder?) = apply {</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">        if (value != null)</span>
+<span class="nc" id="L219">            delegate.add(key, value.build())</span>
+<span class="nc" id="L220">    }</span>
+
+<span class="nc" id="L222">    fun add(key: String, value: JsonObject?) = apply {</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">        if (value != null)</span>
+<span class="nc" id="L224">            delegate.add(key, value)</span>
+<span class="nc" id="L225">    }</span>
+
+<span class="nc" id="L227">    fun add(key: String, value: JsonModel?) = apply {</span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">        if (value != null)</span>
+<span class="nc" id="L229">            add(key, value.toJSON())</span>
+
+<span class="nc" id="L231">    }</span>
+
+<span class="nc" id="L233">    fun add(key: String, value: JsonArrayBuilder?) = apply {</span>
+<span class="nc bnc" id="L234" title="All 2 branches missed.">        if (value != null) {</span>
+<span class="nc" id="L235">            val built = value.build()</span>
+<span class="nc bnc" id="L236" title="All 4 branches missed.">            if (built.isNotEmpty())</span>
+<span class="nc" id="L237">                delegate.add(key, built)</span>
+        }
+<span class="nc" id="L239">    }</span>
+
+<span class="nc" id="L241">    fun add(key: String, value: JsonArray?) = apply {</span>
+<span class="nc bnc" id="L242" title="All 6 branches missed.">        if (!value.isNullOrEmpty())</span>
+<span class="nc" id="L243">            delegate.add(key, value)</span>
+<span class="nc" id="L244">    }</span>
+
+<span class="nc" id="L246">    fun add(key: String, value: Iterable&lt;Any&gt;?) = apply {</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">        if (value != null) {</span>
+<span class="nc" id="L248">            val builder = Json.createArrayBuilder()</span>
+<span class="nc" id="L249">            value.forEach {</span>
+<span class="nc" id="L250">                when (it) {</span>
+<span class="nc bnc" id="L251" title="All 2 branches missed.">                    is Int -&gt; builder.add(it)</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">                    is String -&gt; builder.add(it)</span>
+<span class="nc bnc" id="L253" title="All 2 branches missed.">                    is Float -&gt; builder.add(it.toDouble())</span>
+<span class="nc bnc" id="L254" title="All 2 branches missed.">                    is Long -&gt; builder.add(it)</span>
+<span class="nc bnc" id="L255" title="All 2 branches missed.">                    is BigDecimal -&gt; builder.add(it)</span>
+<span class="nc bnc" id="L256" title="All 2 branches missed.">                    is Boolean -&gt; builder.add(it)</span>
+<span class="nc bnc" id="L257" title="All 2 branches missed.">                    is JsonModel -&gt; builder.add(it.toJSON())</span>
+<span class="nc bnc" id="L258" title="All 2 branches missed.">                    is JsonArray -&gt; builder.add(it)</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">                    is JsonArrayBuilder -&gt; builder.add(it)</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">                    is JsonObject -&gt; builder.add(it)</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">                    is JsonObjectBuilder -&gt; builder.add(it)</span>
+<span class="nc bnc" id="L262" title="All 2 branches missed.">                    is JsonValue -&gt; builder.add(it)</span>
+                }
+<span class="nc" id="L264">            }</span>
+<span class="nc" id="L265">            delegate.add(key, builder.build())</span>
+        }
+
+<span class="nc" id="L268">        return this</span>
+    }
+
+    fun build(): JsonObject {
+<span class="fc" id="L272">        return delegate.build()</span>
+    }
+
+}
+
+
+/**
+ * Requires kotlin-reflect on classpath
+ */
+private fun &lt;T&gt; KProperty&lt;T&gt;.generic(): Class&lt;*&gt; =
+<span class="nc bnc" id="L282" title="All 6 branches missed.">        (this.javaField?.genericType as ParameterizedType).actualTypeArguments[0] as Class&lt;*&gt;</span>
+
+/**
+ * Requires kotlin-reflect on classpath
+ */
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+interface JsonModelAuto : JsonModel {
+    val jsonProperties: Collection&lt;KProperty1&lt;JsonModelAuto, *&gt;&gt; get() {
+<span class="fc" id="L290">        val props = javaClass.kotlin.memberProperties</span>
+<span class="fc" id="L291">        val propNames = props.map { it.name }</span>
+<span class="pc bpc" id="L292" title="1 of 8 branches missed.">        return props.filterNot { it.name.endsWith(&quot;Property&quot;) &amp;&amp; it.name.substringBefore(&quot;Property&quot;) in propNames }.filterNot { it.name == &quot;jsonProperties&quot; }</span>
+    }
+
+    override fun updateModel(json: JsonObject) {
+<span class="fc" id="L296">        jsonProperties.forEach {</span>
+<span class="fc" id="L297">            when (val pr = it.get(this)) {</span>
+<span class="pc bpc" id="L298" title="1 of 2 branches missed.">                is BooleanProperty -&gt; pr.value = json.bool(it.name)</span>
+<span class="pc bpc" id="L299" title="1 of 2 branches missed.">                is LongProperty -&gt; pr.value = json.long(it.name)</span>
+<span class="pc bpc" id="L300" title="1 of 2 branches missed.">                is IntegerProperty -&gt; pr.value = json.int(it.name)</span>
+<span class="pc bpc" id="L301" title="1 of 2 branches missed.">                is DoubleProperty -&gt; pr.value = json.double(it.name)</span>
+<span class="pc bpc" id="L302" title="3 of 4 branches missed.">                is FloatProperty -&gt; pr.value = json.double(it.name)?.toFloat()</span>
+<span class="pc bpc" id="L303" title="1 of 2 branches missed.">                is StringProperty -&gt; pr.value = json.string(it.name)</span>
+<span class="pc bpc" id="L304" title="1 of 2 branches missed.">                is ObjectProperty&lt;*&gt; -&gt; {</span>
+<span class="nc" id="L305">                    when (it.generic()) {</span>
+<span class="nc bnc" id="L306" title="All 2 branches missed.">                        Boolean::class.java -&gt; (pr as ObjectProperty&lt;Boolean&gt;).value = json.bool(it.name)</span>
+<span class="nc bnc" id="L307" title="All 2 branches missed.">                        Long::class.java -&gt; (pr as ObjectProperty&lt;Long&gt;).value = json.long(it.name)</span>
+<span class="nc bnc" id="L308" title="All 2 branches missed.">                        Integer::class.java -&gt; (pr as ObjectProperty&lt;Int&gt;).value = json.int(it.name)</span>
+<span class="nc bnc" id="L309" title="All 2 branches missed.">                        Double::class.java -&gt; (pr as ObjectProperty&lt;Double&gt;).value = json.double(it.name)</span>
+<span class="nc bnc" id="L310" title="All 2 branches missed.">                        Float::class.java -&gt; (pr as ObjectProperty&lt;Float&gt;).value = json.float(it.name)</span>
+<span class="nc bnc" id="L311" title="All 2 branches missed.">                        String::class.java -&gt; (pr as ObjectProperty&lt;String&gt;).value = json.string(it.name)</span>
+<span class="nc bnc" id="L312" title="All 2 branches missed.">                        LocalDate::class.java -&gt; (pr as ObjectProperty&lt;LocalDate&gt;).value = json.date(it.name)</span>
+<span class="nc bnc" id="L313" title="All 2 branches missed.">                        LocalDateTime::class.java -&gt; (pr as ObjectProperty&lt;LocalDateTime&gt;).value = json.datetime(it.name)</span>
+<span class="nc" id="L314">                    }</span>
+                }
+<span class="pc bpc" id="L316" title="1 of 2 branches missed.">                is MutableList&lt;*&gt; -&gt; {</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">                    val list = pr as MutableList&lt;Any&gt;</span>
+<span class="nc" id="L318">                    list.clear()</span>
+<span class="nc bnc" id="L319" title="All 2 branches missed.">                    json.getJsonArray(it.name)?.forEach { jsonObj -&gt;</span>
+<span class="nc" id="L320">                        val entry = it.generic().newInstance()</span>
+<span class="nc bnc" id="L321" title="All 2 branches missed.">                        if (entry is JsonModel) {</span>
+<span class="nc bnc" id="L322" title="All 2 branches missed.">                            list.add(entry.apply { updateModel(jsonObj as JsonObject) })</span>
+                        }
+<span class="nc" id="L324">                    }</span>
+                }
+                else -&gt; {
+<span class="pc bpc" id="L327" title="1 of 2 branches missed.">                    if (it is KMutableProperty1&lt;*, *&gt;) {</span>
+<span class="fc" id="L328">                        when (it.returnType.javaType) {</span>
+<span class="fc bfc" id="L329" title="All 2 branches covered.">                            Boolean::class.javaPrimitiveType -&gt; (it as KMutableProperty1&lt;Any?, Boolean?&gt;).set(this, json.bool(it.name))</span>
+<span class="fc bfc" id="L330" title="All 2 branches covered.">                            Boolean::class.javaObjectType -&gt; (it as KMutableProperty1&lt;Any?, Boolean?&gt;).set(this, json.bool(it.name))</span>
+<span class="pc bpc" id="L331" title="1 of 2 branches missed.">                            Long::class.javaObjectType -&gt; (it as KMutableProperty1&lt;Any?, Long?&gt;).set(this, json.long(it.name))</span>
+<span class="pc bpc" id="L332" title="1 of 2 branches missed.">                            Long::class.javaPrimitiveType -&gt; (it as KMutableProperty1&lt;Any?, Long?&gt;).set(this, json.long(it.name))</span>
+<span class="fc bfc" id="L333" title="All 2 branches covered.">                            Integer::class.javaObjectType -&gt; (it as KMutableProperty1&lt;Any?, Int?&gt;).set(this, json.int(it.name))</span>
+<span class="pc bpc" id="L334" title="1 of 2 branches missed.">                            Integer::class.javaPrimitiveType -&gt; (it as KMutableProperty1&lt;Any?, Int?&gt;).set(this, json.int(it.name))</span>
+<span class="pc bpc" id="L335" title="1 of 2 branches missed.">                            Double::class.javaObjectType -&gt; (it as KMutableProperty1&lt;Any?, Double?&gt;).set(this, json.double(it.name))</span>
+<span class="pc bpc" id="L336" title="1 of 2 branches missed.">                            Double::class.javaPrimitiveType -&gt; (it as KMutableProperty1&lt;Any?, Double?&gt;).set(this, json.double(it.name))</span>
+<span class="pc bpc" id="L337" title="1 of 2 branches missed.">                            Float::class.javaObjectType -&gt; (it as KMutableProperty1&lt;Any?, Float?&gt;).set(this, json.float(it.name))</span>
+<span class="pc bpc" id="L338" title="1 of 2 branches missed.">                            Float::class.javaPrimitiveType -&gt; (it as KMutableProperty1&lt;Any?, Float?&gt;).set(this, json.float(it.name))</span>
+<span class="fc bfc" id="L339" title="All 2 branches covered.">                            String::class.java -&gt; (it as KMutableProperty1&lt;Any?, String?&gt;).set(this, json.string(it.name))</span>
+<span class="pc bpc" id="L340" title="1 of 2 branches missed.">                            LocalDate::class.java -&gt; (it as KMutableProperty1&lt;Any?, LocalDate?&gt;).set(this, json.date(it.name))</span>
+<span class="nc bnc" id="L341" title="All 2 branches missed.">                            LocalDateTime::class.java -&gt; (it as KMutableProperty1&lt;Any?, LocalDateTime?&gt;).set(this, json.datetime(it.name))</span>
+                            else -&gt; {
+<span class="nc" id="L343">                                log.warning(&quot;AutoModel doesn't know how to handle ${it.returnType}/${it.returnType.javaType}&quot;)</span>
+                            }
+                        }
+                    }
+                }
+            }
+<span class="fc" id="L349">        }</span>
+<span class="fc" id="L350">    }</span>
+
+    override fun toJSON(json: JsonBuilder) {
+<span class="fc" id="L353">        with(json) {</span>
+<span class="fc" id="L354">            jsonProperties.forEach {</span>
+<span class="fc" id="L355">                when (val pr = it.get(this@JsonModelAuto)) {</span>
+<span class="pc bpc" id="L356" title="1 of 2 branches missed.">                    is BooleanProperty -&gt; add(it.name, pr.value)</span>
+<span class="pc bpc" id="L357" title="1 of 2 branches missed.">                    is LongProperty -&gt; add(it.name, pr.value)</span>
+<span class="pc bpc" id="L358" title="1 of 2 branches missed.">                    is IntegerProperty -&gt; add(it.name, pr.value)</span>
+<span class="pc bpc" id="L359" title="1 of 2 branches missed.">                    is DoubleProperty -&gt; add(it.name, pr.value)</span>
+<span class="pc bpc" id="L360" title="1 of 2 branches missed.">                    is FloatProperty -&gt; add(it.name, pr.value.toDouble())</span>
+<span class="pc bpc" id="L361" title="1 of 2 branches missed.">                    is StringProperty -&gt; add(it.name, pr.value)</span>
+<span class="pc bpc" id="L362" title="1 of 2 branches missed.">                    is ObjectProperty&lt;*&gt; -&gt; {</span>
+<span class="nc" id="L363">                        when (it.generic()) {</span>
+<span class="nc bnc" id="L364" title="All 2 branches missed.">                            Boolean::class.java -&gt; add(it.name, (pr as ObjectProperty&lt;Boolean&gt;).value)</span>
+<span class="nc bnc" id="L365" title="All 2 branches missed.">                            Long::class.java -&gt; add(it.name, (pr as ObjectProperty&lt;Long&gt;).value)</span>
+<span class="nc bnc" id="L366" title="All 2 branches missed.">                            Integer::class.java -&gt; add(it.name, (pr as ObjectProperty&lt;Int&gt;).value)</span>
+<span class="nc bnc" id="L367" title="All 2 branches missed.">                            Double::class.java -&gt; add(it.name, (pr as ObjectProperty&lt;Double&gt;).value)</span>
+<span class="nc bnc" id="L368" title="All 2 branches missed.">                            Float::class.java -&gt; add(it.name, (pr as ObjectProperty&lt;Float&gt;).value)</span>
+<span class="nc bnc" id="L369" title="All 2 branches missed.">                            String::class.java -&gt; add(it.name, (pr as ObjectProperty&lt;String&gt;).value)</span>
+<span class="nc bnc" id="L370" title="All 2 branches missed.">                            LocalDate::class.java -&gt; add(it.name, (pr as ObjectProperty&lt;LocalDate&gt;).value)</span>
+<span class="nc bnc" id="L371" title="All 2 branches missed.">                            LocalDateTime::class.java -&gt; add(it.name, (pr as ObjectProperty&lt;LocalDateTime&gt;).value)</span>
+<span class="nc" id="L372">                        }</span>
+                    }
+<span class="fc bfc" id="L374" title="All 2 branches covered.">                    is Boolean -&gt; add(it.name, pr)</span>
+<span class="pc bpc" id="L375" title="1 of 2 branches missed.">                    is Long -&gt; add(it.name, pr)</span>
+<span class="fc bfc" id="L376" title="All 2 branches covered.">                    is Int -&gt; add(it.name, pr)</span>
+<span class="pc bpc" id="L377" title="1 of 2 branches missed.">                    is Double -&gt; add(it.name, pr)</span>
+<span class="pc bpc" id="L378" title="1 of 2 branches missed.">                    is Float -&gt; add(it.name, pr.toDouble())</span>
+<span class="fc bfc" id="L379" title="All 2 branches covered.">                    is String -&gt; add(it.name, pr)</span>
+<span class="pc bpc" id="L380" title="1 of 2 branches missed.">                    is LocalDate -&gt; add(it.name, pr)</span>
+<span class="nc bnc" id="L381" title="All 2 branches missed.">                    is LocalDateTime -&gt; add(it.name, pr)</span>
+<span class="nc bnc" id="L382" title="All 2 branches missed.">                    is MutableList&lt;*&gt; -&gt; {</span>
+<span class="nc bnc" id="L383" title="All 2 branches missed.">                        val list = pr as? List&lt;JsonModel&gt;</span>
+<span class="nc" id="L384">                        val jsonArray = Json.createArrayBuilder()</span>
+<span class="nc bnc" id="L385" title="All 2 branches missed.">                        list?.forEach { jsonArray.add(it.toJSON()) }</span>
+<span class="nc" id="L386">                        add(it.name, jsonArray.build())</span>
+                    }
+                }
+<span class="fc" id="L389">            }</span>
+<span class="fc" id="L390">        }</span>
+<span class="fc" id="L391">    }</span>
+}
+
+fun JsonStructure.toPrettyString(): String {
+<span class="nc" id="L395">    return toString(JsonGenerator.PRETTY_PRINTING)</span>
+}
+
+fun JsonStructure.toString(vararg options: String): String {
+<span class="nc" id="L399">    val stringWriter = StringWriter()</span>
+<span class="nc" id="L400">    val config = options.associate { it to  true }</span>
+<span class="nc" id="L401">    val writerFactory = Json.createWriterFactory(config)</span>
+<span class="nc" id="L402">    val jsonWriter = writerFactory.createWriter(stringWriter)</span>
+<span class="nc" id="L403">    jsonWriter.write(this)</span>
+<span class="nc" id="L404">    jsonWriter.close()</span>
+<span class="nc" id="L405">    return stringWriter.toString()</span>
+}
+
+<span class="nc" id="L408">fun &lt;T : JsonModel&gt; Iterable&lt;T&gt;.toJSON() = Json.createArrayBuilder().apply { forEach { add(it.toJSON()) } }.build()</span>
+
+<span class="nc" id="L410">fun InputStream.toJSONArray(): JsonArray = Json.createReader(this).use { it.readArray() }</span>
+<span class="nc" id="L411">fun InputStream.toJSON(): JsonObject = Json.createReader(this).use { it.readObject() }</span>
+
+<span class="nc" id="L413">fun JsonObject?.contains(text: String?, ignoreCase: Boolean = true) =</span>
+<span class="nc bnc" id="L414" title="All 6 branches missed.">        if (this == null || text == null) false else toString().toLowerCase().contains(text, ignoreCase)</span>
+
+<span class="nc bnc" id="L416" title="All 4 branches missed.">fun JsonModel?.contains(text: String?, ignoreCase: Boolean = true) = this?.toJSON()?.contains(text, ignoreCase) ?: false</span>
+
+/**
+ * Save this Json structure (JsonObject or JsonArray) to the given output stream and close it.
+ */
+<span class="nc" id="L421">fun JsonStructure.save(output: OutputStream) = Json.createWriter(output).use { it.write(this) }</span>
+
+/**
+ * Save this Json structure (JsonObject or JsonArray) to the given output path.
+ */
+<span class="nc" id="L426">fun JsonStructure.save(output: Path, vararg options: OpenOption = arrayOf(CREATE, TRUNCATE_EXISTING)) = this.save(Files.newOutputStream(output, *options))</span>
+
+/**
+ * Save this JsonModel to the given output stream and close it.
+ */
+<span class="nc" id="L431">fun JsonModel.save(output: OutputStream) = toJSON().save(output)</span>
+
+/**
+ * Save this JsonModel to the given output path.
+ */
+<span class="nc" id="L436">fun JsonModel.save(output: Path, vararg options: OpenOption = arrayOf(CREATE, TRUNCATE_EXISTING)) = toJSON().save(output, *options)</span>
+
+/**
+ * Load a JsonObject from the given URL
+ */
+<span class="nc" id="L441">fun loadJsonObject(url: URL) = loadJsonObject(url.openStream())</span>
+
+/**
+ * Load a JsonObject from the given InputStream
+ */
+<span class="pc" id="L446">fun loadJsonObject(input: InputStream) = Json.createReader(input).use { it.readObject() }</span>
+
+/**
+ * Load a JsonObject from the given path with the optional OpenOptions
+ */
+<span class="nc" id="L451">fun loadJsonObject(path: Path, vararg options: OpenOption = arrayOf(READ)) = Files.newInputStream(path, *options).use { loadJsonObject(it) }</span>
+
+/**
+ * Load a JsonObject from the string source.
+ */
+<span class="fc" id="L456">fun loadJsonObject(source: String) = loadJsonObject(source.byteInputStream())</span>
+
+/**
+ * Load a JsonArray from the given URL
+ */
+<span class="nc" id="L461">fun loadJsonArray(url: URL) = loadJsonArray(url.openStream())</span>
+
+/**
+ * Load a JsonArray from the given string source
+ */
+<span class="nc" id="L466">fun loadJsonArray(source: String) = loadJsonArray(source.byteInputStream())</span>
+
+/**
+ * Load a JsonArray from the given InputStream
+ */
+<span class="nc" id="L471">fun loadJsonArray(input: InputStream) = Json.createReader(input).use { it.readArray() }</span>
+
+/**
+ * Load a JsonArray from the given path with the optional OpenOptions
+ */
+<span class="nc" id="L476">fun loadJsonArray(path: Path, vararg options: OpenOption = arrayOf(READ)) = Files.newInputStream(path, *options).use { loadJsonArray(it) }</span>
+
+/**
+ * Load a JsonModel of the given type from the given URL
+ */
+inline fun &lt;reified T : JsonModel&gt; loadJsonModel(url: URL) = loadJsonObject(url).toModel&lt;T&gt;()
+
+/**
+ * Load a JsonModel of the given type from the given InputStream
+ */
+inline fun &lt;reified T : JsonModel&gt; loadJsonModel(input: InputStream) = loadJsonObject(input).toModel&lt;T&gt;()
+
+/**
+ * Load a JsonModel of the given type from the given path with the optional OpenOptions
+ */
+<span class="nc" id="L491">inline fun &lt;reified T : JsonModel&gt; loadJsonModel(path: Path, vararg options: OpenOption = arrayOf(READ)) = loadJsonObject(path, *options).toModel&lt;T&gt;()</span>
+
+/**
+ * Load a JsonModel from the given String source
+ */
+inline fun &lt;reified T : JsonModel&gt; loadJsonModel(source: String) = loadJsonObject(source).toModel&lt;T&gt;()
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

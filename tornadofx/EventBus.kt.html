@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EventBus.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">EventBus.kt</span></div><h1>EventBus.kt</h1><pre class="source lang-java linenums">@file:Suppress(&quot;UNCHECKED_CAST&quot;)
+
+package tornadofx
+
+import javafx.application.Platform
+import tornadofx.EventBus.RunOn.ApplicationThread
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
+import java.util.logging.Level
+import kotlin.collections.HashSet
+import kotlin.concurrent.thread
+import kotlin.reflect.KClass
+
+<span class="fc" id="L14">open class FXEvent(</span>
+<span class="fc" id="L15">        open val runOn: EventBus.RunOn = ApplicationThread,</span>
+<span class="fc" id="L16">        open val scope: Scope? = null</span>
+)
+
+<span class="fc" id="L19">class EventContext {</span>
+<span class="pc" id="L20">    internal var unsubscribe = false</span>
+    fun unsubscribe() {
+<span class="nc" id="L22">        unsubscribe = true</span>
+<span class="nc" id="L23">    }</span>
+}
+
+interface EventRegistration {
+    val eventType: KClass&lt;out FXEvent&gt;
+    val owner: Component?
+    val action: EventContext.(FXEvent) -&gt; Unit
+    fun unsubscribe()
+}
+
+<span class="fc" id="L33">class FXEventRegistration(override val eventType: KClass&lt;out FXEvent&gt;,</span>
+<span class="fc" id="L34">                          override val owner: Component?,</span>
+<span class="nc" id="L35">                          private val maxCount: Long? = null,</span>
+                          private val anAction: EventContext.(FXEvent) -&gt; Unit) : EventRegistration {
+
+<span class="fc" id="L38">    private val invocationCount = AtomicLong()</span>
+
+<span class="fc" id="L40">    override val action: EventContext.(FXEvent) -&gt; Unit = {</span>
+<span class="pc bpc" id="L41" title="2 of 4 branches missed.">        if (maxCount == null || invocationCount.getAndIncrement() &lt; maxCount) {</span>
+<span class="fc" id="L42">            anAction.invoke(this, it)</span>
+        } else {
+<span class="nc" id="L44">            this@FXEventRegistration.unsubscribe()</span>
+        }
+<span class="fc" id="L46">    }</span>
+
+    override fun equals(other: Any?): Boolean {
+<span class="pc bpc" id="L49" title="1 of 2 branches missed.">        if (this === other) return true</span>
+<span class="nc bnc" id="L50" title="All 2 branches missed.">        if (other !is FXEventRegistration) return false</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">        if (eventType != other.eventType) return false</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">        if (owner != other.owner) return false</span>
+<span class="nc bnc" id="L53" title="All 2 branches missed.">        if (maxCount != other.maxCount) return false</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">        if (action != other.action) return false</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">        if (invocationCount.get() != other.invocationCount.get()) return false</span>
+
+<span class="nc" id="L57">        return true</span>
+    }
+
+    override fun hashCode(): Int {
+<span class="fc" id="L61">        var result = eventType.hashCode()</span>
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">        result = 31 * result + owner.hashCode()</span>
+<span class="fc" id="L63">        result = 31 * result + action.hashCode()</span>
+<span class="fc" id="L64">        return result</span>
+    }
+
+    override fun unsubscribe() {
+<span class="nc" id="L68">        FX.eventbus.unsubscribe(this)</span>
+<span class="nc" id="L69">    }</span>
+}
+
+<span class="pc" id="L72">data class InvalidatableEventRegistration(val registration: EventRegistration, @Volatile var valid: Boolean = true) : EventRegistration by registration</span>
+
+<span class="fc" id="L74">class EventBus {</span>
+    enum class RunOn { ApplicationThread, BackgroundThread }
+
+<span class="fc" id="L77">    private val subscriptions = ConcurrentHashMap&lt;KClass&lt;out FXEvent&gt;, Set&lt;InvalidatableEventRegistration&gt;&gt;()</span>
+<span class="fc" id="L78">    private val eventScopes = ConcurrentHashMap&lt;EventContext.(FXEvent) -&gt; Unit, Scope&gt;()</span>
+
+    inline fun &lt;reified T : FXEvent&gt; subscribe(scope: Scope, registration: FXEventRegistration) = subscribe(T::class, scope, registration)
+    fun &lt;T : FXEvent&gt; subscribe(event: KClass&lt;T&gt;, scope: Scope, registration: FXEventRegistration) {
+<span class="fc" id="L82">        subscriptions.compute(event) { _, set -&gt;</span>
+<span class="fc bfc" id="L83" title="All 4 branches covered.">            val newSet = if (set != null) HashSet(set.filter { it.valid }) else HashSet()</span>
+<span class="fc" id="L84">            newSet.add(InvalidatableEventRegistration(registration))</span>
+<span class="fc" id="L85">            newSet</span>
+        }
+<span class="fc" id="L87">        eventScopes[registration.action] = scope</span>
+<span class="fc" id="L88">    }</span>
+
+<span class="nc bnc" id="L90" title="All 2 branches missed.">    inline fun &lt;reified T : FXEvent&gt; subscribe(owner: Component? = null, times: Long? = null, scope: Scope, noinline action: (T) -&gt; Unit) = subscribe(owner, times, T::class, scope, action)</span>
+
+<span class="nc" id="L92">    fun &lt;T : FXEvent&gt; subscribe(owner: Component? = null, times: Long? = null, event: KClass&lt;T&gt;, scope: Scope, action: (T) -&gt; Unit) {</span>
+<span class="nc" id="L93">        subscribe(event, scope, FXEventRegistration(event, owner, times, action as EventContext.(FXEvent) -&gt; Unit))</span>
+<span class="nc" id="L94">    }</span>
+
+<span class="nc" id="L96">    fun &lt;T : FXEvent&gt; subscribe(owner: Component? = null, times: Long? = null, event: Class&lt;T&gt;, scope: Scope, action: (T) -&gt; Unit) = subscribe(event.kotlin, scope, FXEventRegistration(event.kotlin, owner, times, action as EventContext.(FXEvent) -&gt; Unit))</span>
+
+    inline fun &lt;reified T : FXEvent&gt; unsubscribe(noinline action: EventContext.(T) -&gt; Unit) = unsubscribe(T::class, action)
+<span class="nc" id="L99">    fun &lt;T : FXEvent&gt; unsubscribe(event: Class&lt;T&gt;, action: EventContext.(T) -&gt; Unit) = unsubscribe(event.kotlin, action)</span>
+
+    fun &lt;T : FXEvent&gt; unsubscribe(event: KClass&lt;T&gt;, action: EventContext.(T) -&gt; Unit) {
+<span class="pc bpc" id="L102" title="1 of 2 branches missed.">        subscriptions[event]?.forEach {</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">            if (it.action == action) {</span>
+<span class="fc" id="L104">                it.valid = false</span>
+            }
+<span class="fc" id="L106">        }</span>
+<span class="pc bpc" id="L107" title="1 of 2 branches missed.">        eventScopes.remove(action)</span>
+<span class="fc" id="L108">    }</span>
+
+    fun unsubscribe(registration: EventRegistration) {
+<span class="nc" id="L111">        unsubscribe(registration.eventType, registration.action)</span>
+<span class="nc bnc" id="L112" title="All 6 branches missed.">        registration.owner?.subscribedEvents?.computeIfPresent(registration.eventType) {_, list -&gt; list.filter { it != registration }}</span>
+<span class="nc" id="L113">    }</span>
+
+    private fun cleanupInvalidRegistrations(eventKlass: KClass&lt;FXEvent&gt;) {
+<span class="fc bfc" id="L116" title="All 2 branches covered.">        subscriptions.computeIfPresent(eventKlass) { _, set -&gt; set.filter { it.valid }.toSet() }</span>
+<span class="fc" id="L117">    }</span>
+
+    fun fire(event: FXEvent) {
+<span class="fc" id="L120">        fun fireEvents() {</span>
+<span class="fc" id="L121">            val eventKlass = event.javaClass.kotlin</span>
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">            subscriptions[eventKlass]?.forEach {</span>
+<span class="pc bpc" id="L123" title="3 of 6 branches missed.">                if (it.valid &amp;&amp; (event.scope == null || event.scope == eventScopes[it.action])) {</span>
+<span class="fc" id="L124">                    val context = EventContext()</span>
+<span class="fc" id="L125">                    try {</span>
+<span class="fc" id="L126">                        it.action.invoke(context, event)</span>
+<span class="nc" id="L127">                    } catch (subscriberFailure: Exception) {</span>
+<span class="nc" id="L128">                        log.log(Level.WARNING, &quot;Event $event was delivered to subscriber from ${it.owner}, but invocation resulted in exception&quot;, subscriberFailure)</span>
+                    }
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">                    if (context.unsubscribe) unsubscribe(it)</span>
+                }
+<span class="fc" id="L132">            }</span>
+<span class="fc" id="L133">            cleanupInvalidRegistrations(eventKlass)</span>
+<span class="fc" id="L134">        }</span>
+
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">        if (Platform.isFxApplicationThread()) {</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">            if (event.runOn == ApplicationThread) {</span>
+<span class="fc" id="L138">                fireEvents()</span>
+            } else {
+<span class="fc" id="L140">                thread(true) {</span>
+<span class="fc" id="L141">                    fireEvents()</span>
+<span class="fc" id="L142">                }</span>
+<span class="fc" id="L143">            }</span>
+        } else {
+<span class="nc bnc" id="L145" title="All 2 branches missed.">            if (event.runOn == ApplicationThread) {</span>
+<span class="nc" id="L146">                Platform.runLater {</span>
+<span class="nc" id="L147">                    fireEvents()</span>
+<span class="nc" id="L148">                }</span>
+            } else {
+<span class="nc" id="L150">                fireEvents()</span>
+            }
+        }
+<span class="fc" id="L153">    }</span>
+
+    internal fun clear() {
+<span class="fc" id="L156">        subscriptions.clear()</span>
+<span class="fc" id="L157">        eventScopes.clear()</span>
+<span class="fc" id="L158">    }</span>
+
+    internal fun unsubscribeAll(scope: Scope) {
+<span class="pc bnc" id="L161" title="All 2 branches missed.">        val scopedContexts: Map&lt;EventContext.(FXEvent) -&gt; Unit, Scope&gt; = eventScopes.filter { it.value == scope }</span>
+<span class="fc" id="L162">        val registrations = mutableListOf&lt;EventRegistration&gt;()</span>
+<span class="fc" id="L163">        subscriptions.forEach { (_, subscriptionRegistrations) -&gt;</span>
+<span class="nc bnc" id="L164" title="All 2 branches missed.">            registrations += subscriptionRegistrations.filter { scopedContexts.containsKey(it.action) }</span>
+<span class="nc" id="L165">        }</span>
+<span class="pc" id="L166">        registrations.forEach { it.unsubscribe() }</span>
+<span class="fc" id="L167">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

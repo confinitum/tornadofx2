@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Shapes.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Shapes.kt</span></div><h1>Shapes.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.scene.Parent
+import javafx.scene.shape.*
+
+<span class="nc" id="L6">fun Parent.arc(centerX: Number = 0.0, centerY: Number = 0.0, radiusX: Number = 0.0, radiusY: Number = 0.0, startAngle: Number = 0.0, length: Number = 0.0, op: Arc.() -&gt; Unit = {}) =</span>
+<span class="nc" id="L7">        Arc(centerX.toDouble(), centerY.toDouble(), radiusX.toDouble(), radiusY.toDouble(), startAngle.toDouble(), length.toDouble()).attachTo(this, op)</span>
+
+<span class="nc" id="L9">fun Parent.circle(centerX: Number = 0.0, centerY: Number = 0.0, radius: Number = 0.0, op: Circle.() -&gt; Unit = {}) =</span>
+<span class="nc" id="L10">        Circle(centerX.toDouble(), centerY.toDouble(), radius.toDouble()).attachTo(this, op)</span>
+
+<span class="nc" id="L12">fun Parent.cubiccurve(startX: Number = 0.0, startY: Number = 0.0, controlX1: Number = 0.0, controlY1: Number = 0.0, controlX2: Number = 0.0, controlY2: Number = 0.0, endX: Number = 0.0, endY: Number = 0.0, op: CubicCurve.() -&gt; Unit = {}) =</span>
+<span class="nc" id="L13">        CubicCurve(startX.toDouble(), startY.toDouble(), controlX1.toDouble(), controlY1.toDouble(), controlX2.toDouble(), controlY2.toDouble(), endX.toDouble(), endY.toDouble()).attachTo(this, op)</span>
+
+<span class="nc" id="L15">fun Parent.ellipse(centerX: Number = 0.0, centerY: Number = 0.0, radiusX: Number = 0.0, radiusY: Number = 0.0, op: Ellipse.() -&gt; Unit = {}) =</span>
+<span class="nc" id="L16">        Ellipse(centerX.toDouble(), centerY.toDouble(), radiusX.toDouble(), radiusY.toDouble()).attachTo(this, op)</span>
+
+<span class="nc" id="L18">fun Parent.line(startX: Number = 0.0, startY: Number = 0.0, endX: Number = 0.0, endY: Number = 0.0, op: Line.() -&gt; Unit = {}) =</span>
+<span class="nc" id="L19">        Line(startX.toDouble(), startY.toDouble(), endX.toDouble(), endY.toDouble()).attachTo(this, op)</span>
+
+<span class="nc" id="L21">fun Parent.path(vararg elements: PathElement, op: Path.() -&gt; Unit = {}) =  Path(*elements).attachTo(this, op)</span>
+
+<span class="nc" id="L23">fun Path.moveTo(x: Number = 0.0, y: Number = 0.0) = apply {</span>
+<span class="nc" id="L24">    elements.add(MoveTo(x.toDouble(), y.toDouble()))</span>
+<span class="nc" id="L25">}</span>
+
+<span class="nc" id="L27">fun Path.hlineTo(x: Number) = apply { elements.add(HLineTo(x.toDouble())) }</span>
+
+<span class="nc" id="L29">fun Path.vlineTo(y: Number) = apply { elements.add(VLineTo(y.toDouble())) }</span>
+
+<span class="nc" id="L31">fun Path.quadcurveTo(controlX: Number = 0.0, controlY: Number = 0.0, x: Number = 0.0, y: Number = 0.0, op: QuadCurveTo.() -&gt; Unit = {}) = apply {</span>
+<span class="nc" id="L32">    elements.add(QuadCurveTo(controlX.toDouble(), controlY.toDouble(), x.toDouble(), y.toDouble()).also(op))</span>
+<span class="nc" id="L33">}</span>
+
+<span class="nc" id="L35">fun Path.cubiccurveTo(controlX1: Number = 0.0, controlY1: Number = 0.0, controlX2: Number = 0.0, controlY2: Number = 0.0, x: Number = 0.0, y: Number = 0.0, op: CubicCurveTo.() -&gt; Unit = {}) = apply {</span>
+<span class="nc" id="L36">    elements.add(CubicCurveTo(controlX1.toDouble(), controlY1.toDouble(), controlX2.toDouble(), controlY2.toDouble(), x.toDouble(), y.toDouble()).also(op))</span>
+<span class="nc" id="L37">}</span>
+
+<span class="nc" id="L39">fun Path.lineTo(x: Number = 0.0, y: Number = 0.0) = apply {</span>
+<span class="nc" id="L40">    elements.add(LineTo(x.toDouble(), y.toDouble()))</span>
+<span class="nc" id="L41">}</span>
+
+fun Path.arcTo(
+<span class="nc" id="L44">        radiusX: Number = 0.0, radiusY: Number = 0.0,</span>
+<span class="nc" id="L45">        xAxisRotation: Number = 0.0, x: Number = 0.0,</span>
+<span class="nc" id="L46">        y: Number = 0.0, largeArcFlag: Boolean = false,</span>
+<span class="nc" id="L47">        sweepFlag: Boolean = false, op: ArcTo.() -&gt; Unit = {}) = apply{</span>
+<span class="nc" id="L48">    elements.add(ArcTo(radiusX.toDouble(), radiusY.toDouble(), xAxisRotation.toDouble(), x.toDouble(), y.toDouble(), largeArcFlag, sweepFlag).also(op))</span>
+<span class="nc" id="L49">}</span>
+
+<span class="nc" id="L51">fun Path.closepath() = apply { elements.add(ClosePath()) }</span>
+
+<span class="nc" id="L53">fun Parent.polygon(vararg points: Number, op: Polygon.() -&gt; Unit = {}) =</span>
+<span class="fc" id="L54">        Polygon(*points.map(Number::toDouble).toDoubleArray()).attachTo(this, op)</span>
+
+<span class="nc" id="L56">fun Parent.polyline(vararg points: Number, op: Polyline.() -&gt; Unit = {}) =</span>
+<span class="nc" id="L57">        Polyline(*points.map(Number::toDouble).toDoubleArray()).attachTo(this, op)</span>
+
+<span class="nc" id="L59">fun Parent.quadcurve(startX: Number = 0.0, startY: Number = 0.0, controlX: Number = 0.0, controlY: Number = 0.0, endX: Number = 0.0, endY: Number = 0.0, op: QuadCurve.() -&gt; Unit = {}) =</span>
+<span class="nc" id="L60">        QuadCurve(startX.toDouble(), startY.toDouble(), controlX.toDouble(), controlY.toDouble(), endX.toDouble(), endY.toDouble()).attachTo(this, op)</span>
+
+<span class="nc" id="L62">fun Parent.rectangle(x: Number = 0.0, y: Number = 0.0, width: Number = 0.0, height: Number = 0.0, op: Rectangle.() -&gt; Unit = {}) =</span>
+<span class="nc" id="L63">        Rectangle(x.toDouble(), y.toDouble(), width.toDouble(), height.toDouble()).attachTo(this, op)</span>
+
+<span class="nc" id="L65">fun Parent.svgpath(content: String? = null, fillRule: FillRule? = null, op: SVGPath.() -&gt; Unit = {})= SVGPath().attachTo(this, op){</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">    if (content != null) it.content = content</span>
+<span class="nc bnc" id="L67" title="All 2 branches missed.">    if (fillRule != null) it.fillRule = fillRule</span>
+<span class="nc" id="L68">}</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

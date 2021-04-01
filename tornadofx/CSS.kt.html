@@ -1,0 +1,1464 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CSS.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">CSS.kt</span></div><h1>CSS.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.value.ChangeListener
+import javafx.beans.value.ObservableValue
+import javafx.css.PseudoClass
+import javafx.css.Styleable
+import javafx.geometry.*
+import javafx.scene.Cursor
+import javafx.scene.ImageCursor
+import javafx.scene.Node
+import javafx.scene.Parent
+import javafx.scene.control.ContentDisplay
+import javafx.scene.control.OverrunStyle
+import javafx.scene.control.ScrollPane
+import javafx.scene.effect.BlendMode
+import javafx.scene.effect.DropShadow
+import javafx.scene.effect.Effect
+import javafx.scene.effect.InnerShadow
+import javafx.scene.layout.*
+import javafx.scene.paint.*
+import javafx.scene.shape.StrokeLineCap
+import javafx.scene.shape.StrokeLineJoin
+import javafx.scene.shape.StrokeType
+import javafx.scene.text.*
+import sun.net.www.protocol.css.Handler
+import java.lang.invoke.MethodHandles
+import java.net.MalformedURLException
+import java.net.URI
+import java.net.URL
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.util.*
+import java.util.logging.Level
+import java.util.logging.Logger
+import kotlin.properties.ReadOnlyProperty
+import kotlin.properties.ReadWriteProperty
+import kotlin.reflect.KClass
+import kotlin.reflect.KProperty
+
+interface Rendered {
+    fun render(): String
+}
+
+interface Scoped {
+    fun toRuleSet(): CssRuleSet
+    fun append(rule: CssSubRule): CssRuleSet
+<span class="nc" id="L47">    infix fun and(rule: CssRule) = append(CssSubRule(rule, CssSubRule.Relation.REFINE))</span>
+<span class="fc" id="L48">    infix fun child(rule: CssRule) = append(CssSubRule(rule, CssSubRule.Relation.CHILD))</span>
+<span class="fc" id="L49">    infix fun contains(rule: CssRule) = append(CssSubRule(rule, CssSubRule.Relation.DESCENDANT))</span>
+<span class="nc" id="L50">    infix fun next(rule: CssRule) = append(CssSubRule(rule, CssSubRule.Relation.ADJACENT))</span>
+<span class="nc" id="L51">    infix fun sibling(rule: CssRule) = append(CssSubRule(rule, CssSubRule.Relation.SIBLING))</span>
+}
+
+interface Selectable {
+    fun toSelection(): CssSelector
+}
+
+interface SelectionHolder {
+    fun addSelection(selection: CssSelection)
+    fun removeSelection(selection: CssSelection)
+<span class="fc" id="L61">    operator fun String.invoke(op: CssSelectionBlock.() -&gt; Unit) = toSelector()(op)</span>
+    operator fun Selectable.invoke(op: CssSelectionBlock.() -&gt; Unit): CssSelection {
+<span class="fc" id="L63">        val selection = CssSelection(toSelection(), op)</span>
+<span class="fc" id="L64">        addSelection(selection)</span>
+<span class="fc" id="L65">        return selection</span>
+    }
+
+<span class="nc" id="L68">    fun select(selector: String, op: CssSelectionBlock.() -&gt; Unit) = selector(op)</span>
+<span class="fc" id="L69">    fun select(selector: Selectable, vararg selectors: Selectable, op: CssSelectionBlock.() -&gt; Unit) = select(selector, *selectors)(op)</span>
+<span class="fc" id="L70">    fun select(selector: Selectable, vararg selectors: Selectable) = CssSelector(</span>
+<span class="fc" id="L71">            *selector.toSelection().rule,</span>
+<span class="fc" id="L72">            *selectors.flatMap { it.toSelection().rule.asIterable() }.toTypedArray()</span>
+<span class="fc" id="L73">    )</span>
+
+<span class="nc" id="L75">    fun s(selector: String, op: CssSelectionBlock.() -&gt; Unit) = select(selector, op)</span>
+<span class="fc" id="L76">    fun s(selector: Selectable, vararg selectors: Selectable, op: CssSelectionBlock.() -&gt; Unit) = select(selector, *selectors, op = op)</span>
+<span class="nc" id="L77">    fun s(selector: Selectable, vararg selectors: Selectable) = select(selector, *selectors)</span>
+
+<span class="nc" id="L79">    infix fun Scoped.and(selection: CssSelection) = append(selection, CssSubRule.Relation.REFINE)</span>
+<span class="fc" id="L80">    infix fun Scoped.child(selection: CssSelection) = append(selection, CssSubRule.Relation.CHILD)</span>
+<span class="fc" id="L81">    infix fun Scoped.contains(selection: CssSelection) = append(selection, CssSubRule.Relation.DESCENDANT)</span>
+<span class="nc" id="L82">    infix fun Scoped.next(selection: CssSelection) = append(selection, CssSubRule.Relation.ADJACENT)</span>
+<span class="nc" id="L83">    infix fun Scoped.sibling(selection: CssSelection) = append(selection, CssSubRule.Relation.SIBLING)</span>
+    fun Scoped.append(oldSelection: CssSelection, relation: CssSubRule.Relation): CssSelection {
+<span class="fc" id="L85">        removeSelection(oldSelection)</span>
+<span class="fc" id="L86">        val ruleSets = oldSelection.selector.rule</span>
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">        if (ruleSets.size &gt; 1) {</span>
+<span class="nc" id="L88">            Stylesheet.log.warning(&quot;Selection has ${ruleSets.size} selectors, but only the first will be used&quot;)</span>
+        }
+<span class="fc" id="L90">        val selection = CssSelection(CssSelector(toRuleSet().append(ruleSets[0], relation))) { mix(oldSelection.block) }</span>
+<span class="fc" id="L91">        addSelection(selection)</span>
+<span class="fc" id="L92">        return selection</span>
+    }
+}
+
+<span class="pc" id="L96">open class Stylesheet(vararg val imports: KClass&lt;out Stylesheet&gt;) : SelectionHolder, Rendered {</span>
+    companion object {
+<span class="fc" id="L98">        val log: Logger by lazy { Logger.getLogger(&quot;CSS&quot;) }</span>
+
+        // IDs
+<span class="fc" id="L101">        val buttonsHbox by cssid()</span>
+<span class="fc" id="L102">        val colorBarIndicator by cssid()</span>
+<span class="fc" id="L103">        val colorRectIndicator by cssid()</span>
+<span class="fc" id="L104">        val settingsPane by cssid()</span>
+<span class="fc" id="L105">        val spacer1 by cssid()</span>
+<span class="fc" id="L106">        val spacer2 by cssid()</span>
+<span class="fc" id="L107">        val spacerBottom by cssid()</span>
+<span class="fc" id="L108">        val spacerSide by cssid()</span>
+
+        // Elements
+<span class="fc" id="L111">        val star by csselement(&quot;*&quot;)</span>
+
+        // Style classes used by JavaFX
+<span class="fc" id="L114">        val accordion by cssclass()</span>
+<span class="fc" id="L115">        val alert by cssclass()</span>
+<span class="fc" id="L116">        val areaLegendSymbol by cssclass()</span>
+<span class="fc" id="L117">        val arrow by cssclass()</span>
+<span class="fc" id="L118">        val arrowButton by cssclass()</span>
+<span class="fc" id="L119">        val axis by cssclass()</span>
+<span class="fc" id="L120">        val axisLabel by cssclass()</span>
+<span class="fc" id="L121">        val axisMinorTickMark by cssclass()</span>
+<span class="fc" id="L122">        val axisTickMark by cssclass()</span>
+<span class="fc" id="L123">        val bar by cssclass()</span>
+<span class="fc" id="L124">        val barChart by cssclass()</span>
+<span class="fc" id="L125">        val barLegendSymbol by cssclass()</span>
+<span class="fc" id="L126">        val bottomClass by cssclass(&quot;bottom&quot;)</span>
+<span class="fc" id="L127">        val box by cssclass()</span>
+<span class="fc" id="L128">        val bubbleLegendSymbol by cssclass()</span>
+<span class="fc" id="L129">        val bullet by cssclass()</span>
+<span class="fc" id="L130">        val bulletButton by cssclass()</span>
+<span class="fc" id="L131">        val button by cssclass()</span>
+<span class="fc" id="L132">        val buttonBar by cssclass()</span>
+<span class="fc" id="L133">        val calendarGrid by cssclass()</span>
+<span class="fc" id="L134">        val cell by cssclass()</span>
+<span class="fc" id="L135">        val centerPill by cssclass()</span>
+<span class="fc" id="L136">        val chart by cssclass()</span>
+<span class="fc" id="L137">        val chartAlternativeColumnFill by cssclass()</span>
+<span class="fc" id="L138">        val chartAlternativeRowFill by cssclass()</span>
+<span class="fc" id="L139">        val chartAreaSymbol by cssclass()</span>
+<span class="fc" id="L140">        val chartBar by cssclass()</span>
+<span class="fc" id="L141">        val chartBubble by cssclass()</span>
+<span class="fc" id="L142">        val chartContent by cssclass()</span>
+<span class="fc" id="L143">        val chartHorizontalGridLines by cssclass()</span>
+<span class="fc" id="L144">        val chartHorizontalZeroLine by cssclass()</span>
+<span class="fc" id="L145">        val chartLegend by cssclass()</span>
+<span class="fc" id="L146">        val chartLegendItem by cssclass()</span>
+<span class="fc" id="L147">        val chartLegendSymbol by cssclass()</span>
+<span class="fc" id="L148">        val chartLineSymbol by cssclass()</span>
+<span class="fc" id="L149">        val chartPie by cssclass()</span>
+<span class="fc" id="L150">        val chartPieLabel by cssclass()</span>
+<span class="fc" id="L151">        val chartPieLabelLine by cssclass()</span>
+<span class="fc" id="L152">        val chartPlotBackground by cssclass()</span>
+<span class="fc" id="L153">        val chartSeriesAreaFill by cssclass()</span>
+<span class="fc" id="L154">        val chartSeriesAreaLine by cssclass()</span>
+<span class="fc" id="L155">        val chartSeriesLine by cssclass()</span>
+<span class="fc" id="L156">        val chartSymbol by cssclass()</span>
+<span class="fc" id="L157">        val chartTitle by cssclass()</span>
+<span class="fc" id="L158">        val chartVerticalGridLines by cssclass()</span>
+<span class="fc" id="L159">        val chartVerticalZeroLine by cssclass()</span>
+<span class="fc" id="L160">        val checkBox by cssclass()</span>
+<span class="fc" id="L161">        val checkBoxTableCell by cssclass()</span>
+<span class="fc" id="L162">        val choiceBox by cssclass()</span>
+<span class="fc" id="L163">        val choiceDialog by cssclass()</span>
+<span class="fc" id="L164">        val clippedContainer by cssclass()</span>
+<span class="fc" id="L165">        val colorInputField by cssclass()</span>
+<span class="fc" id="L166">        val colorPalette by cssclass()</span>
+<span class="fc" id="L167">        val colorPaletteRegion by cssclass()</span>
+<span class="fc" id="L168">        val colorPicker by cssclass()</span>
+<span class="fc" id="L169">        val colorPickerGrid by cssclass()</span>
+<span class="fc" id="L170">        val colorPickerLabel by cssclass()</span>
+<span class="fc" id="L171">        val colorRect by cssclass()</span>
+<span class="fc" id="L172">        val colorRectBorder by cssclass()</span>
+<span class="fc" id="L173">        val colorRectPane by cssclass()</span>
+<span class="fc" id="L174">        val colorSquare by cssclass()</span>
+<span class="fc" id="L175">        val columnDragHeader by cssclass()</span>
+<span class="fc" id="L176">        val columnHeader by cssclass()</span>
+<span class="fc" id="L177">        val columnHeaderBackground by cssclass()</span>
+<span class="fc" id="L178">        val columnOverlay by cssclass()</span>
+<span class="fc" id="L179">        val columnResizeLine by cssclass()</span>
+<span class="fc" id="L180">        val comboBox by cssclass()</span>
+<span class="fc" id="L181">        val comboBoxBase by cssclass()</span>
+<span class="fc" id="L182">        val comboBoxPopup by cssclass()</span>
+<span class="fc" id="L183">        val confirmation by cssclass()</span>
+<span class="fc" id="L184">        val container by cssclass()</span>
+<span class="fc" id="L185">        val content by cssclass()</span>
+<span class="fc" id="L186">        val contextMenu by cssclass()</span>
+<span class="fc" id="L187">        val controlBox by cssclass()</span>
+<span class="fc" id="L188">        val controlButtonsTab by cssclass()</span>
+<span class="fc" id="L189">        val controlsPane by cssclass()</span>
+<span class="fc" id="L190">        val corner by cssclass()</span>
+<span class="fc" id="L191">        val currentNewColorGrid by cssclass()</span>
+<span class="fc" id="L192">        val customcolorControlsBackground by cssclass()  // color lowercase intentionally (that's how it is in modena)</span>
+<span class="fc" id="L193">        val customColorDialog by cssclass()</span>
+<span class="fc" id="L194">        val dateCell by cssclass()</span>
+<span class="fc" id="L195">        val datePicker by cssclass()</span>
+<span class="fc" id="L196">        val datePickerPopup by cssclass()</span>
+<span class="fc" id="L197">        val dayCell by cssclass()</span>
+<span class="fc" id="L198">        val dayNameCell by cssclass()</span>
+<span class="fc" id="L199">        val decrementArrow by cssclass()</span>
+<span class="fc" id="L200">        val decrementArrowButton by cssclass()</span>
+<span class="fc" id="L201">        val decrementButton by cssclass()</span>
+<span class="fc" id="L202">        val defaultColor0 by cssclass()</span>
+<span class="fc" id="L203">        val defaultColor1 by cssclass()</span>
+<span class="fc" id="L204">        val defaultColor2 by cssclass()</span>
+<span class="fc" id="L205">        val defaultColor3 by cssclass()</span>
+<span class="fc" id="L206">        val defaultColor4 by cssclass()</span>
+<span class="fc" id="L207">        val defaultColor5 by cssclass()</span>
+<span class="fc" id="L208">        val defaultColor6 by cssclass()</span>
+<span class="fc" id="L209">        val defaultColor7 by cssclass()</span>
+<span class="fc" id="L210">        val detailsButton by cssclass()</span>
+<span class="fc" id="L211">        val determinateIndicator by cssclass()</span>
+<span class="fc" id="L212">        val dialogPane by cssclass()</span>
+<span class="fc" id="L213">        val dot by cssclass()</span>
+<span class="fc" id="L214">        val edgeToEdge by cssclass()</span>
+<span class="fc" id="L215">        val emptyTable by cssclass()</span>
+<span class="fc" id="L216">        val error by cssclass()</span>
+<span class="fc" id="L217">        val expandableContent by cssclass()</span>
+<span class="fc" id="L218">        val filler by cssclass()</span>
+<span class="fc" id="L219">        val firstTitledPane by cssclass()</span>
+<span class="fc" id="L220">        val floating by cssclass()</span>
+<span class="fc" id="L221">        val focusIndicator by cssclass()</span>
+<span class="fc" id="L222">        val formSelectButton by cssclass()</span>
+<span class="fc" id="L223">        val graphicContainer by cssclass()</span>
+<span class="fc" id="L224">        val headerPanel by cssclass()</span>
+<span class="fc" id="L225">        val headersRegion by cssclass()</span>
+<span class="fc" id="L226">        val hijrahDayCell by cssclass()</span>
+<span class="fc" id="L227">        val hoverSquare by cssclass()</span>
+<span class="fc" id="L228">        val htmlEditor by cssclass()</span>
+<span class="fc" id="L229">        val htmlEditorAlignCenter by cssclass()</span>
+<span class="fc" id="L230">        val htmlEditorAlignJustify by cssclass()</span>
+<span class="fc" id="L231">        val htmlEditorAlignLeft by cssclass()</span>
+<span class="fc" id="L232">        val htmlEditorAlignRight by cssclass()</span>
+<span class="fc" id="L233">        val htmlEditorBackground by cssclass()</span>
+<span class="fc" id="L234">        val htmlEditorBold by cssclass()</span>
+<span class="fc" id="L235">        val htmlEditorBullets by cssclass()</span>
+<span class="fc" id="L236">        val htmlEditorCopy by cssclass()</span>
+<span class="fc" id="L237">        val htmlEditorCut by cssclass()</span>
+<span class="fc" id="L238">        val htmlEditorForeground by cssclass()</span>
+<span class="fc" id="L239">        val htmlEditorHr by cssclass()</span>
+<span class="fc" id="L240">        val htmlEditorIndent by cssclass()</span>
+<span class="fc" id="L241">        val htmlEditorItalic by cssclass()</span>
+<span class="fc" id="L242">        val htmlEditorNumbers by cssclass()</span>
+<span class="fc" id="L243">        val htmlEditorOutdent by cssclass()</span>
+<span class="fc" id="L244">        val htmlEditorPaste by cssclass()</span>
+<span class="fc" id="L245">        val htmlEditorStrike by cssclass()</span>
+<span class="fc" id="L246">        val htmlEditorUnderline by cssclass()</span>
+<span class="fc" id="L247">        val hyperlink by cssclass()</span>
+<span class="fc" id="L248">        val imageView by cssclass()</span>
+<span class="fc" id="L249">        val incrementArrow by cssclass()</span>
+<span class="fc" id="L250">        val incrementArrowButton by cssclass()</span>
+<span class="fc" id="L251">        val incrementButton by cssclass()</span>
+<span class="fc" id="L252">        val indexedCell by cssclass()</span>
+<span class="fc" id="L253">        val indicator by cssclass()</span>
+<span class="fc" id="L254">        val information by cssclass()</span>
+<span class="fc" id="L255">        val label by cssclass()</span>
+<span class="fc" id="L256">        val leftArrow by cssclass()</span>
+<span class="fc" id="L257">        val leftArrowButton by cssclass()</span>
+<span class="fc" id="L258">        val leftContainer by cssclass()</span>
+<span class="fc" id="L259">        val leftPill by cssclass()</span>
+<span class="fc" id="L260">        val less by cssclass()</span>
+<span class="fc" id="L261">        val line by cssclass()</span>
+<span class="fc" id="L262">        val listCell by cssclass()</span>
+<span class="fc" id="L263">        val listView by cssclass()</span>
+<span class="fc" id="L264">        val mark by cssclass()</span>
+<span class="fc" id="L265">        val mediaView by cssclass()</span>
+<span class="fc" id="L266">        val menu by cssclass()</span>
+<span class="fc" id="L267">        val menuBar by cssclass()</span>
+<span class="fc" id="L268">        val menuButton by cssclass()</span>
+<span class="fc" id="L269">        val menuDownArrow by cssclass()</span>
+<span class="fc" id="L270">        val menuItem by cssclass()</span>
+<span class="fc" id="L271">        val menuUpArrow by cssclass()</span>
+<span class="fc" id="L272">        val mnemonicUnderline by cssclass()</span>
+<span class="fc" id="L273">        val monthYearPane by cssclass()</span>
+<span class="fc" id="L274">        val more by cssclass()</span>
+<span class="fc" id="L275">        val negative by cssclass()</span>
+<span class="fc" id="L276">        val nestedColumnHeader by cssclass()</span>
+<span class="fc" id="L277">        val nextMonth by cssclass()</span>
+<span class="fc" id="L278">        val numberButton by cssclass()</span>
+<span class="fc" id="L279">        val openButton by cssclass()</span>
+<span class="fc" id="L280">        val page by cssclass()</span>
+<span class="fc" id="L281">        val pageInformation by cssclass()</span>
+<span class="fc" id="L282">        val pagination by cssclass()</span>
+<span class="fc" id="L283">        val paginationControl by cssclass()</span>
+<span class="fc" id="L284">        val passwordField by cssclass()</span>
+<span class="fc" id="L285">        val percentage by cssclass()</span>
+<span class="fc" id="L286">        val pickerColor by cssclass()</span>
+<span class="fc" id="L287">        val pickerColorRect by cssclass()</span>
+<span class="fc" id="L288">        val pieLegendSymbol by cssclass()</span>
+<span class="fc" id="L289">        val placeholder by cssclass()</span>
+<span class="fc" id="L290">        val popup by cssclass()</span>
+<span class="fc" id="L291">        val previousMonth by cssclass()</span>
+<span class="fc" id="L292">        val progress by cssclass()</span>
+<span class="fc" id="L293">        val progressBar by cssclass()</span>
+<span class="fc" id="L294">        val progressBarTableCell by cssclass()</span>
+<span class="fc" id="L295">        val progressIndicator by cssclass()</span>
+<span class="fc" id="L296">        val radio by cssclass()</span>
+<span class="fc" id="L297">        val radioButton by cssclass()</span>
+<span class="fc" id="L298">        val rightArrow by cssclass()</span>
+<span class="fc" id="L299">        val rightClass by cssclass(&quot;right&quot;)</span>
+<span class="fc" id="L300">        val rightArrowButton by cssclass()</span>
+<span class="fc" id="L301">        val rightContainer by cssclass()</span>
+<span class="fc" id="L302">        val rightPill by cssclass()</span>
+<span class="fc" id="L303">        val root by cssclass()</span>
+<span class="fc" id="L304">        val scrollArrow by cssclass()</span>
+<span class="fc" id="L305">        val scrollBar by cssclass()</span>
+<span class="fc" id="L306">        val scrollPane by cssclass()</span>
+<span class="fc" id="L307">        val secondaryLabel by cssclass()</span>
+<span class="fc" id="L308">        val secondaryText by cssclass()</span>
+<span class="fc" id="L309">        val segment by cssclass()</span>
+<span class="fc" id="L310">        val segment0 by cssclass()</span>
+<span class="fc" id="L311">        val segment1 by cssclass()</span>
+<span class="fc" id="L312">        val segment2 by cssclass()</span>
+<span class="fc" id="L313">        val segment3 by cssclass()</span>
+<span class="fc" id="L314">        val segment4 by cssclass()</span>
+<span class="fc" id="L315">        val segment5 by cssclass()</span>
+<span class="fc" id="L316">        val segment6 by cssclass()</span>
+<span class="fc" id="L317">        val segment7 by cssclass()</span>
+<span class="fc" id="L318">        val segment8 by cssclass()</span>
+<span class="fc" id="L319">        val segment9 by cssclass()</span>
+<span class="fc" id="L320">        val segment10 by cssclass()</span>
+<span class="fc" id="L321">        val segment11 by cssclass()</span>
+<span class="fc" id="L322">        val selectedClass by cssclass(&quot;selected&quot;)</span>
+<span class="fc" id="L323">        val separator by cssclass()</span>
+<span class="fc" id="L324">        val settingsLabel by cssclass()</span>
+<span class="fc" id="L325">        val settingsUnit by cssclass()</span>
+<span class="fc" id="L326">        val sheet by cssclass()</span>
+<span class="fc" id="L327">        val showHideColumnImage by cssclass()</span>
+<span class="fc" id="L328">        val showHideColumnsButton by cssclass()</span>
+<span class="fc" id="L329">        val slider by cssclass()</span>
+<span class="fc" id="L330">        val sortOrder by cssclass()</span>
+<span class="fc" id="L331">        val sortOrderDot by cssclass()</span>
+<span class="fc" id="L332">        val sortOrderDotsContainer by cssclass()</span>
+<span class="fc" id="L333">        val spinner by cssclass()</span>
+<span class="fc" id="L334">        val splitArrowsHorizontal by cssclass()</span>
+<span class="fc" id="L335">        val splitArrowsOnLeftHorizontal by cssclass()</span>
+<span class="fc" id="L336">        val splitArrowsOnRightHorizontal by cssclass()</span>
+<span class="fc" id="L337">        val splitArrowsOnLeftVertical by cssclass()</span>
+<span class="fc" id="L338">        val splitArrowsOnRightVertical by cssclass()</span>
+<span class="fc" id="L339">        val splitArrowsVertical by cssclass()</span>
+<span class="fc" id="L340">        val splitButton by cssclass()</span>
+<span class="fc" id="L341">        val splitMenuButton by cssclass()</span>
+<span class="fc" id="L342">        val splitPane by cssclass()</span>
+<span class="fc" id="L343">        val splitPaneDivider by cssclass()</span>
+<span class="fc" id="L344">        val stackedBarChart by cssclass()</span>
+<span class="fc" id="L345">        val tab by cssclass()</span>
+<span class="fc" id="L346">        val tabCloseButton by cssclass()</span>
+<span class="fc" id="L347">        val tabContentArea by cssclass()</span>
+<span class="fc" id="L348">        val tabDownButton by cssclass()</span>
+<span class="fc" id="L349">        val tabHeaderArea by cssclass()</span>
+<span class="fc" id="L350">        val tabHeaderBackground by cssclass()</span>
+<span class="fc" id="L351">        val tabLabel by cssclass()</span>
+<span class="fc" id="L352">        val tableCell by cssclass()</span>
+<span class="fc" id="L353">        val tableRowCell by cssclass()</span>
+<span class="fc" id="L354">        val tableView by cssclass()</span>
+<span class="fc" id="L355">        val tableColumn by cssclass()</span>
+<span class="fc" id="L356">        val tabPane by cssclass()</span>
+<span class="fc" id="L357">        val text by cssclass()</span>
+<span class="fc" id="L358">        val textArea by cssclass()</span>
+<span class="fc" id="L359">        val textField by cssclass()</span>
+<span class="fc" id="L360">        val textInput by cssclass()</span>
+<span class="fc" id="L361">        val textInputDialog by cssclass()</span>
+<span class="fc" id="L362">        val thumb by cssclass()</span>
+<span class="fc" id="L363">        val tick by cssclass()</span>
+<span class="fc" id="L364">        val title by cssclass()</span>
+<span class="fc" id="L365">        val titledPane by cssclass()</span>
+<span class="fc" id="L366">        val today by cssclass()</span>
+<span class="fc" id="L367">        val toggleButton by cssclass()</span>
+<span class="fc" id="L368">        val toolBar by cssclass()</span>
+<span class="fc" id="L369">        val toolBarOverflowButton by cssclass()</span>
+<span class="fc" id="L370">        val tooltip by cssclass()</span>
+<span class="fc" id="L371">        val track by cssclass()</span>
+<span class="fc" id="L372">        val transparentPattern by cssclass()</span>
+<span class="fc" id="L373">        val treeCell by cssclass()</span>
+<span class="fc" id="L374">        val treeDisclosureNode by cssclass()</span>
+<span class="fc" id="L375">        val treeTableCell by cssclass()</span>
+<span class="fc" id="L376">        val treeTableRowCell by cssclass()</span>
+<span class="fc" id="L377">        val treeTableView by cssclass()</span>
+<span class="fc" id="L378">        val treeView by cssclass()</span>
+<span class="fc" id="L379">        val viewport by cssclass()</span>
+<span class="fc" id="L380">        val virtualFlow by cssclass()</span>
+<span class="fc" id="L381">        val warning by cssclass()</span>
+<span class="fc" id="L382">        val webcolorField by cssclass()  // color lowercase intentionally (that's how it is in modena)</span>
+<span class="fc" id="L383">        val webField by cssclass()</span>
+<span class="fc" id="L384">        val webView by cssclass()</span>
+<span class="fc" id="L385">        val weekNumberCell by cssclass()</span>
+
+        // Style classes used by Form Builder
+<span class="fc" id="L388">        val form by cssclass()</span>
+<span class="fc" id="L389">        val fieldset by cssclass()</span>
+<span class="fc" id="L390">        val legend by cssclass()</span>
+<span class="fc" id="L391">        val field by cssclass()</span>
+<span class="fc" id="L392">        val labelContainer by cssclass()</span>
+<span class="fc" id="L393">        val inputContainer by cssclass()</span>
+
+        // DataGrid
+<span class="fc" id="L396">        val datagrid by cssclass()</span>
+<span class="fc" id="L397">        val datagridCell by cssclass()</span>
+<span class="fc" id="L398">        val datagridRow by cssclass()</span>
+
+        // Keyboard
+<span class="fc" id="L401">        val keyboard by cssclass()</span>
+<span class="fc" id="L402">        val keyboardKey by cssclass()</span>
+<span class="fc" id="L403">        val keyboardSpacerKey by cssclass()</span>
+
+        // Pseudo classes used by JavaFX
+<span class="fc" id="L406">        val armed by csspseudoclass()</span>
+<span class="fc" id="L407">        val bottom by csspseudoclass()</span>
+<span class="fc" id="L408">        val cancel by csspseudoclass()</span>
+<span class="fc" id="L409">        val cellSelection by csspseudoclass()</span>
+<span class="fc" id="L410">        val checked by csspseudoclass()</span>
+<span class="fc" id="L411">        val constrainedResize by csspseudoclass()</span>
+<span class="fc" id="L412">        val containsFocus by csspseudoclass()</span>
+<span class="fc" id="L413">        val collapsed by csspseudoclass()</span>
+<span class="fc" id="L414">        val default by csspseudoclass()</span>
+<span class="fc" id="L415">        val determinate by csspseudoclass()</span>
+<span class="fc" id="L416">        val disabled by csspseudoclass()</span>
+<span class="fc" id="L417">        val editable by csspseudoclass()</span>
+<span class="fc" id="L418">        val empty by csspseudoclass()</span>
+<span class="fc" id="L419">        val even by csspseudoclass()</span>
+<span class="fc" id="L420">        val expanded by csspseudoclass()</span>
+<span class="fc" id="L421">        val filled by csspseudoclass()</span>
+<span class="fc" id="L422">        val fitToHeight by csspseudoclass(snakeCase = false)</span>
+<span class="fc" id="L423">        val fitToWidth by csspseudoclass(snakeCase = false)</span>
+<span class="fc" id="L424">        val focused by csspseudoclass()</span>
+<span class="fc" id="L425">        val header by csspseudoclass()</span>
+<span class="fc" id="L426">        val horizontal by csspseudoclass()</span>
+<span class="fc" id="L427">        val hover by csspseudoclass()</span>
+<span class="fc" id="L428">        val indeterminate by csspseudoclass()</span>
+<span class="fc" id="L429">        val lastVisible by csspseudoclass()</span>
+<span class="fc" id="L430">        val left by csspseudoclass()</span>
+<span class="fc" id="L431">        val noHeader by csspseudoclass()</span>
+<span class="fc" id="L432">        val odd by csspseudoclass()</span>
+<span class="fc" id="L433">        val openvertically by csspseudoclass()  // intentionally single word</span>
+<span class="fc" id="L434">        val pannable by csspseudoclass()</span>
+<span class="fc" id="L435">        val pressed by csspseudoclass()</span>
+<span class="fc" id="L436">        val readonly by csspseudoclass()</span>
+<span class="fc" id="L437">        val right by csspseudoclass()</span>
+<span class="fc" id="L438">        val rowSelection by csspseudoclass()</span>
+<span class="fc" id="L439">        val selected by csspseudoclass()</span>
+<span class="fc" id="L440">        val showing by csspseudoclass()</span>
+<span class="fc" id="L441">        val showMnemonics by csspseudoclass()</span>
+<span class="fc" id="L442">        val top by csspseudoclass()</span>
+<span class="fc" id="L443">        val vertical by csspseudoclass()</span>
+<span class="fc" id="L444">        val visited by csspseudoclass()</span>
+
+<span class="fc" id="L446">        init {</span>
+<span class="pc bpc" id="L447" title="1 of 2 branches missed.">            if (!FX.osgiAvailable) {</span>
+<span class="fc" id="L448">                detectAndInstallUrlHandler()</span>
+            }
+<span class="fc" id="L450">        }</span>
+
+        fun importServiceLoadedStylesheets() {
+<span class="fc" id="L453">            val loader = ServiceLoader.load(Stylesheet::class.java)</span>
+<span class="pc bpc" id="L454" title="1 of 2 branches missed.">            for (style in loader) importStylesheet(style.javaClass.kotlin)</span>
+<span class="fc" id="L455">        }</span>
+
+        /**
+         * Try to retrieve a type safe stylesheet, and force installation of url handler
+         * if it's missing. This typically happens in environments with atypical class loaders.
+         *
+         * Under normal circumstances, the CSS handler that comes with TornadoFX should be picked
+         * up by the JVM automatically.
+         *
+         * If an OSGi environment is detected, the TornadoFX OSGi Activator will install the OSGi
+         * compatible URL handler instead.
+         */
+        private fun detectAndInstallUrlHandler() {
+<span class="fc" id="L468">            try {</span>
+<span class="nc" id="L469">                URL(&quot;css://content:64&quot;)</span>
+<span class="fc" id="L470">            } catch (ex: MalformedURLException) {</span>
+<span class="fc" id="L471">                log.info(&quot;Installing CSS url handler, since it was not picked up automatically&quot;)</span>
+<span class="fc" id="L472">                try {</span>
+<span class="fc" id="L473">                    URL.setURLStreamHandlerFactory(Handler.HandlerFactory())</span>
+<span class="nc" id="L474">                } catch (installFailed: Throwable) {</span>
+<span class="nc" id="L475">                    log.log(Level.WARNING, &quot;Unable to install CSS url handler, type safe stylesheets might not work&quot;, ex)</span>
+                }
+            }
+<span class="fc" id="L478">        }</span>
+    }
+
+<span class="pc" id="L481">    val selections = mutableListOf&lt;CssSelection&gt;()</span>
+
+    override fun addSelection(selection: CssSelection) {
+<span class="fc" id="L484">        selections += selection</span>
+<span class="fc" id="L485">    }</span>
+
+    override fun removeSelection(selection: CssSelection) {
+<span class="fc" id="L488">        selections -= selection</span>
+<span class="fc" id="L489">    }</span>
+
+<span class="pc" id="L491">    override fun render() = imports.joinToString(separator = &quot;\n&quot;, postfix = &quot;\n&quot;) { &quot;@import url(css://${it.java.name})&quot; } +</span>
+<span class="fc" id="L492">            selections.joinToString(separator = &quot;&quot;) { it.render() }</span>
+
+    val base64URL: URL
+        get() {
+<span class="nc bnc" id="L496" title="All 2 branches missed.">            val content = Base64.getEncoder().encodeToString(render().toByteArray())</span>
+<span class="nc" id="L497">            return URL(&quot;css://$content:64&quot;)</span>
+        }
+
+<span class="nc" id="L500">    val externalForm: String get() = base64URL.toExternalForm()</span>
+}
+
+<span class="fc" id="L503">open class PropertyHolder {</span>
+    companion object {
+<span class="fc" id="L505">        val selectionScope = ThreadLocal&lt;CssSelectionBlock&gt;()</span>
+<span class="nc bnc" id="L506" title="All 2 branches missed.">        fun Double.pos(relative: Boolean) = if (relative) &quot;${fiveDigits.format(this * 100)}%&quot; else &quot;${fiveDigits.format(this)}px&quot;</span>
+<span class="pc bpc" id="L507" title="1 of 2 branches missed.">        fun &lt;T&gt; toCss(value: T): String = when (value) {</span>
+<span class="nc" id="L508">            null -&gt; &quot;&quot;  // This should only happen in a container (such as box(), Array&lt;&gt;(), Pair())</span>
+<span class="fc bfc" id="L509" title="All 2 branches covered.">            is MultiValue&lt;*&gt; -&gt; value.elements.joinToString { toCss(it) }</span>
+<span class="fc bfc" id="L510" title="All 2 branches covered.">            is CssBox&lt;*&gt; -&gt; &quot;${toCss(value.top)} ${toCss(value.right)} ${toCss(value.bottom)} ${toCss(value.left)}&quot;</span>
+<span class="fc bfc" id="L511" title="All 2 branches covered.">            is FontWeight -&gt; &quot;${value.weight}&quot;  // Needs to come before `is Enum&lt;*&gt;`</span>
+<span class="pc bpc" id="L512" title="1 of 4 branches missed.">            is Enum&lt;*&gt; -&gt; value.toString().toLowerCase().replace(&quot;_&quot;, &quot;-&quot;)</span>
+<span class="pc bpc" id="L513" title="1 of 4 branches missed.">            is Font -&gt; &quot;${if (value.style == &quot;Regular&quot;) &quot;normal&quot; else value.style} ${value.size}pt ${toCss(value.family)}&quot;</span>
+<span class="pc bpc" id="L514" title="3 of 4 branches missed.">            is Cursor -&gt; if (value is ImageCursor) {</span>
+<span class="nc" id="L515">                value.image.javaClass.getDeclaredField(&quot;url&quot;).let {</span>
+<span class="nc" id="L516">                    it.isAccessible = true</span>
+<span class="nc" id="L517">                    it.get(value.image).toString()</span>
+                }
+            } else {
+<span class="nc" id="L520">                value.toString()</span>
+            }
+<span class="fc bfc" id="L522" title="All 2 branches covered.">            is URI -&gt; &quot;url(\&quot;${value.toASCIIString()}\&quot;)&quot;</span>
+<span class="pc bpc" id="L523" title="1 of 2 branches missed.">            is BackgroundPosition -&gt; &quot;${value.horizontalSide} ${value.horizontalPosition.pos(value.isHorizontalAsPercentage)} &quot; +</span>
+<span class="nc" id="L524">                    &quot;${value.verticalSide} ${value.verticalPosition.pos(value.isVerticalAsPercentage)}&quot;</span>
+<span class="pc bpc" id="L525" title="5 of 6 branches missed.">            is BackgroundSize -&gt; if (value.isContain) &quot;contain&quot; else if (value.isCover) &quot;cover&quot; else buildString {</span>
+<span class="nc bnc" id="L526" title="All 2 branches missed.">                append(if (value.width == BackgroundSize.AUTO) &quot;auto&quot; else value.width.pos(value.isWidthAsPercentage))</span>
+<span class="nc" id="L527">                append(&quot; &quot;)</span>
+<span class="nc bnc" id="L528" title="All 2 branches missed.">                append(if (value.height == BackgroundSize.AUTO) &quot;auto&quot; else value.height.pos(value.isHeightAsPercentage))</span>
+<span class="nc" id="L529">            }</span>
+<span class="fc bfc" id="L530" title="All 2 branches covered.">            is BorderStrokeStyle -&gt; when (value) {</span>
+<span class="pc bpc" id="L531" title="1 of 2 branches missed.">                BorderStrokeStyle.NONE -&gt; &quot;none&quot;</span>
+<span class="pc bpc" id="L532" title="1 of 2 branches missed.">                BorderStrokeStyle.DASHED -&gt; &quot;dashed&quot;</span>
+<span class="pc bpc" id="L533" title="1 of 2 branches missed.">                BorderStrokeStyle.DOTTED -&gt; &quot;dotted&quot;</span>
+<span class="pc bpc" id="L534" title="1 of 2 branches missed.">                BorderStrokeStyle.SOLID -&gt; &quot;solid&quot;</span>
+<span class="fc" id="L535">                else -&gt; buildString {</span>
+<span class="fc" id="L536">                    append(&quot;segments(${value.dashArray.joinToString()}) &quot;)</span>
+<span class="fc" id="L537">                    append(toCss(value.type))</span>
+<span class="fc" id="L538">                    append(&quot; line-join ${toCss(value.lineJoin)} &quot;)</span>
+<span class="pc bpc" id="L539" title="1 of 2 branches missed.">                    if (value.lineJoin == StrokeLineJoin.MITER) {</span>
+<span class="fc" id="L540">                        append(value.miterLimit)</span>
+                    }
+<span class="fc" id="L542">                    append(&quot; line-cap ${toCss(value.lineCap)}&quot;)</span>
+<span class="fc" id="L543">                }</span>
+            }
+<span class="pc bpc" id="L545" title="3 of 4 branches missed.">            is BorderImageSlice -&gt; toCss(value.widths) + if (value.filled) &quot; fill&quot; else &quot;&quot;</span>
+<span class="fc bfc" id="L546" title="All 2 branches covered.">            is List&lt;*&gt; -&gt; value.joinToString(&quot; &quot;) { toCss(it) }</span>
+<span class="pc bpc" id="L547" title="1 of 2 branches missed.">            is Pair&lt;*, *&gt; -&gt; &quot;${toCss(value.first)} ${toCss(value.second)}&quot;</span>
+<span class="pc bpc" id="L548" title="1 of 2 branches missed.">            is KClass&lt;*&gt; -&gt; &quot;\&quot;${value.qualifiedName}\&quot;&quot;</span>
+<span class="fc bfc" id="L549" title="All 2 branches covered.">            is CssProperty&lt;*&gt; -&gt; value.name</span>
+<span class="fc bfc" id="L550" title="All 2 branches covered.">            is Raw -&gt; value.name</span>
+<span class="fc bfc" id="L551" title="All 2 branches covered.">            is String -&gt; &quot;\&quot;$value\&quot;&quot;</span>
+<span class="pc bfc" id="L552" title="All 2 branches covered.">            is Effect -&gt; when (value) { // JavaFX currently only supports DropShadow and InnerShadow in CSS</span>
+<span class="pc bpc" id="L553" title="1 of 2 branches missed.">                is DropShadow -&gt; &quot;dropshadow(${toCss(value.blurType)}, ${value.color.css}, &quot; +</span>
+<span class="nc" id="L554">                        &quot;${value.radius}, ${value.spread}, ${value.offsetX}, ${value.offsetY})&quot;</span>
+<span class="pc bpc" id="L555" title="1 of 2 branches missed.">                is InnerShadow -&gt; &quot;innershadow(${toCss(value.blurType)}, ${value.color.css}, &quot; +</span>
+<span class="fc" id="L556">                        &quot;${value.radius}, ${value.choke}, ${value.offsetX}, ${value.offsetY})&quot;</span>
+<span class="nc" id="L557">                else -&gt; &quot;none&quot;</span>
+            }
+<span class="fc bfc" id="L559" title="All 2 branches covered.">            is Color -&gt; value.css</span>
+<span class="fc bfc" id="L560" title="All 2 branches covered.">            is Paint -&gt; value.toString().replace(Regex(&quot;0x[0-9a-f]{8}&quot;)) { Color.web(it.groupValues[0]).css }</span>
+<span class="fc" id="L561">            else -&gt; value.toString()</span>
+<span class="fc" id="L562">        }</span>
+    }
+
+<span class="fc" id="L565">    val properties = linkedMapOf&lt;String, Pair&lt;Any, ((Any) -&gt; String)?&gt;&gt;()</span>
+<span class="fc" id="L566">    val unsafeProperties = linkedMapOf&lt;String, Any&gt;()</span>
+<span class="fc" id="L567">    val mergedProperties: Map&lt;String, Pair&lt;Any, ((Any) -&gt; String)?&gt;&gt; get() = properties + unsafeProperties.mapValues { it.value to null }</span>
+
+    // Root
+<span class="fc" id="L570">    var baseColor: Color by cssprop(&quot;-fx-base&quot;)</span>
+<span class="fc" id="L571">    var accentColor: Color by cssprop(&quot;-fx-accent&quot;)</span>
+<span class="fc" id="L572">    var focusColor: Paint by cssprop(&quot;-fx-focus-color&quot;)</span>
+<span class="fc" id="L573">    var faintFocusColor: Paint by cssprop(&quot;-fx-faint-focus-color&quot;)</span>
+<span class="fc" id="L574">    var selectionBarText: Paint by cssprop(&quot;-fx-selection-bar-text&quot;)</span>
+
+    // Font
+<span class="fc" id="L577">    var font: Font by cssprop(&quot;-fx-font&quot;)</span>
+<span class="fc" id="L578">    var fontFamily: String by cssprop(&quot;-fx-font-family&quot;)</span>
+<span class="fc" id="L579">    var fontSize: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-font-size&quot;)</span>
+<span class="fc" id="L580">    var fontStyle: FontPosture by cssprop(&quot;-fx-font-style&quot;)</span>
+<span class="fc" id="L581">    var fontWeight: FontWeight by cssprop(&quot;-fx-font-weight&quot;)</span>
+
+    // Node
+<span class="fc" id="L584">    var blendMode: BlendMode by cssprop(&quot;-fx-blend-mode&quot;)</span>
+<span class="fc" id="L585">    var cursor: Cursor by cssprop(&quot;-fx-cursor&quot;)</span>
+<span class="fc" id="L586">    var effect: Effect by cssprop(&quot;-fx-effect&quot;)</span>
+<span class="fc" id="L587">    var focusTraversable: Boolean by cssprop(&quot;-fx-focus-traversable&quot;)</span>
+<span class="fc" id="L588">    var opacity: Double by cssprop(&quot;-fx-opacity&quot;)</span>
+<span class="fc" id="L589">    var rotate: Dimension&lt;Dimension.AngularUnits&gt; by cssprop(&quot;-fx-rotate&quot;)</span>
+<span class="fc" id="L590">    var scaleX: Number by cssprop(&quot;-fx-scale-x&quot;)</span>
+<span class="fc" id="L591">    var scaleY: Number by cssprop(&quot;-fx-scale-y&quot;)</span>
+<span class="fc" id="L592">    var scaleZ: Number by cssprop(&quot;-fx-scale-z&quot;)</span>
+<span class="fc" id="L593">    var translateX: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-translate-x&quot;)</span>
+<span class="fc" id="L594">    var translateY: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-translate-y&quot;)</span>
+<span class="fc" id="L595">    var translateZ: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-translate-z&quot;)</span>
+<span class="fc" id="L596">    var visibility: FXVisibility by cssprop(&quot;visibility&quot;)  // Intentionally not -fx-visibility</span>
+
+    // ImageView
+<span class="fc" id="L599">    var image: URI by cssprop(&quot;-fx-image&quot;)</span>
+
+    // DialogPane
+<span class="fc" id="L602">    var graphic: URI by cssprop(&quot;-fx-graphic&quot;)</span>
+
+    // FlowPane
+<span class="fc" id="L605">    var hgap: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-hgap&quot;)</span>
+<span class="fc" id="L606">    var vgap: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-vgap&quot;)</span>
+<span class="fc" id="L607">    var alignment: Pos by cssprop(&quot;-fx-alignment&quot;)</span>
+<span class="fc" id="L608">    var columnHAlignment: HPos by cssprop(&quot;-fx-column-halignment&quot;)</span>
+<span class="fc" id="L609">    var rowVAlignment: VPos by cssprop(&quot;-fx-row-valignment&quot;)</span>
+<span class="fc" id="L610">    var orientation: Orientation by cssprop(&quot;-fx-orientation&quot;)</span>
+
+    // GridPane
+<span class="fc" id="L613">    var gridLinesVisible: Boolean by cssprop(&quot;-fx-grid-lines-visible&quot;)</span>
+
+    // HBox
+<span class="fc" id="L616">    var spacing: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-spacing&quot;)</span>
+<span class="fc" id="L617">    var fillHeight: Boolean by cssprop(&quot;-fx-fill-height&quot;)</span>
+
+    // Region
+<span class="fc" id="L620">    var backgroundColor: MultiValue&lt;Paint&gt; by cssprop(&quot;-fx-background-color&quot;)</span>
+<span class="fc" id="L621">    var backgroundInsets: MultiValue&lt;CssBox&lt;Dimension&lt;Dimension.LinearUnits&gt;&gt;&gt; by cssprop(&quot;-fx-background-insets&quot;)</span>
+<span class="fc" id="L622">    var backgroundRadius: MultiValue&lt;CssBox&lt;Dimension&lt;Dimension.LinearUnits&gt;&gt;&gt; by cssprop(&quot;-fx-background-radius&quot;)</span>
+<span class="fc" id="L623">    var backgroundImage: MultiValue&lt;URI&gt; by cssprop(&quot;-fx-background-image&quot;)</span>
+<span class="fc" id="L624">    var backgroundPosition: MultiValue&lt;BackgroundPosition&gt; by cssprop(&quot;-fx-background-position&quot;)</span>
+<span class="fc" id="L625">    var backgroundRepeat: MultiValue&lt;Pair&lt;BackgroundRepeat, BackgroundRepeat&gt;&gt; by cssprop(&quot;-fx-background-repeat&quot;)</span>
+<span class="fc" id="L626">    var backgroundSize: MultiValue&lt;BackgroundSize&gt; by cssprop(&quot;-fx-background-size&quot;)</span>
+<span class="fc" id="L627">    var borderColor: MultiValue&lt;CssBox&lt;Paint?&gt;&gt; by cssprop(&quot;-fx-border-color&quot;)</span>
+<span class="fc" id="L628">    var borderInsets: MultiValue&lt;CssBox&lt;Dimension&lt;Dimension.LinearUnits&gt;&gt;&gt; by cssprop(&quot;-fx-border-insets&quot;)</span>
+<span class="fc" id="L629">    var borderRadius: MultiValue&lt;CssBox&lt;Dimension&lt;Dimension.LinearUnits&gt;&gt;&gt; by cssprop(&quot;-fx-border-radius&quot;)</span>
+<span class="fc" id="L630">    var borderStyle: MultiValue&lt;BorderStrokeStyle&gt; by cssprop(&quot;-fx-border-style&quot;)</span>
+<span class="fc" id="L631">    var borderWidth: MultiValue&lt;CssBox&lt;Dimension&lt;Dimension.LinearUnits&gt;&gt;&gt; by cssprop(&quot;-fx-border-width&quot;)</span>
+<span class="fc" id="L632">    var borderImageSource: MultiValue&lt;URI&gt; by cssprop(&quot;-fx-border-image-source&quot;)</span>
+<span class="fc" id="L633">    var borderImageInsets: MultiValue&lt;CssBox&lt;Dimension&lt;Dimension.LinearUnits&gt;&gt;&gt; by cssprop(&quot;-fx-border-image-insets&quot;)</span>
+<span class="fc" id="L634">    var borderImageRepeat: MultiValue&lt;Pair&lt;BorderRepeat, BorderRepeat&gt;&gt; by cssprop(&quot;-fx-border-image-repeat&quot;)</span>
+<span class="fc" id="L635">    var borderImageSlice: MultiValue&lt;BorderImageSlice&gt; by cssprop(&quot;-fx-border-image-slice&quot;)</span>
+<span class="fc" id="L636">    var borderImageWidth: CssBox&lt;Dimension&lt;Dimension.LinearUnits&gt;&gt; by cssprop(&quot;-fx-border-image-width&quot;)</span>
+<span class="fc" id="L637">    var padding: CssBox&lt;Dimension&lt;Dimension.LinearUnits&gt;&gt; by cssprop(&quot;-fx-padding&quot;)</span>
+<span class="fc" id="L638">    var positionShape: Boolean by cssprop(&quot;-fx-position-shape&quot;)</span>
+<span class="fc" id="L639">    var scaleShape: Boolean by cssprop(&quot;-fx-scale-shape&quot;)</span>
+<span class="fc" id="L640">    var shape: String by cssprop(&quot;-fx-shape&quot;)</span>
+<span class="fc" id="L641">    var snapToPixel: Boolean by cssprop(&quot;-fx-snap-to-pixel&quot;)</span>
+<span class="fc" id="L642">    var minHeight: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-min-height&quot;)</span>
+<span class="fc" id="L643">    var prefHeight: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-pref-height&quot;)</span>
+<span class="fc" id="L644">    var maxHeight: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-max-height&quot;)</span>
+<span class="fc" id="L645">    var minWidth: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-min-width&quot;)</span>
+<span class="fc" id="L646">    var prefWidth: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-pref-width&quot;)</span>
+<span class="fc" id="L647">    var maxWidth: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-max-width&quot;)</span>
+
+    // TilePane
+<span class="fc" id="L650">    var prefRows: Int by cssprop(&quot;-fx-pref-rows&quot;)</span>
+<span class="fc" id="L651">    var prefColumns: Int by cssprop(&quot;-fx-pref-columns&quot;)</span>
+<span class="fc" id="L652">    var prefTileWidth: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-pref-tile-width&quot;)</span>
+<span class="fc" id="L653">    var prefTileHeight: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-pref-tile-height&quot;)</span>
+<span class="fc" id="L654">    var tileAlignment: Pos by cssprop(&quot;-fx-tile-alignment&quot;)</span>
+
+    // VBox
+<span class="fc" id="L657">    var fillWidth: Boolean by cssprop(&quot;-fx-fill-width&quot;)</span>
+
+    // Shape
+<span class="fc" id="L660">    var fill: Paint by cssprop(&quot;-fx-fill&quot;)</span>
+<span class="fc" id="L661">    var smooth: Boolean by cssprop(&quot;-fx-smooth&quot;)</span>
+<span class="fc" id="L662">    var stroke: Paint by cssprop(&quot;-fx-stroke&quot;)</span>
+<span class="fc" id="L663">    var strokeType: StrokeType by cssprop(&quot;-fx-stroke-type&quot;)</span>
+<span class="fc" id="L664">    var strokeDashArray: List&lt;Dimension&lt;Dimension.LinearUnits&gt;&gt; by cssprop(&quot;-fx-stroke-dash-array&quot;)</span>
+<span class="fc" id="L665">    var strokeDashOffset: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-stroke-dash-offset&quot;)</span>
+<span class="fc" id="L666">    var strokeLineCap: StrokeLineCap by cssprop(&quot;-fx-stroke-line-cap&quot;)</span>
+<span class="fc" id="L667">    var strokeLineJoin: StrokeLineJoin by cssprop(&quot;-fx-stroke-line-join&quot;)</span>
+<span class="fc" id="L668">    var strokeMiterLimit: Double by cssprop(&quot;-fx-stroke-miter-limit&quot;)</span>
+<span class="fc" id="L669">    var strokeWidth: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-stroke-width&quot;)</span>
+
+    // Rectangle
+<span class="fc" id="L672">    var arcHeight: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-arc-height&quot;)</span>
+<span class="fc" id="L673">    var arcWidth: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-arc-width&quot;)</span>
+
+    // Text
+<span class="fc" id="L676">    var fontSmoothingType: FontSmoothingType by cssprop(&quot;-fx-font-smoothing-type&quot;)</span>
+<span class="fc" id="L677">    var strikethrough: Boolean by cssprop(&quot;-fx-strikethrough&quot;)</span>
+<span class="fc" id="L678">    var textAlignment: TextAlignment by cssprop(&quot;-fx-text-alignment&quot;)</span>
+<span class="fc" id="L679">    var textOrigin: VPos by cssprop(&quot;-fx-text-origin&quot;)</span>
+<span class="fc" id="L680">    var underline: Boolean by cssprop(&quot;-fx-underline&quot;)</span>
+
+    // WebView
+<span class="fc" id="L683">    var contextMenuEnabled: Boolean by cssprop(&quot;-fx-context-menu-enabled&quot;)</span>
+<span class="fc" id="L684">    var fontScale: Number by cssprop(&quot;-fx-font-scale&quot;)</span>
+
+    // Cell
+<span class="fc" id="L687">    var cellSize: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-cell-size&quot;)</span>
+
+    // DataGrid Celll
+<span class="fc" id="L690">    var cellWidth: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-cell-width&quot;)</span>
+<span class="fc" id="L691">    var cellHeight: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-cell-height&quot;)</span>
+<span class="fc" id="L692">    var horizontalCellSpacing: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-horizontal-cell-spacing&quot;)</span>
+<span class="fc" id="L693">    var verticalCellSpacing: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-vertical-cell-spacing&quot;)</span>
+<span class="fc" id="L694">    var maxCellsInRow: Int by cssprop(&quot;-fx-max-cells-in-row&quot;)</span>
+
+    // ColorPicker
+<span class="fc" id="L697">    var colorLabelVisible: Boolean by cssprop(&quot;-fx-color-label-visible&quot;)</span>
+
+    // Control
+<span class="fc" id="L700">    var skin: KClass&lt;*&gt; by cssprop(&quot;-fx-skin&quot;)</span>
+
+    // DatePicker
+<span class="fc" id="L703">    var showWeekNumbers: Boolean by cssprop(&quot;-fx-show-week-numbers&quot;)</span>
+
+    // Labeled
+<span class="fc" id="L706">    var textOverrun: OverrunStyle by cssprop(&quot;-fx-text-overrun&quot;)</span>
+<span class="fc" id="L707">    var wrapText: Boolean by cssprop(&quot;-fx-wrap-text&quot;)</span>
+<span class="fc" id="L708">    var contentDisplay: ContentDisplay by cssprop(&quot;-fx-content-display&quot;)</span>
+<span class="fc" id="L709">    var graphicTextGap: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-graphic-text-gap&quot;)</span>
+<span class="fc" id="L710">    var labelPadding: CssBox&lt;Dimension&lt;Dimension.LinearUnits&gt;&gt; by cssprop(&quot;-fx-label-padding&quot;)</span>
+<span class="fc" id="L711">    var textFill: Paint by cssprop(&quot;-fx-text-fill&quot;)</span>
+<span class="fc" id="L712">    var ellipsisString: String by cssprop(&quot;-fx-ellipsis-string&quot;)</span>
+
+    // MenuBar
+<span class="fc" id="L715">    var useSystemMenuBar: Boolean by cssprop(&quot;-fx-use-system-menu-bar&quot;)</span>
+
+    // Pagination
+<span class="fc" id="L718">    var maxPageIndicatorCount: Int by cssprop(&quot;-fx-max-page-indicator-count&quot;)</span>
+<span class="fc" id="L719">    var arrowsVisible: Boolean by cssprop(&quot;-fx-arrows-visible&quot;)</span>
+<span class="fc" id="L720">    var tooltipVisible: Boolean by cssprop(&quot;-fx-tooltip-visible&quot;)</span>
+<span class="fc" id="L721">    var pageInformationVisible: Boolean by cssprop(&quot;-fx-page-information-visible&quot;)</span>
+<span class="fc" id="L722">    var pageInformationAlignment: Side by cssprop(&quot;-fx-page-information-alignment&quot;)</span>
+
+    // ProgressBar
+<span class="fc" id="L725">    var indeterminateBarLength: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-indeterminate-bar-length&quot;)</span>
+<span class="fc" id="L726">    var indeterminateBarEscape: Boolean by cssprop(&quot;-fx-indeterminate-bar-escape&quot;)</span>
+<span class="fc" id="L727">    var indeterminateBarFlip: Boolean by cssprop(&quot;-fx-indeterminate-bar-flip&quot;)</span>
+<span class="fc" id="L728">    var indeterminateBarAnimationTime: Number by cssprop(&quot;-fx-indeterminate-bar-animation-time&quot;)</span>
+
+    // ProgressIndicator
+<span class="fc" id="L731">    var indeterminateSegmentCount: Int by cssprop(&quot;-fx-indeterminate-SegmentCount&quot;)</span>
+<span class="fc" id="L732">    var progressColor: Paint by cssprop(&quot;-fx-progress-color&quot;)</span>
+<span class="fc" id="L733">    var spinEnabled: Boolean by cssprop(&quot;-fx-spin-enabled&quot;)</span>
+
+    // ScrollBar
+<span class="fc" id="L736">    var blockIncrement: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-block-increment&quot;)</span>
+<span class="fc" id="L737">    var unitIncrement: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-unit-increment&quot;)</span>
+
+    // ScrollPane
+<span class="fc" id="L740">    var fitToWidth: Boolean by cssprop(&quot;-fx-fit-to-width&quot;)</span>
+<span class="fc" id="L741">    var fitToHeight: Boolean by cssprop(&quot;-fx-fit-to-height&quot;)</span>
+<span class="fc" id="L742">    var pannable: Boolean by cssprop(&quot;-fx-pannable&quot;)</span>
+<span class="fc" id="L743">    var hBarPolicy: ScrollPane.ScrollBarPolicy by cssprop(&quot;-fx-hbar-policy&quot;)</span>
+<span class="fc" id="L744">    var vBarPolicy: ScrollPane.ScrollBarPolicy by cssprop(&quot;-fx-vbar-policy&quot;)</span>
+
+    // Separator
+<span class="fc" id="L747">    var hAlignment: HPos by cssprop(&quot;-fx-halignment&quot;)</span>
+<span class="fc" id="L748">    var vAlignment: VPos by cssprop(&quot;-fx-valignment&quot;)</span>
+
+    // Slider
+<span class="fc" id="L751">    var showTickLabels: Boolean by cssprop(&quot;-fx-show-tick-labels&quot;)</span>
+<span class="fc" id="L752">    var showTickMarks: Boolean by cssprop(&quot;-fx-show-tick-marks&quot;)</span>
+<span class="fc" id="L753">    var majorTickUnit: Double by cssprop(&quot;-fx-major-tick-unit&quot;)</span>
+<span class="fc" id="L754">    var minorTickCount: Int by cssprop(&quot;-fx-minor-tick-count&quot;)</span>
+<span class="fc" id="L755">    var snapToTicks: Boolean by cssprop(&quot;-fx-snap-to-ticks&quot;)</span>
+
+    // TabPane
+<span class="fc" id="L758">    var tabMaxHeight: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-tab-max-height&quot;)</span>
+<span class="fc" id="L759">    var tabMinHeight: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-tab-min-height&quot;)</span>
+<span class="fc" id="L760">    var tabMaxWidth: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-tab-max-width&quot;)</span>
+<span class="fc" id="L761">    var tabMinWidth: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-tab-min-width&quot;)</span>
+<span class="fc" id="L762">    var openTabAnimation: FXTabAnimation by cssprop(&quot;-fx-open-tab-animation&quot;)</span>
+<span class="fc" id="L763">    var closeTabAnimation: FXTabAnimation by cssprop(&quot;-fx-close-tab-animation&quot;)</span>
+
+    // TableColumnHeader
+<span class="fc" id="L766">    var size: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-size&quot;)</span>
+
+    // TableView
+<span class="fc" id="L769">    var fixedCellSize: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-fixed-cell-size&quot;)</span>
+
+    // TextArea
+<span class="fc" id="L772">    var prefColumnCount: Int by cssprop(&quot;-fx-pref-column-count&quot;)</span>
+<span class="fc" id="L773">    var prefRowCount: Int by cssprop(&quot;-fx-pref-row-count&quot;)</span>
+<span class="fc" id="L774">    var textBoxBorder: Paint by cssprop(&quot;-fx-text-box-border&quot;)</span>
+
+    // TextInputControl
+<span class="fc" id="L777">    var promptTextFill: Paint by cssprop(&quot;-fx-prompt-text-fill&quot;)</span>
+<span class="fc" id="L778">    var highlightFill: Paint by cssprop(&quot;-fx-highlight-fill&quot;)</span>
+<span class="fc" id="L779">    var highlightTextFill: Paint by cssprop(&quot;-fx-highlight-text-fill&quot;)</span>
+<span class="fc" id="L780">    var displayCaret: Boolean by cssprop(&quot;-fx-display-caret&quot;)</span>
+
+    // TitlePane
+<span class="fc" id="L783">    var animated: Boolean by cssprop(&quot;-fx-animated&quot;)</span>
+<span class="fc" id="L784">    var collapsible: Boolean by cssprop(&quot;-fx-collapsible&quot;)</span>
+
+    // TreeCell
+<span class="fc" id="L787">    var indent: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-indent&quot;)</span>
+
+    // Axis
+<span class="fc" id="L790">    var side: Side by cssprop(&quot;-fx-side&quot;)</span>
+<span class="fc" id="L791">    var tickLength: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-tick-length&quot;)</span>
+<span class="fc" id="L792">    var tickLabelFont: Font by cssprop(&quot;-fx-tick-label-font&quot;)</span>
+<span class="fc" id="L793">    var tickLabelFill: Paint by cssprop(&quot;-fx-tick-label-fill&quot;)</span>
+<span class="fc" id="L794">    var tickLabelGap: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-tick-label-gap&quot;)</span>
+<span class="fc" id="L795">    var tickMarkVisible: Boolean by cssprop(&quot;-fx-tick-mark-visible&quot;)</span>
+<span class="fc" id="L796">    var tickLabelsVisible: Boolean by cssprop(&quot;-fx-tick-labels-visible&quot;)</span>
+
+    // BarChar
+<span class="fc" id="L799">    var barGap: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-bar-gap&quot;)</span>
+<span class="fc" id="L800">    var categoryGap: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-category-group&quot;)</span>
+<span class="fc" id="L801">    var barFill: Color by cssprop(&quot;-fx-bar-fill&quot;)</span>
+
+    // CategoryAxis
+<span class="fc" id="L804">    var startMargin: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-start-margin&quot;)</span>
+<span class="fc" id="L805">    var endMargin: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-end-margin&quot;)</span>
+<span class="fc" id="L806">    var gapStartAndEnd: Boolean by cssprop(&quot;-fx-gap-start-and-end&quot;)</span>
+
+    // Chart
+<span class="fc" id="L809">    var legendSide: Side by cssprop(&quot;-fx-legend-side&quot;)</span>
+<span class="fc" id="L810">    var legendVisible: Boolean by cssprop(&quot;-fx-legend-visible&quot;)</span>
+<span class="fc" id="L811">    var titleSide: Side by cssprop(&quot;-fx-title-side&quot;)</span>
+
+    // LineChart
+<span class="fc" id="L814">    var createSymbols: Boolean by cssprop(&quot;-fx-create-symbols&quot;)</span>
+
+    // NumberAxis
+<span class="fc" id="L817">    var tickUnit: Number by cssprop(&quot;-fx-tick-unit&quot;)</span>
+
+    // PieChart
+<span class="fc" id="L820">    var clockwise: Boolean by cssprop(&quot;-fx-clockwise&quot;)</span>
+<span class="fc" id="L821">    var pieLabelVisible: Boolean by cssprop(&quot;-fx-pie-label-visible&quot;)</span>
+<span class="fc" id="L822">    var labelLineLength: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-label-line-length&quot;)</span>
+<span class="fc" id="L823">    var startAngle: Dimension&lt;Dimension.AngularUnits&gt; by cssprop(&quot;-fx-start-angle&quot;)</span>
+
+    // ValueAxis
+<span class="fc" id="L826">    var minorTickLength: Dimension&lt;Dimension.LinearUnits&gt; by cssprop(&quot;-fx-minor-tick-length&quot;)</span>
+<span class="fc" id="L827">    var minorTickVisible: Boolean by cssprop(&quot;-fx-minor-tick-visible&quot;)</span>
+
+    // XYChart
+<span class="fc" id="L830">    var alternativeColumnFillVisible: Boolean by cssprop(&quot;-fx-alternative-column-fill-visible&quot;)</span>
+<span class="fc" id="L831">    var alternativeRowFillVisible: Boolean by cssprop(&quot;-fx-alternative-row-fill-visible&quot;)</span>
+<span class="fc" id="L832">    var horizontalGridLinesVisible: Boolean by cssprop(&quot;-fx-horizontal-grid-lines-visible&quot;)</span>
+<span class="fc" id="L833">    var horizontalZeroLineVisible: Boolean by cssprop(&quot;-fx-horizontal-zero-line-visible&quot;)</span>
+<span class="fc" id="L834">    var verticalGridLinesVisible: Boolean by cssprop(&quot;-fx-vertical-grid-lines-visible&quot;)</span>
+<span class="fc" id="L835">    var verticalZeroLineVisible: Boolean by cssprop(&quot;-fx-vertical-zero-line-visible&quot;)</span>
+
+<span class="fc" id="L837">    infix fun CssProperty&lt;*&gt;.force(value: Any) = unsafe(this, value)</span>
+<span class="nc" id="L838">    infix fun String.force(value: Any) = unsafe(this, value)</span>
+<span class="fc" id="L839">    fun unsafe(key: CssProperty&lt;*&gt;, value: Any) = unsafe(key.name, value)</span>
+    fun unsafe(key: String, value: Any) {
+<span class="fc" id="L841">        unsafeProperties[key] = value</span>
+<span class="fc" id="L842">    }</span>
+
+    private inline fun &lt;reified V : Any&gt; cssprop(key: String): ReadWriteProperty&lt;PropertyHolder, V&gt; {
+<span class="pc" id="L845">        return object : ReadWriteProperty&lt;PropertyHolder, V&gt; {</span>
+            override fun getValue(thisRef: PropertyHolder, property: KProperty&lt;*&gt;): V {
+<span class="pc bpc" id="L847" title="699 of 716 branches missed.">                if (!properties.containsKey(key) &amp;&amp; MultiValue::class.java.isAssignableFrom(V::class.java))</span>
+<span class="pc" id="L848">                    properties[key] = MultiValue&lt;V&gt;() to null</span>
+<span class="pc bpc" id="L849" title="698 of 714 branches missed.">                return properties[key]?.first as V</span>
+            }
+
+            override fun setValue(thisRef: PropertyHolder, property: KProperty&lt;*&gt;, value: V) {
+<span class="pc bpc" id="L853" title="341 of 358 branches missed.">                properties[key] = value as Any to properties[key]?.second</span>
+<span class="pc" id="L854">            }</span>
+        }
+    }
+
+    @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="pc" id="L859">    class CssProperty&lt;T&gt;(name: String, val multiValue: Boolean, val renderer: ((T) -&gt; String)? = null) {</span>
+<span class="fc" id="L860">        val name = name.camelToSnake()</span>
+        var value: T
+            get() {
+<span class="fc" id="L863">                val props = selectionScope.get().properties</span>
+
+<span class="pc bpc" id="L865" title="1 of 4 branches missed.">                if (!props.containsKey(name) &amp;&amp; multiValue)</span>
+<span class="fc" id="L866">                    props[name] = MultiValue&lt;T&gt;() to renderer as ((Any) -&gt; String)?</span>
+
+<span class="pc bpc" id="L868" title="1 of 2 branches missed.">                return selectionScope.get().properties[name]?.first as T</span>
+            }
+            set(value) {
+<span class="pc bpc" id="L871" title="1 of 2 branches missed.">                selectionScope.get().properties.put(name, value as Any to renderer as ((Any) -&gt; String)?)</span>
+<span class="fc" id="L872">            }</span>
+    }
+
+<span class="nc" id="L875">    infix fun &lt;T : Any&gt; CssProperty&lt;T&gt;.set(value: T) = setProperty(this, value)</span>
+    fun &lt;T : Any&gt; setProperty(property: CssProperty&lt;T&gt;, value: T) {
+<span class="nc bnc" id="L877" title="All 2 branches missed.">        properties[property.name] = value to properties[property.name]?.second</span>
+<span class="nc" id="L878">    }</span>
+
+<span class="fc" id="L880">    class Raw(val name: String)</span>
+
+<span class="fc" id="L882">    fun raw(name: String) = Raw(name)</span>
+}
+
+@Suppress(&quot;NAME_SHADOWING&quot;)
+<span class="fc" id="L886">class CssSelection(val selector: CssSelector, op: CssSelectionBlock.() -&gt; Unit) : Rendered {</span>
+<span class="fc" id="L887">    val block = CssSelectionBlock(op)</span>
+
+<span class="fc" id="L889">    override fun render() = render(emptyList(), CssSubRule.Relation.DESCENDANT)</span>
+
+<span class="fc" id="L891">    fun render(parents: List&lt;String&gt;, relation: CssSubRule.Relation): String = buildString {</span>
+<span class="fc" id="L892">        val ruleStrings = selector.strings(parents, relation)</span>
+<span class="fc" id="L893">        block.mergedProperties.let {</span>
+            // TODO: Handle custom renderer
+<span class="fc bfc" id="L895" title="All 4 branches covered.">            if (it.isNotEmpty()) {</span>
+<span class="fc" id="L896">                append(&quot;${ruleStrings.joinToString()} {\n&quot;)</span>
+<span class="fc bfc" id="L897" title="All 2 branches covered.">                for ((name, value) in it) {</span>
+<span class="pc bpc" id="L898" title="1 of 4 branches missed.">                    append(&quot;    $name: ${value.second?.invoke(value.first) ?: PropertyHolder.toCss(value.first)};\n&quot;)</span>
+                }
+<span class="fc" id="L900">                append(&quot;}\n&quot;)</span>
+            }
+<span class="fc" id="L902">        }</span>
+<span class="fc bfc" id="L903" title="All 2 branches covered.">        for ((selection, relation) in block.selections) {</span>
+<span class="fc" id="L904">            append(selection.render(ruleStrings, relation))</span>
+        }
+<span class="fc" id="L906">    }</span>
+}
+
+<span class="fc" id="L909">class CssSelector(vararg val rule: CssRuleSet) : Selectable {</span>
+    companion object {
+<span class="fc" id="L911">        fun String.merge(other: String, relation: CssSubRule.Relation) = &quot;$this${relation.render()}$other&quot;</span>
+<span class="fc bfc" id="L912" title="All 2 branches covered.">        fun List&lt;String&gt;.cartesian(parents: List&lt;String&gt;, relation: CssSubRule.Relation) = if (parents.isEmpty()) this else</span>
+<span class="fc" id="L913">            parents.asSequence().flatMap { parent -&gt; asSequence().map { child -&gt; parent.merge(child, relation) } }.toList()</span>
+    }
+
+<span class="fc" id="L916">    override fun toSelection() = this</span>
+<span class="fc" id="L917">    fun strings(parents: List&lt;String&gt;, relation: CssSubRule.Relation) = rule.mapEach { render() }.cartesian(parents, relation)</span>
+
+<span class="fc" id="L919">    fun simpleRender() = rule.joinToString { it.render() }</span>
+}
+
+<span class="pc" id="L922">class CssSelectionBlock(op: CssSelectionBlock.() -&gt; Unit) : PropertyHolder(), SelectionHolder {</span>
+
+<span class="pc" id="L924">    val log = Logger.getLogger(&quot;ErrorHandler&quot;)</span>
+<span class="fc" id="L925">    val selections = mutableMapOf&lt;CssSelection, CssSubRule.Relation&gt;()</span>
+
+<span class="fc" id="L927">    init {</span>
+<span class="fc" id="L928">        val currentScope = PropertyHolder.selectionScope.get()</span>
+<span class="fc" id="L929">        PropertyHolder.selectionScope.set(this)</span>
+<span class="fc" id="L930">        try {</span>
+<span class="fc" id="L931">            op(this)</span>
+<span class="fc" id="L932">        } catch (e: Exception) {</span>
+            // the CSS rule caused an error, do not let the error propagate to
+            // avoid an infinite loop in the error handler
+<span class="fc" id="L935">            log.log(Level.WARNING, &quot;CSS rule caused an error&quot;, e)</span>
+        }
+<span class="fc" id="L937">        PropertyHolder.selectionScope.set(currentScope)</span>
+<span class="fc" id="L938">    }</span>
+
+    override fun addSelection(selection: CssSelection) {
+<span class="fc" id="L941">        selections[selection] = CssSubRule.Relation.DESCENDANT</span>
+<span class="fc" id="L942">    }</span>
+
+    override fun removeSelection(selection: CssSelection) {
+<span class="nc" id="L945">        selections.remove(selection)</span>
+<span class="nc" id="L946">    }</span>
+
+    operator fun CssSelectionBlock.unaryPlus() {
+<span class="fc" id="L949">        this@CssSelectionBlock.mix(this)</span>
+<span class="fc" id="L950">    }</span>
+
+    @Deprecated(&quot;Use and() instead as it's clearer&quot;, ReplaceWith(&quot;and(selector, op)&quot;))
+<span class="nc" id="L953">    fun add(selector: String, op: CssSelectionBlock.() -&gt; Unit) = and(selector, op)</span>
+
+    @Deprecated(&quot;Use and() instead as it's clearer&quot;, ReplaceWith(&quot;and(selector, *selectors, op = op)&quot;))
+<span class="nc" id="L956">    fun add(selector: Selectable, vararg selectors: Selectable, op: CssSelectionBlock.() -&gt; Unit) = and(selector, *selectors, op = op)</span>
+
+    private fun addRelation(
+        relation: CssSubRule.Relation,
+        selector: Selectable, vararg selectors: Selectable,
+        op: CssSelectionBlock.() -&gt; Unit
+    ): CssSelection {
+<span class="fc" id="L963">        val s = select(selector, *selectors, op = op)</span>
+<span class="fc" id="L964">        selections[s] = relation</span>
+<span class="fc" id="L965">        return s</span>
+    }
+
+    /**
+     * [CssSubRule.Relation.REFINE]
+     */
+<span class="fc" id="L971">    fun and(selector: String, op: CssSelectionBlock.() -&gt; Unit) = and(selector.toSelector(), op = op)</span>
+
+    /**
+     * [CssSubRule.Relation.REFINE]
+     */
+    fun and(selector: Selectable, vararg selectors: Selectable, op: CssSelectionBlock.() -&gt; Unit): CssSelection =
+<span class="fc" id="L977">        addRelation(CssSubRule.Relation.REFINE, selector, *selectors, op = op)</span>
+
+    /**
+     * [CssSubRule.Relation.CHILD]
+     */
+<span class="nc" id="L982">    fun child(selector: String, op: CssSelectionBlock.() -&gt; Unit) = child(selector.toSelector(), op = op)</span>
+
+    /**
+     * [CssSubRule.Relation.CHILD]
+     */
+    fun child(selector: Selectable, vararg selectors: Selectable, op: CssSelectionBlock.() -&gt; Unit): CssSelection =
+<span class="fc" id="L988">        addRelation(CssSubRule.Relation.CHILD, selector, *selectors, op = op)</span>
+
+    /**
+     * [CssSubRule.Relation.DESCENDANT]
+     */
+<span class="nc" id="L993">    fun contains(selector: String, op: CssSelectionBlock.() -&gt; Unit) = contains(selector.toSelector(), op = op)</span>
+
+    /**
+     * [CssSubRule.Relation.DESCENDANT]
+     */
+    fun contains(selector: Selectable, vararg selectors: Selectable, op: CssSelectionBlock.() -&gt; Unit): CssSelection =
+<span class="fc" id="L999">        addRelation(CssSubRule.Relation.DESCENDANT, selector, *selectors, op = op)</span>
+
+    /**
+     * [CssSubRule.Relation.ADJACENT]
+     */
+<span class="nc" id="L1004">    fun next(selector: String, op: CssSelectionBlock.() -&gt; Unit) = next(selector.toSelector(), op = op)</span>
+    /**
+     * [CssSubRule.Relation.ADJACENT]
+     */
+    fun next(selector: Selectable, vararg selectors: Selectable, op: CssSelectionBlock.() -&gt; Unit): CssSelection =
+<span class="fc" id="L1009">        addRelation(CssSubRule.Relation.ADJACENT, selector, *selectors, op = op)</span>
+
+    /**
+     * [CssSubRule.Relation.SIBLING]
+     */
+<span class="nc" id="L1014">    fun sibling(selector: String, op: CssSelectionBlock.() -&gt; Unit) = sibling(selector.toSelector(), op = op)</span>
+    /**
+     * [CssSubRule.Relation.SIBLING]
+     */
+    fun sibling(selector: Selectable, vararg selectors: Selectable, op: CssSelectionBlock.() -&gt; Unit): CssSelection =
+<span class="fc" id="L1019">        addRelation(CssSubRule.Relation.SIBLING, selector, *selectors, op = op)</span>
+
+    @Suppress(&quot;UNCHECKED_CAST&quot;)
+    fun mix(mixin: CssSelectionBlock) {
+<span class="fc" id="L1023">        mixin.properties.withEach {</span>
+<span class="pc bpc" id="L1024" title="1 of 8 branches missed.">            (properties[key]?.first as? MultiValue&lt;Any&gt;)?.addAll(value.first as MultiValue&lt;Any&gt;)</span>
+<span class="fc" id="L1025">                    ?: run { properties[key] = value }</span>
+<span class="fc" id="L1026">        }</span>
+<span class="fc" id="L1027">        mixin.unsafeProperties.withEach {</span>
+<span class="nc bnc" id="L1028" title="All 6 branches missed.">            (unsafeProperties[key] as? MultiValue&lt;Any&gt;)?.addAll(value as MultiValue&lt;Any&gt;)</span>
+<span class="nc" id="L1029">                    ?: run { unsafeProperties[key] = value }</span>
+<span class="nc" id="L1030">        }</span>
+<span class="fc" id="L1031">        selections.putAll(mixin.selections)</span>
+<span class="fc" id="L1032">    }</span>
+}
+
+<span class="fc" id="L1035">fun mixin(op: CssSelectionBlock.() -&gt; Unit) = CssSelectionBlock(op)</span>
+
+<span class="pc" id="L1037">class CssRuleSet(val rootRule: CssRule, vararg val subRule: CssSubRule) : Selectable, Scoped, Rendered {</span>
+<span class="fc" id="L1038">    override fun render() = buildString {</span>
+<span class="fc" id="L1039">        append(rootRule.render())</span>
+<span class="fc" id="L1040">        subRule.forEach { append(it.render()) }</span>
+<span class="fc" id="L1041">    }</span>
+
+<span class="fc" id="L1043">    override fun toRuleSet() = this</span>
+<span class="fc" id="L1044">    override fun toSelection() = CssSelector(this)</span>
+<span class="fc" id="L1045">    override fun append(rule: CssSubRule) = CssRuleSet(rootRule, *subRule, rule)</span>
+    fun append(ruleSet: CssRuleSet, relation: CssSubRule.Relation)
+<span class="fc" id="L1047">            = CssRuleSet(rootRule, *subRule, CssSubRule(ruleSet.rootRule, relation), *ruleSet.subRule)</span>
+}
+
+<span class="pc" id="L1050">class CssRule(val prefix: String, val name: String) : Selectable, Scoped, Rendered {</span>
+    companion object {
+<span class="fc" id="L1052">        fun elem(value: String) = CssRule(&quot;&quot;, value.cssValidate())</span>
+<span class="pc" id="L1053">        fun id(value: String, snakeCase: Boolean = true) = CssRule(&quot;#&quot;, value.cssValidate(snakeCase))</span>
+<span class="pc" id="L1054">        fun c(value: String, snakeCase: Boolean = true) = CssRule(&quot;.&quot;, value.cssValidate(snakeCase))</span>
+<span class="pc" id="L1055">        fun pc(value: String, snakeCase: Boolean = true) = CssRule(&quot;:&quot;, value.cssValidate(snakeCase))</span>
+
+<span class="fc bfc" id="L1057" title="All 2 branches covered.">        private fun String.cssValidate(snakeCase: Boolean) = (if (snakeCase) camelToSnake() else this).cssValidate()</span>
+
+<span class="fc" id="L1059">        private val name = &quot;\\*|-?[_a-zA-Z][_a-zA-Z0-9-]*&quot;  // According to http://stackoverflow.com/a/449000/2094298</span>
+<span class="fc" id="L1060">        private val prefix = &quot;[.#:]?&quot;</span>
+<span class="fc" id="L1061">        private val relation = &quot;[ &gt;+~]?&quot;</span>
+<span class="fc" id="L1062">        private val subRule = &quot;\\s*?($relation)\\s*($prefix)($name)&quot;</span>
+<span class="fc" id="L1063">        val nameRegex = Regex(name)</span>
+<span class="fc" id="L1064">        val subRuleRegex = Regex(subRule)</span>
+<span class="fc" id="L1065">        val ruleSetRegex = Regex(&quot;($subRule)+\\s*&quot;)</span>
+<span class="fc" id="L1066">        val splitter = Regex(&quot;\\s*,\\s*&quot;)</span>
+<span class="fc" id="L1067">        val upperCaseRegex = Regex(&quot;([A-Z])&quot;)</span>
+    }
+
+<span class="fc" id="L1070">    override fun render() = &quot;$prefix$name&quot;</span>
+<span class="fc" id="L1071">    override fun toRuleSet() = CssRuleSet(this)</span>
+<span class="fc" id="L1072">    override fun toSelection() = toRuleSet().toSelection()</span>
+<span class="fc" id="L1073">    override fun append(rule: CssSubRule) = CssRuleSet(this, rule)</span>
+}
+
+<span class="pc" id="L1076">class CssSubRule(val rule: CssRule, val relation: Relation) : Rendered {</span>
+<span class="fc" id="L1077">    override fun render() = &quot;${relation.render()}${rule.render()}&quot;</span>
+
+<span class="pc" id="L1079">    enum class Relation(val symbol: String) : Rendered {</span>
+<span class="fc" id="L1080">        REFINE(&quot;&quot;),</span>
+<span class="fc" id="L1081">        CHILD(&quot; &gt; &quot;),</span>
+<span class="fc" id="L1082">        DESCENDANT(&quot; &quot;),</span>
+<span class="fc" id="L1083">        ADJACENT(&quot; + &quot;),</span>
+<span class="fc" id="L1084">        SIBLING(&quot; ~ &quot;);</span>
+
+        companion object {
+<span class="pc bpc" id="L1087" title="2 of 6 branches missed.">            fun of(symbol: String) = when (symbol) {</span>
+<span class="fc" id="L1088">                &quot;&quot; -&gt; REFINE</span>
+<span class="fc" id="L1089">                &quot;&gt;&quot; -&gt; CHILD</span>
+<span class="fc" id="L1090">                &quot; &quot; -&gt; DESCENDANT</span>
+<span class="nc" id="L1091">                &quot;+&quot; -&gt; ADJACENT</span>
+<span class="fc" id="L1092">                &quot;~&quot; -&gt; SIBLING</span>
+<span class="nc" id="L1093">                else -&gt; throw IllegalArgumentException(&quot;Invalid Css Relation: $symbol&quot;)</span>
+<span class="fc" id="L1094">            }</span>
+        }
+
+<span class="fc" id="L1097">        override fun render() = symbol</span>
+    }
+}
+
+// Inline CSS
+
+<span class="fc" id="L1103">class InlineCss : PropertyHolder(), Rendered {</span>
+    // TODO: Handle custom renderer
+<span class="fc" id="L1105">    override fun render() = mergedProperties.entries.joinToString(separator = &quot;&quot;) {</span>
+<span class="pc bpc" id="L1106" title="3 of 4 branches missed.">        &quot; ${it.key}: ${it.value.second?.invoke(it.value.first) ?: toCss(it.value.first)};&quot;</span>
+<span class="fc" id="L1107">    }</span>
+}
+
+<span class="nc" id="L1110">fun Iterable&lt;Node&gt;.style(append: Boolean = false, op: InlineCss.() -&gt; Unit) = withEach { style(append, op) }</span>
+
+<span class="fc" id="L1112">fun Styleable.style(append: Boolean = false, op: InlineCss.() -&gt; Unit) {</span>
+
+<span class="fc" id="L1114">    val setStyleMethod = this.javaClass.methods.firstOrNull { method -&gt;</span>
+<span class="pc bpc" id="L1115" title="3 of 10 branches missed.">        method.name == &quot;setStyle&quot; &amp;&amp; method.returnType == Void.TYPE &amp;&amp; method.parameterCount == 1 &amp;&amp; method.parameters[0].type == String::class.java</span>
+    }
+
+<span class="pc bpc" id="L1118" title="1 of 2 branches missed.">    requireNotNull(setStyleMethod) { &quot;Don't know how to set style for Styleable subclass ${this@style.javaClass}&quot; }</span>
+
+<span class="fc" id="L1120">    val block = InlineCss().apply(op)</span>
+
+<span class="pc bpc" id="L1122" title="2 of 6 branches missed.">    val newStyle = if (append &amp;&amp; style.isNotBlank())</span>
+<span class="fc" id="L1123">        style + block.render()</span>
+    else
+<span class="pc bpc" id="L1125" title="1 of 2 branches missed.">        block.render().trim()</span>
+
+<span class="fc" id="L1127">    try {</span>
+        // in Java 9 setStyleMethod.canAccess(this) can be used for checking instead of wrapping this invocation in a try-catch clause
+<span class="fc" id="L1129">        setStyleMethod.invoke(this, newStyle)</span>
+<span class="nc" id="L1130">    } catch (exception: Exception) {</span>
+<span class="nc" id="L1131">        when (exception) {</span>
+<span class="nc bnc" id="L1132" title="All 2 branches missed.">            is IllegalAccessException,</span>
+<span class="nc bnc" id="L1133" title="All 2 branches missed.">            is IllegalArgumentException -&gt; println(&quot;Cannot access ${this@style.javaClass}.setStyle(...) through reflection due to insufficient priviledge.&quot;)</span>
+<span class="nc" id="L1134">            else -&gt; FX.log.warning(&quot;Invocation of ${this@style.javaClass}.setStyle(...) through reflection failed.&quot;)</span>
+        }
+<span class="nc" id="L1136">        throw exception</span>
+    }
+<span class="fc" id="L1138">}</span>
+
+// Delegates
+
+<span class="fc" id="L1142">fun csselement(value: String) = CssElementDelegate(value)</span>
+<span class="pc bpc" id="L1143" title="1 of 2 branches missed.">fun cssid(value: String? = null, snakeCase: Boolean = value == null) = CssIdDelegate(value, snakeCase)</span>
+<span class="fc bfc" id="L1144" title="All 2 branches covered.">fun cssclass(value: String? = null, snakeCase: Boolean = value == null) = CssClassDelegate(value, snakeCase)</span>
+<span class="pc bpc" id="L1145" title="1 of 2 branches missed.">fun csspseudoclass(value: String? = null, snakeCase: Boolean = value == null) = CssPseudoClassDelegate(value, snakeCase)</span>
+<span class="nc bnc" id="L1146" title="All 2 branches missed.">inline fun &lt;reified T : Any&gt; cssproperty(value: String? = null, noinline renderer: ((T) -&gt; String)? = null) =</span>
+<span class="nc" id="L1147">    CssPropertyDelegate(value, MultiValue::class.java.isAssignableFrom(T::class.java), renderer)</span>
+
+<span class="pc" id="L1149">class CssElementDelegate(val name: String) : ReadOnlyProperty&lt;Any, CssRule&gt; {</span>
+<span class="fc" id="L1150">    override fun getValue(thisRef: Any, property: KProperty&lt;*&gt;) = CssRule.elem(name)</span>
+}
+
+<span class="pc bnc" id="L1153" title="All 2 branches missed.">class CssIdDelegate(val name: String?, val snakeCase: Boolean = name == null) : ReadOnlyProperty&lt;Any, CssRule&gt; {</span>
+<span class="pc bpc" id="L1154" title="1 of 2 branches missed.">    override fun getValue(thisRef: Any, property: KProperty&lt;*&gt;) = CssRule.id(name ?: property.name, snakeCase)</span>
+}
+
+<span class="pc bnc" id="L1157" title="All 2 branches missed.">class CssClassDelegate(val name: String?, val snakeCase: Boolean = name == null) : ReadOnlyProperty&lt;Any, CssRule&gt; {</span>
+<span class="fc bfc" id="L1158" title="All 2 branches covered.">    override fun getValue(thisRef: Any, property: KProperty&lt;*&gt;) = CssRule.c(name ?: property.name, snakeCase)</span>
+}
+
+<span class="pc bnc" id="L1161" title="All 2 branches missed.">class CssPseudoClassDelegate(val name: String?, val snakeCase: Boolean = name == null) : ReadOnlyProperty&lt;Any, CssRule&gt; {</span>
+<span class="pc bpc" id="L1162" title="1 of 2 branches missed.">    override fun getValue(thisRef: Any, property: KProperty&lt;*&gt;) = CssRule.pc(name ?: property.name, snakeCase)</span>
+}
+
+<span class="pc" id="L1165">class CssPropertyDelegate&lt;T : Any&gt;(val name: String?, val multiValue: Boolean, val renderer: ((T) -&gt; String)? = null) : ReadOnlyProperty&lt;Any, PropertyHolder.CssProperty&lt;T&gt;&gt; {</span>
+<span class="fc bfc" id="L1166" title="All 2 branches covered.">    override fun getValue(thisRef: Any, property: KProperty&lt;*&gt;) = PropertyHolder.CssProperty&lt;T&gt;(name ?: property.name, multiValue, renderer)</span>
+}
+
+// Dimensions
+
+<span class="fc" id="L1171">open class Dimension&lt;T : Enum&lt;T&gt;&gt;(val value: Double, val units: T) {</span>
+<span class="nc" id="L1172">    operator fun unaryPlus() = this</span>
+<span class="fc" id="L1173">    operator fun unaryMinus() = Dimension(-value, units)</span>
+<span class="fc" id="L1174">    operator fun plus(value: Number) = Dimension(this.value + value.toDouble(), units)</span>
+<span class="fc" id="L1175">    operator fun plus(value: Dimension&lt;T&gt;) = safeMath(value, Double::plus)</span>
+<span class="fc" id="L1176">    operator fun minus(value: Number) = Dimension(this.value - value.toDouble(), units)</span>
+<span class="fc" id="L1177">    operator fun minus(value: Dimension&lt;T&gt;) = safeMath(value, Double::minus)</span>
+<span class="fc" id="L1178">    operator fun times(value: Number) = Dimension(this.value * value.toDouble(), units)</span>
+<span class="fc" id="L1179">    operator fun div(value: Number) = Dimension(this.value / value.toDouble(), units)</span>
+<span class="fc" id="L1180">    operator fun rem(value: Number) = Dimension(this.value % value.toDouble(), units)</span>
+
+<span class="fc bfc" id="L1182" title="All 2 branches covered.">    private fun safeMath(value: Dimension&lt;T&gt;, op: (Double, Double) -&gt; Double) = if (units == value.units)</span>
+<span class="fc" id="L1183">        Dimension(op(this.value, value.value), units)</span>
+    else
+<span class="fc" id="L1185">        throw IllegalArgumentException(&quot;Cannot combine $this and $value: The units do not match&quot;)</span>
+
+<span class="pc bpc" id="L1187" title="4 of 8 branches missed.">    override fun equals(other: Any?) = other != null &amp;&amp; other is Dimension&lt;*&gt; &amp;&amp; value == other.value &amp;&amp; units == other.units</span>
+<span class="nc" id="L1188">    override fun hashCode() = value.hashCode() * 31 + units.hashCode()</span>
+
+<span class="fc" id="L1190">    override fun toString() = when (value) {</span>
+<span class="pc bpc" id="L1191" title="2 of 4 branches missed.">        Double.POSITIVE_INFINITY, Double.MAX_VALUE -&gt; &quot;infinity&quot;</span>
+<span class="pc bpc" id="L1192" title="2 of 4 branches missed.">        Double.NEGATIVE_INFINITY, Double.MIN_VALUE -&gt; &quot;-infinity&quot;</span>
+<span class="pc bpc" id="L1193" title="1 of 2 branches missed.">        Double.NaN -&gt; &quot;0$units&quot;</span>
+<span class="fc" id="L1194">        else -&gt; &quot;${fiveDigits.format(value)}$units&quot;</span>
+<span class="fc" id="L1195">    }</span>
+
+    enum class AngularUnits { deg, rad, grad, turn }
+<span class="pc" id="L1198">    enum class LinearUnits(val value: String) {</span>
+<span class="fc" id="L1199">        px(&quot;px&quot;),</span>
+<span class="fc" id="L1200">        mm(&quot;mm&quot;),</span>
+<span class="fc" id="L1201">        cm(&quot;cm&quot;),</span>
+<span class="fc" id="L1202">        inches(&quot;in&quot;),</span>
+<span class="fc" id="L1203">        pt(&quot;pt&quot;),</span>
+<span class="fc" id="L1204">        pc(&quot;pc&quot;),</span>
+<span class="fc" id="L1205">        em(&quot;em&quot;),</span>
+<span class="fc" id="L1206">        ex(&quot;ex&quot;),</span>
+<span class="fc" id="L1207">        percent(&quot;%&quot;);</span>
+
+<span class="fc" id="L1209">        override fun toString() = value</span>
+    }
+}
+
+<span class="fc" id="L1213">operator fun &lt;T : Enum&lt;T&gt;&gt; Number.plus(value: Dimension&lt;T&gt;) = Dimension(this.toDouble() + value.value, value.units)</span>
+<span class="fc" id="L1214">operator fun &lt;T : Enum&lt;T&gt;&gt; Number.minus(value: Dimension&lt;T&gt;) = Dimension(this.toDouble() - value.value, value.units)</span>
+<span class="fc" id="L1215">operator fun &lt;T : Enum&lt;T&gt;&gt; Number.times(value: Dimension&lt;T&gt;) = Dimension(this.toDouble() * value.value, value.units)</span>
+
+<span class="pc" id="L1217">val infinity = Dimension(Double.POSITIVE_INFINITY, Dimension.LinearUnits.px)</span>
+
+<span class="fc" id="L1219">val Number.px: Dimension&lt;Dimension.LinearUnits&gt; get() = Dimension(this.toDouble(), Dimension.LinearUnits.px)</span>
+<span class="fc" id="L1220">val Number.mm: Dimension&lt;Dimension.LinearUnits&gt; get() = Dimension(this.toDouble(), Dimension.LinearUnits.mm)</span>
+<span class="nc" id="L1221">val Number.cm: Dimension&lt;Dimension.LinearUnits&gt; get() = Dimension(this.toDouble(), Dimension.LinearUnits.cm)</span>
+<span class="fc" id="L1222">val Number.inches: Dimension&lt;Dimension.LinearUnits&gt; get() = Dimension(this.toDouble(), Dimension.LinearUnits.inches)</span>
+<span class="fc" id="L1223">val Number.pt: Dimension&lt;Dimension.LinearUnits&gt; get() = Dimension(this.toDouble(), Dimension.LinearUnits.pt)</span>
+<span class="nc" id="L1224">val Number.pc: Dimension&lt;Dimension.LinearUnits&gt; get() = Dimension(this.toDouble(), Dimension.LinearUnits.pc)</span>
+<span class="fc" id="L1225">val Number.em: Dimension&lt;Dimension.LinearUnits&gt; get() = Dimension(this.toDouble(), Dimension.LinearUnits.em)</span>
+<span class="nc" id="L1226">val Number.ex: Dimension&lt;Dimension.LinearUnits&gt; get() = Dimension(this.toDouble(), Dimension.LinearUnits.ex)</span>
+<span class="nc" id="L1227">val Number.percent: Dimension&lt;Dimension.LinearUnits&gt; get() = Dimension(this.toDouble(), Dimension.LinearUnits.percent)</span>
+
+<span class="nc" id="L1229">val Number.deg: Dimension&lt;Dimension.AngularUnits&gt; get() = Dimension(this.toDouble(), Dimension.AngularUnits.deg)</span>
+<span class="nc" id="L1230">val Number.rad: Dimension&lt;Dimension.AngularUnits&gt; get() = Dimension(this.toDouble(), Dimension.AngularUnits.rad)</span>
+<span class="nc" id="L1231">val Number.grad: Dimension&lt;Dimension.AngularUnits&gt; get() = Dimension(this.toDouble(), Dimension.AngularUnits.grad)</span>
+<span class="fc" id="L1232">val Number.turn: Dimension&lt;Dimension.AngularUnits&gt; get() = Dimension(this.toDouble(), Dimension.AngularUnits.turn)</span>
+
+// Enums
+
+enum class FXVisibility { VISIBLE, HIDDEN, COLLAPSE, INHERIT; }
+enum class FXTabAnimation { GROW, NONE; }
+
+// Misc
+
+<span class="fc" id="L1241">val fiveDigits = DecimalFormat(&quot;#.#####&quot;, DecimalFormatSymbols.getInstance(Locale.ENGLISH))</span>
+
+<span class="fc" id="L1243">val Color.css: String get() = &quot;rgba(${(red * 255).toInt()}, ${(green * 255).toInt()}, ${(blue * 255).toInt()}, ${fiveDigits.format(opacity)})&quot;</span>
+
+<span class="pc bpc" id="L1245" title="1 of 2 branches missed.">internal fun String.camelToSnake() = (get(0).toLowerCase() + substring(1)).replace(CssRule.upperCaseRegex, &quot;-$1&quot;).toLowerCase()</span>
+<span class="pc bpc" id="L1246" title="1 of 2 branches missed.">internal fun String.cssValidate() = if (matches(CssRule.nameRegex)) this else throw IllegalArgumentException(&quot;Invalid CSS Name: $this&quot;)</span>
+<span class="fc" id="L1247">internal fun String.toSelector() = CssSelector(*split(CssRule.splitter).map(String::toRuleSet).toTypedArray())</span>
+<span class="pc bpc" id="L1248" title="1 of 2 branches missed.">internal fun String.toRuleSet() = if (matches(CssRule.ruleSetRegex)) {</span>
+<span class="fc" id="L1249">    val rules = CssRule.subRuleRegex.findAll(this)</span>
+<span class="fc" id="L1250">        .mapEach { CssSubRule(CssRule(groupValues[2], groupValues[3]), CssSubRule.Relation.of(groupValues[1])) }</span>
+<span class="fc" id="L1251">        .toList()</span>
+<span class="fc" id="L1252">    CssRuleSet(rules[0].rule, *rules.drop(1).toTypedArray())</span>
+<span class="pc" id="L1253">} else throw IllegalArgumentException(&quot;Invalid CSS Rule Set: $this&quot;)</span>
+
+fun loadFont(path: String, size: Number): Font? {
+<span class="nc bnc" id="L1256" title="All 2 branches missed.">    return MethodHandles.lookup().lookupClass().getResourceAsStream(path)?.use { Font.loadFont(it, size.toDouble()) }</span>
+}
+
+// Style Class
+<span class="fc" id="L1260">fun &lt;T : Styleable&gt; T.hasClass(className: String) = styleClass.contains(className)</span>
+<span class="fc" id="L1261">fun &lt;T : Styleable&gt; T.hasPseudoClass(className: String) = pseudoClassStates.contains(PseudoClass.getPseudoClass(className))</span>
+
+<span class="fc" id="L1263">fun &lt;T : Styleable&gt; T.addClass(vararg className: String) = apply {</span>
+<span class="fc" id="L1264">    className.forEach {</span>
+<span class="fc bfc" id="L1265" title="All 2 branches covered.">        if (!hasClass(it)) {styleClass.add(it)}</span>
+<span class="fc" id="L1266">    }</span>
+<span class="fc" id="L1267">}</span>
+
+<span class="nc" id="L1269">fun Iterable&lt;Styleable&gt;.addClass(vararg cssClass: String) = forEach { node -&gt; cssClass.forEach { node.addClass(it) } }</span>
+
+<span class="fc" id="L1271">fun &lt;T : Styleable&gt; T.addPseudoClass(className: String) = apply {</span>
+<span class="pc bpc" id="L1272" title="2 of 4 branches missed.">    (this as? Node)?.pseudoClassStateChanged(PseudoClass.getPseudoClass(className), true)</span>
+<span class="fc" id="L1273">}</span>
+
+<span class="fc" id="L1275">fun &lt;T : Styleable&gt; T.removePseudoClass(className: String) = apply {</span>
+<span class="pc bpc" id="L1276" title="2 of 4 branches missed.">    (this as? Node)?.pseudoClassStateChanged(PseudoClass.getPseudoClass(className), false)</span>
+<span class="fc" id="L1277">}</span>
+
+<span class="nc" id="L1279">fun &lt;T : Styleable&gt; T.removeClass(className: String, removeAll: Boolean = true) = apply {</span>
+<span class="nc bnc" id="L1280" title="All 2 branches missed.">    if (removeAll) styleClass.removeAll(className) else styleClass.remove(className)</span>
+<span class="nc" id="L1281">}</span>
+
+<span class="nc" id="L1283">fun &lt;T : Styleable&gt; T.toggleClass(className: String, predicate: Boolean) = apply {</span>
+<span class="nc bnc" id="L1284" title="All 2 branches missed.">    if (predicate) {</span>
+<span class="nc bnc" id="L1285" title="All 2 branches missed.">        if (!hasClass(className)) addClass(className)</span>
+    } else {
+<span class="nc" id="L1287">        removeClass(className)</span>
+    }
+<span class="nc" id="L1289">}</span>
+
+<span class="fc" id="L1291">fun &lt;T : Styleable&gt; T.togglePseudoClass(className: String, predicate: Boolean) = apply {</span>
+<span class="pc bpc" id="L1292" title="1 of 2 branches missed.">    if (predicate) {</span>
+<span class="nc bnc" id="L1293" title="All 2 branches missed.">        if (!hasPseudoClass(className)) addPseudoClass(className)</span>
+    } else {
+<span class="fc" id="L1295">        removePseudoClass(className)</span>
+    }
+<span class="fc" id="L1297">}</span>
+
+/**
+ * Check if this Node has the given type safe css class. Pseudo classes are also supported.
+ */
+<span class="pc bpc" id="L1302" title="1 of 2 branches missed.">fun &lt;T : Styleable&gt; T.hasClass(cssClass: CssRule) = if (cssClass.prefix == &quot;:&quot;) hasPseudoClass(cssClass.name) else hasClass(cssClass.name)</span>
+
+/**
+ * Add one or more type safe css classes to this Styleable. Pseudo classes are also supported.
+ */
+<span class="fc" id="L1307">fun &lt;T : Styleable&gt; T.addClass(vararg cssClass: CssRule) = apply {</span>
+<span class="fc" id="L1308">    cssClass.withEach {</span>
+<span class="fc bfc" id="L1309" title="All 2 branches covered.">        if (prefix == &quot;:&quot;) addPseudoClass(name) else addClass(name)</span>
+<span class="fc" id="L1310">    }</span>
+<span class="fc" id="L1311">}</span>
+
+/**
+ * Remove the given given type safe css class(es) from this Node. Pseudo classes are also supported.
+ */
+<span class="nc" id="L1316">fun &lt;T : Styleable&gt; T.removeClass(vararg cssClass: CssRule) = apply {</span>
+<span class="nc" id="L1317">    cssClass.withEach {</span>
+<span class="nc bnc" id="L1318" title="All 2 branches missed.">        if (prefix == &quot;:&quot;) removePseudoClass(name) else removeClass(name)</span>
+<span class="nc" id="L1319">    }</span>
+<span class="nc" id="L1320">}</span>
+
+/**
+ * Toggle the given type safe css class based on the given predicate. Pseudo classes are also supported.
+ */
+<span class="pc bpc" id="L1325" title="1 of 2 branches missed.">fun &lt;T : Styleable&gt; T.toggleClass(cssClass: CssRule, predicate: Boolean) = if (cssClass.prefix == &quot;:&quot;) togglePseudoClass(cssClass.name, predicate) else toggleClass(cssClass.name, predicate)</span>
+
+/**
+ * Toggle the given type safe css class based on the given predicate observable value.
+ * Whenever the observable value changes, the class is added or removed.
+ * Pseudo classes are also supported.
+ */
+fun &lt;T : Styleable&gt; T.toggleClass(cssClass: CssRule, observablePredicate: ObservableValue&lt;Boolean&gt;) {
+<span class="nc bnc" id="L1333" title="All 2 branches missed.">    toggleClass(cssClass, observablePredicate.value ?: false)</span>
+<span class="nc" id="L1334">    observablePredicate.onChange {</span>
+<span class="nc bnc" id="L1335" title="All 2 branches missed.">        toggleClass(cssClass, it ?: false)</span>
+<span class="nc" id="L1336">    }</span>
+<span class="nc" id="L1337">}</span>
+
+/**
+ * Add the given type safe css classes to every Node in this Iterable. Pseudo classes are also supported.
+ */
+<span class="nc" id="L1342">fun &lt;T : Styleable&gt; Iterable&lt;T&gt;.addClass(vararg cssClass: CssRule) = forEach { node -&gt; cssClass.forEach { node.addClass(it) } }</span>
+
+/**
+ * Remove the given type safe css classes from every node in this Iterable. Pseudo classes are also supported.
+ */
+<span class="nc" id="L1347">fun &lt;T : Styleable&gt; Iterable&lt;T&gt;.removeClass(vararg cssClass: CssRule) = forEach { node -&gt; cssClass.forEach { node.removeClass(it) } }</span>
+
+/**
+ * Toggle the given type safe css class on every node in this iterable based on the given predicate. Pseudo classes are also supported.
+ */
+<span class="nc" id="L1352">fun &lt;T : Styleable&gt; Iterable&lt;T&gt;.toggleClass(cssClass: CssRule, predicate: Boolean) = withEach { toggleClass(cssClass, predicate) }</span>
+
+/**
+ * Bind this observable type safe css rule to this Node. Pseudo classes are also supported.
+ */
+<span class="nc" id="L1357">fun &lt;T : Styleable&gt; T.bindClass(value: ObservableValue&lt;CssRule&gt;): ObservableStyleClass = ObservableStyleClass(this, value)</span>
+
+<span class="nc" id="L1359">class ObservableStyleClass(styleable: Styleable, val value: ObservableValue&lt;CssRule&gt;) {</span>
+<span class="nc" id="L1360">    val listener: ChangeListener&lt;CssRule&gt;</span>
+
+<span class="nc" id="L1362">    init {</span>
+<span class="nc" id="L1363">        fun checkAdd(newValue: CssRule?) {</span>
+<span class="nc bnc" id="L1364" title="All 4 branches missed.">            if (newValue != null &amp;&amp; !styleable.hasClass(newValue)) styleable.addClass(newValue)</span>
+<span class="nc" id="L1365">        }</span>
+<span class="nc" id="L1366">        listener = ChangeListener { _, oldValue, newValue -&gt;</span>
+<span class="nc bnc" id="L1367" title="All 2 branches missed.">            if (oldValue != null) styleable.removeClass(oldValue)</span>
+<span class="nc" id="L1368">            checkAdd(newValue)</span>
+<span class="nc" id="L1369">        }</span>
+<span class="nc" id="L1370">        checkAdd(value.value)</span>
+<span class="nc" id="L1371">        value.addListener(listener)</span>
+<span class="nc" id="L1372">    }</span>
+
+<span class="nc" id="L1374">    fun dispose() = value.removeListener(listener)</span>
+}
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="pc bpc" id="L1378" title="1 of 2 branches missed.">fun &lt;T : Node&gt; Node.select(selector: Selectable) = lookup(selector.toSelection().simpleRender()) as T</span>
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc bnc" id="L1381" title="All 2 branches missed.">fun &lt;T : Node&gt; Node.selectAll(selector: Selectable) = (lookupAll(selector.toSelection().simpleRender()) as Set&lt;T&gt;).toList()</span>
+
+<span class="nc" id="L1383">fun &lt;T : Node&gt; T.setId(cssId: CssRule) = apply { id = cssId.name }</span>
+
+// Containers
+
+<span class="fc" id="L1387">fun &lt;T&gt; box(all: T) = CssBox(all, all, all, all)</span>
+<span class="nc" id="L1388">fun &lt;T&gt; box(vertical: T, horizontal: T) = CssBox(vertical, horizontal, vertical, horizontal)</span>
+<span class="nc" id="L1389">fun &lt;T&gt; box(top: T, right: T, bottom: T, left: T) = CssBox(top, right, bottom, left)</span>
+<span class="fc" id="L1390">data class CssBox&lt;out T&gt;(val top: T, val right: T, val bottom: T, val left: T)</span>
+
+<span class="fc" id="L1392">fun c(colorString: String, opacity: Double = 1.0): Color = try {</span>
+<span class="fc" id="L1393">    Color.web(colorString, opacity)</span>
+<span class="fc" id="L1394">} catch (e: Exception) {</span>
+<span class="fc" id="L1395">    Stylesheet.log.warning(&quot;Error parsing color c('$colorString', opacity=$opacity)&quot;)</span>
+<span class="fc" id="L1396">    Color.MAGENTA</span>
+<span class="fc" id="L1397">}</span>
+
+<span class="fc" id="L1399">fun c(red: Double, green: Double, blue: Double, opacity: Double = 1.0): Color = try {</span>
+<span class="fc" id="L1400">    Color.color(red, green, blue, opacity)</span>
+<span class="nc" id="L1401">} catch (e: Exception) {</span>
+<span class="nc" id="L1402">    Stylesheet.log.warning(&quot;Error parsing color c(red=$red, green=$green, blue=$blue, opacity=$opacity)&quot;)</span>
+<span class="nc" id="L1403">    Color.MAGENTA</span>
+<span class="fc" id="L1404">}</span>
+
+<span class="nc" id="L1406">fun c(red: Int, green: Int, blue: Int, opacity: Double = 1.0): Color = try {</span>
+<span class="nc" id="L1407">    Color.rgb(red, green, blue, opacity)</span>
+<span class="nc" id="L1408">} catch (e: Exception) {</span>
+<span class="nc" id="L1409">    Stylesheet.log.warning(&quot;Error parsing color c(red=$red, green=$green, blue=$blue, opacity=$opacity)&quot;)</span>
+<span class="nc" id="L1410">    Color.MAGENTA</span>
+<span class="nc" id="L1411">}</span>
+
+<span class="fc bfc" id="L1413" title="All 2 branches covered.">fun Color.derive(ratio: Double): Color = if (ratio &lt; 0) interpolate(Color(0.0, 0.0, 0.0, opacity), -ratio) else interpolate(Color(1.0, 1.0, 1.0, opacity), ratio)</span>
+
+fun Color.ladder(vararg stops: Stop): Color {
+<span class="fc" id="L1416">    val offset = brightness</span>
+<span class="fc" id="L1417">    val nStops = LinearGradient(0.0, 1.0, 0.0, 1.0, false, CycleMethod.NO_CYCLE, *stops).stops</span>
+<span class="pc bpc" id="L1418" title="1 of 2 branches missed.">    return if (offset &lt;= 0.0) {</span>
+<span class="nc" id="L1419">        nStops.first().color</span>
+<span class="pc bpc" id="L1420" title="1 of 2 branches missed.">    } else if (offset &gt;= 1.0) {</span>
+<span class="nc" id="L1421">        nStops.last().color</span>
+    } else {
+<span class="fc bfc" id="L1423" title="All 4 branches covered.">        val left = nStops.last { it.offset &lt;= offset }</span>
+<span class="fc bfc" id="L1424" title="All 4 branches covered.">        val right = nStops.first { it.offset &gt;= offset }</span>
+<span class="fc bfc" id="L1425" title="All 2 branches covered.">        if (right.offset == left.offset) left.color else left.color.interpolate(right.color, (offset - left.offset) / (right.offset - left.offset))</span>
+    }
+}
+
+/**
+ * Converts the given Paint to a Background
+ */
+<span class="nc" id="L1432">fun Paint.asBackground(radii: CornerRadii = CornerRadii.EMPTY, insets: Insets = Insets.EMPTY) =</span>
+<span class="nc" id="L1433">        Background(BackgroundFill(this, radii, insets))</span>
+
+<span class="fc" id="L1435">fun &lt;T&gt; multi(vararg elements: T) = MultiValue(elements)</span>
+<span class="fc" id="L1436">class MultiValue&lt;T&gt;(initialElements: Array&lt;out T&gt;? = null) {</span>
+<span class="fc" id="L1437">    val elements = mutableListOf&lt;T&gt;()</span>
+
+<span class="fc" id="L1439">    init {</span>
+<span class="fc bfc" id="L1440" title="All 2 branches covered.">        if (initialElements != null) elements.addAll(initialElements)</span>
+<span class="fc" id="L1441">    }</span>
+
+    operator fun plusAssign(element: T) {
+<span class="fc" id="L1444">        elements.add(element)</span>
+<span class="fc" id="L1445">    }</span>
+
+<span class="nc" id="L1447">    fun add(element: T) = elements.add(element)</span>
+<span class="nc" id="L1448">    fun add(multivalue: MultiValue&lt;T&gt;) = addAll(multivalue.elements)</span>
+<span class="nc" id="L1449">    fun addAll(list: Iterable&lt;T&gt;) = elements.addAll(list)</span>
+<span class="fc" id="L1450">    fun addAll(vararg element: T) = elements.addAll(element)</span>
+}
+
+<span class="nc" id="L1453">class BorderImageSlice(val widths: CssBox&lt;Dimension&lt;Dimension.LinearUnits&gt;&gt;, val filled: Boolean = false)</span>
+
+fun Parent.stylesheet(op: Stylesheet.() -&gt; Unit) {
+<span class="nc" id="L1456">    val stylesheet = Stylesheet().apply(op)</span>
+<span class="nc" id="L1457">    stylesheets += stylesheet.base64URL.toExternalForm()</span>
+<span class="nc" id="L1458">}</span>
+
+/**
+ * Adds the [stylesheet] to the given parent.
+ */
+<span class="nc" id="L1463">inline fun &lt;T: Stylesheet&gt; Parent.addStylesheet(stylesheet: KClass&lt;T&gt;) = this.stylesheets.add(&quot;css://${stylesheet.java.name}&quot;)</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

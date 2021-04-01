@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InternalWindow.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">InternalWindow.kt</span></div><h1>InternalWindow.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.property.SimpleStringProperty
+import javafx.geometry.Pos
+import javafx.scene.Node
+import javafx.scene.Parent
+import javafx.scene.canvas.Canvas
+import javafx.scene.effect.DropShadow
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
+import javafx.scene.layout.BorderPane
+import javafx.scene.layout.Region
+import javafx.scene.layout.StackPane
+import javafx.scene.paint.Color
+import javafx.scene.paint.Paint
+import tornadofx.InternalWindow.Styles.Companion.crossPath
+import java.awt.Toolkit
+import java.net.URL
+
+<span class="nc" id="L20">class InternalWindow(icon: Node?, modal: Boolean, escapeClosesWindow: Boolean, closeButton: Boolean, movable: Boolean = true, overlayPaint: Paint = c(&quot;#000&quot;, 0.4)) : StackPane() {</span>
+    private lateinit var window: BorderPane
+    private lateinit var coverNode: Node
+    private lateinit var view: UIComponent
+<span class="nc" id="L24">    private var titleProperty = SimpleStringProperty()</span>
+    private var ownerPlacementInBorderPane: BorderPaneContainer? = null
+<span class="nc" id="L26">    var overlay: Canvas? = null</span>
+    private var indexInCoverParent: Int? = null
+    private var coverParent: Parent? = null
+    private var offsetX = 0.0
+    private var offsetY = 0.0
+
+<span class="nc" id="L32">    init {</span>
+<span class="nc bnc" id="L33" title="All 2 branches missed.">        if (escapeClosesWindow) {</span>
+<span class="nc" id="L34">            addEventFilter(KeyEvent.KEY_PRESSED) {</span>
+<span class="nc bnc" id="L35" title="All 2 branches missed.">                if (it.code == KeyCode.ESCAPE)</span>
+<span class="nc" id="L36">                    close()</span>
+<span class="nc" id="L37">            }</span>
+        }
+
+<span class="nc" id="L40">        addClass(Styles.floatingWindowWrapper)</span>
+
+<span class="nc bnc" id="L42" title="All 2 branches missed.">        if (modal) {</span>
+<span class="nc" id="L43">            canvas {</span>
+<span class="nc" id="L44">                overlay = this</span>
+<span class="nc" id="L45">                graphicsContext2D.fill = overlayPaint</span>
+<span class="nc" id="L46">                setOnMouseClicked {</span>
+<span class="nc" id="L47">                    Toolkit.getDefaultToolkit().beep()</span>
+<span class="nc" id="L48">                }</span>
+<span class="nc" id="L49">                widthProperty().bind(this@InternalWindow.widthProperty())</span>
+<span class="nc" id="L50">                heightProperty().bind(this@InternalWindow.heightProperty())</span>
+<span class="nc" id="L51">                widthProperty().onChange { fillOverlay() }</span>
+<span class="nc" id="L52">                heightProperty().onChange { fillOverlay() }</span>
+<span class="nc" id="L53">            }</span>
+        }
+
+<span class="nc" id="L56">        borderpane {</span>
+<span class="nc" id="L57">            addClass(Styles.window)</span>
+<span class="nc" id="L58">            window = this</span>
+<span class="nc" id="L59">            top {</span>
+<span class="nc" id="L60">                hbox(5.0) {</span>
+<span class="nc" id="L61">                    addClass(Styles.top)</span>
+<span class="nc" id="L62">                    label(titleProperty) {</span>
+<span class="nc" id="L63">                        graphic = icon</span>
+<span class="nc" id="L64">                        isMouseTransparent = true</span>
+<span class="nc" id="L65">                    }</span>
+<span class="nc" id="L66">                    spacer {</span>
+<span class="nc" id="L67">                        isMouseTransparent = true</span>
+<span class="nc" id="L68">                    }</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">                    if (closeButton) {</span>
+<span class="nc" id="L70">                        button {</span>
+<span class="nc" id="L71">                            addClass(Styles.closebutton)</span>
+<span class="nc" id="L72">                            setOnMouseClicked {</span>
+<span class="nc" id="L73">                                close()</span>
+<span class="nc" id="L74">                            }</span>
+<span class="nc" id="L75">                            graphic = svgpath(crossPath)</span>
+<span class="nc" id="L76">                        }</span>
+                    }
+<span class="nc" id="L78">                }</span>
+<span class="nc" id="L79">            }</span>
+<span class="nc" id="L80">        }</span>
+
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        if (movable)</span>
+<span class="nc" id="L83">            moveWindowOnDrag()</span>
+
+<span class="nc" id="L85">        window.center = stackpane {</span>
+<span class="nc" id="L86">            addClass(Styles.floatingWindowContent)</span>
+<span class="nc" id="L87">        }</span>
+
+<span class="nc" id="L89">    }</span>
+
+<span class="nc" id="L91">    class Styles : Stylesheet() {</span>
+        companion object {
+<span class="nc" id="L93">            val floatingWindowWrapper by cssclass()</span>
+<span class="nc" id="L94">            val floatingWindowContent by cssclass()</span>
+<span class="nc" id="L95">            val window by cssclass()</span>
+<span class="nc" id="L96">            val top by cssclass()</span>
+<span class="nc" id="L97">            val closebutton by cssclass()</span>
+<span class="nc" id="L98">            val crossPath = &quot;M7.48 8l3.75 3.75-1.48 1.48L6 9.48l-3.75 3.75-1.48-1.48L4.52 8 .77 4.25l1.48-1.48L6 6.52l3.75-3.75 1.48 1.48z&quot;</span>
+        }
+
+<span class="nc" id="L101">        init {</span>
+<span class="nc" id="L102">            floatingWindowWrapper {</span>
+<span class="nc" id="L103">                window {</span>
+<span class="nc" id="L104">                    effect = DropShadow()</span>
+<span class="nc" id="L105">                }</span>
+
+<span class="nc" id="L107">                top {</span>
+<span class="nc" id="L108">                    backgroundColor += Color.WHITE</span>
+<span class="nc" id="L109">                    padding = box(1.px, 1.px, 2.px, 5.px)</span>
+<span class="nc" id="L110">                    borderColor += box(Color.TRANSPARENT, Color.TRANSPARENT, Color.GRAY, Color.TRANSPARENT)</span>
+<span class="nc" id="L111">                    borderWidth += box(0.2.px)</span>
+
+<span class="nc" id="L113">                    alignment = Pos.CENTER</span>
+
+<span class="nc" id="L115">                    closebutton {</span>
+<span class="nc" id="L116">                        padding = box(4.px, 12.px)</span>
+<span class="nc" id="L117">                        backgroundRadius += box(0.px)</span>
+<span class="nc" id="L118">                        backgroundColor += Color.WHITE</span>
+<span class="nc" id="L119">                        and(hover) {</span>
+<span class="nc" id="L120">                            backgroundColor += Color.RED</span>
+<span class="nc" id="L121">                            star {</span>
+<span class="nc" id="L122">                                fill = Color.WHITE</span>
+<span class="nc" id="L123">                            }</span>
+<span class="nc" id="L124">                        }</span>
+<span class="nc" id="L125">                    }</span>
+<span class="nc" id="L126">                }</span>
+
+<span class="nc" id="L128">                floatingWindowContent {</span>
+<span class="nc" id="L129">                    backgroundColor += c(244, 244, 244)</span>
+<span class="nc" id="L130">                    padding = box(5.px)</span>
+<span class="nc" id="L131">                }</span>
+<span class="nc" id="L132">            }</span>
+<span class="nc" id="L133">        }</span>
+    }
+
+<span class="nc" id="L136">    override fun getUserAgentStylesheet(): String = URL(&quot;css://${Styles::class.java.name}&quot;).toExternalForm()</span>
+
+    fun fillOverlay() {
+<span class="nc bnc" id="L139" title="All 2 branches missed.">        overlay?.graphicsContext2D.apply {</span>
+<span class="nc" id="L140">            val lb = coverNode.layoutBounds</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">            this?.clearRect(0.0, 0.0, lb.width, lb.height)</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">            this?.fillRect(0.0, 0.0, lb.width, lb.height)</span>
+<span class="nc" id="L143">        }</span>
+<span class="nc" id="L144">    }</span>
+
+    fun open(view: UIComponent, owner: Node) {
+<span class="nc bnc" id="L147" title="All 2 branches missed.">        if (owner.parent is InternalWindow) return</span>
+<span class="nc" id="L148">        this.view = view</span>
+<span class="nc" id="L149">        this.coverNode = owner</span>
+<span class="nc" id="L150">        this.coverParent = owner.parent</span>
+<span class="nc" id="L151">        this.titleProperty.bind(view.titleProperty)</span>
+
+<span class="nc" id="L153">        coverNode.uiComponent&lt;UIComponent&gt;()?.muteDocking = true</span>
+
+<span class="nc" id="L155">        val coverParent = this.coverParent</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">        if (coverParent != null) {</span>
+<span class="nc bnc" id="L157" title="All 4 branches missed.">            ownerPlacementInBorderPane = (coverParent as? BorderPane)?.getContainerForChild(owner)</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">            if (ownerPlacementInBorderPane != null) {</span>
+<span class="nc" id="L159">                (coverParent as BorderPane).placeChild(this, ownerPlacementInBorderPane!!)</span>
+            } else {
+<span class="nc bnc" id="L161" title="All 2 branches missed.">                val childList = coverParent.getChildList() ?: kotlin.error(&quot;Can't reach children of owner parent&quot;)</span>
+<span class="nc" id="L162">                indexInCoverParent = childList.indexOf(owner).also { index -&gt;</span>
+<span class="nc" id="L163">                    owner.removeFromParent()</span>
+<span class="nc" id="L164">                    childList.add(index, this)</span>
+<span class="nc" id="L165">                }</span>
+<span class="nc" id="L166">            }</span>
+        } else {
+<span class="nc" id="L168">            owner.scene.root = this</span>
+        }
+
+<span class="nc" id="L171">        coverNode.uiComponent&lt;UIComponent&gt;()?.muteDocking = false</span>
+
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        (window.center as Parent) += view</span>
+
+<span class="nc" id="L175">        children.add(0, owner)</span>
+<span class="nc" id="L176">        fillOverlay()</span>
+<span class="nc" id="L177">    }</span>
+
+    fun close() {
+<span class="nc" id="L180">        coverNode.uiComponent&lt;UIComponent&gt;()?.muteDocking = true</span>
+
+<span class="nc" id="L182">        coverNode.removeFromParent()</span>
+<span class="nc" id="L183">        removeFromParent()</span>
+<span class="nc" id="L184">        val indexInCoverParent = this.indexInCoverParent</span>
+<span class="nc" id="L185">        when {</span>
+<span class="nc bnc" id="L186" title="All 4 branches missed.">            ownerPlacementInBorderPane != null -&gt; (coverParent as BorderPane).placeChild(coverNode, ownerPlacementInBorderPane!!)</span>
+<span class="nc bnc" id="L187" title="All 2 branches missed.">            indexInCoverParent != null -&gt; {</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">                val childList = coverParent!!.getChildList() ?: kotlin.error(&quot;Can't reach children of owner parent&quot;)</span>
+<span class="nc" id="L189">                childList.add(indexInCoverParent, coverNode)</span>
+            }
+<span class="nc bnc" id="L191" title="All 2 branches missed.">            else -&gt; scene?.root = coverNode as Parent?</span>
+        }
+<span class="nc" id="L193">        coverNode.uiComponent&lt;UIComponent&gt;()?.muteDocking = false</span>
+
+<span class="nc" id="L195">        view.callOnUndock()</span>
+<span class="nc" id="L196">    }</span>
+
+    override fun layoutChildren() {
+<span class="nc" id="L199">        val lb = coverNode.layoutBounds</span>
+<span class="nc" id="L200">        val prefHeight = window.prefHeight(lb.width)</span>
+<span class="nc" id="L201">        val prefWidth = window.prefWidth(lb.height)</span>
+<span class="nc" id="L202">        val x = (lb.width - prefWidth) / 2</span>
+<span class="nc" id="L203">        val y = (lb.height - prefHeight) / 2</span>
+
+<span class="nc" id="L205">        coverNode.resizeRelocate(0.0, 0.0, lb.width, lb.height)</span>
+
+<span class="nc bnc" id="L207" title="All 4 branches missed.">        if (offsetX != 0.0 || offsetY != 0.0) {</span>
+<span class="nc" id="L208">            val windowX = x + offsetX</span>
+<span class="nc" id="L209">            val windowY = y + offsetY</span>
+
+<span class="nc" id="L211">            window.resizeRelocate(windowX, windowY, window.width, window.height)</span>
+        } else {
+<span class="nc" id="L213">            val windowWidth = Math.min(prefWidth, lb.width)</span>
+<span class="nc" id="L214">            val windowHeight = Math.min(prefHeight, lb.height)</span>
+
+<span class="nc" id="L216">            window.resizeRelocate(Math.max(0.0, x), Math.max(0.0, y), windowWidth, windowHeight)</span>
+
+        }
+
+        // Resize the node we're covering
+<span class="nc bnc" id="L221" title="All 8 branches missed.">        coverNode.resize((coverNode.parent as? Region)?.width ?: 0.0, (coverNode.parent as? Region)?.height ?: 0.0)</span>
+<span class="nc" id="L222">    }</span>
+
+    private fun moveWindowOnDrag() {
+<span class="nc" id="L225">        var x = 0.0</span>
+<span class="nc" id="L226">        var y = 0.0</span>
+
+<span class="nc" id="L228">        window.top.setOnMousePressed { mouseEvent -&gt;</span>
+<span class="nc" id="L229">            x = mouseEvent.x</span>
+<span class="nc" id="L230">            y = mouseEvent.y</span>
+<span class="nc" id="L231">        }</span>
+
+<span class="nc" id="L233">        window.top.setOnMouseDragged { mouseEvent -&gt;</span>
+<span class="nc" id="L234">            offsetX += mouseEvent.x - x</span>
+<span class="nc" id="L235">            offsetY += mouseEvent.y - y</span>
+<span class="nc" id="L236">            window.top.layoutX += mouseEvent.x - x</span>
+<span class="nc" id="L237">            window.top.layoutY += mouseEvent.y - y</span>
+<span class="nc" id="L238">        }</span>
+<span class="nc" id="L239">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

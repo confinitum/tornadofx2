@@ -1,0 +1,775 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Properties.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Properties.kt</span></div><h1>Properties.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.Observable
+import javafx.beans.binding.*
+import javafx.beans.property.*
+import javafx.beans.property.adapter.JavaBeanObjectPropertyBuilder
+import javafx.beans.value.*
+import javafx.collections.*
+import java.lang.reflect.Field
+import java.lang.reflect.Method
+import java.util.concurrent.Callable
+import kotlin.properties.ReadWriteProperty
+import kotlin.reflect.*
+import kotlin.reflect.jvm.javaMethod
+
+<span class="nc" id="L16">fun &lt;T&gt; ViewModel.property(value: T? = null) = PropertyDelegate(SimpleObjectProperty&lt;T&gt;(this, &quot;ViewModelProperty&quot;, value))</span>
+<span class="fc" id="L17">fun &lt;T&gt; property(value: T? = null) = PropertyDelegate(SimpleObjectProperty&lt;T&gt;(value))</span>
+<span class="nc" id="L18">fun &lt;T&gt; property(block: () -&gt; Property&lt;T&gt;) = PropertyDelegate(block())</span>
+
+<span class="fc" id="L20">class PropertyDelegate&lt;T&gt;(val fxProperty: Property&lt;T&gt;) : ReadWriteProperty&lt;Any, T&gt; {</span>
+
+<span class="fc" id="L22">    override fun getValue(thisRef: Any, property: KProperty&lt;*&gt;) = fxProperty.value</span>
+
+    override fun setValue(thisRef: Any, property: KProperty&lt;*&gt;, value: T) {
+<span class="fc" id="L25">        fxProperty.value = value</span>
+<span class="fc" id="L26">    }</span>
+
+}
+
+fun &lt;T&gt; Any.getProperty(prop: KMutableProperty1&lt;*, T&gt;): ObjectProperty&lt;T&gt; {
+    // avoid kotlin-reflect dependency
+<span class="pc bpc" id="L32" title="1 of 2 branches missed.">    val field = requireNotNull(javaClass.findFieldByName(&quot;${prop.name}\$delegate&quot;)) { &quot;No delegate field with name '${prop.name}' found&quot; }</span>
+
+<span class="fc" id="L34">    field.isAccessible = true</span>
+    @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="pc bpc" id="L36" title="1 of 2 branches missed.">    val delegate = field.get(this) as PropertyDelegate&lt;T&gt;</span>
+<span class="pc bpc" id="L37" title="1 of 2 branches missed.">    return delegate.fxProperty as ObjectProperty&lt;T&gt;</span>
+}
+
+fun Class&lt;*&gt;.findFieldByName(name: String): Field? {
+<span class="pc bpc" id="L41" title="1 of 4 branches missed.">    val field = (declaredFields + fields).find { it.name == name }</span>
+<span class="pc bpc" id="L42" title="1 of 2 branches missed.">    if (field != null) return field</span>
+    @Suppress(&quot;PLATFORM_CLASS_MAPPED_TO_KOTLIN&quot;)
+<span class="nc bnc" id="L44" title="All 2 branches missed.">    if (superclass == java.lang.Object::class.java) return null</span>
+<span class="nc" id="L45">    return superclass.findFieldByName(name)</span>
+}
+
+fun Class&lt;*&gt;.findMethodByName(name: String): Method? {
+<span class="fc bfc" id="L49" title="All 4 branches covered.">    val method = (declaredMethods + methods).find { it.name == name }</span>
+<span class="fc bfc" id="L50" title="All 2 branches covered.">    if (method != null) return method</span>
+    @Suppress(&quot;PLATFORM_CLASS_MAPPED_TO_KOTLIN&quot;)
+<span class="pc bpc" id="L52" title="1 of 2 branches missed.">    if (superclass == java.lang.Object::class.java) return null</span>
+<span class="fc" id="L53">    return superclass.findMethodByName(name)</span>
+}
+
+/**
+ * Convert an owner instance and a corresponding property reference into an observable
+ */
+<span class="fc" id="L59">fun &lt;S, T&gt; S.observable(prop: KMutableProperty1&lt;S, T&gt;) = observable(this, prop)</span>
+
+/**
+ * Convert an owner instance and a corresponding property reference into an observable
+ */
+@JvmName(&quot;observableFromMutableProperty&quot;)
+fun &lt;S, T&gt; observable(owner: S, prop: KMutableProperty1&lt;S, T&gt;): ObjectProperty&lt;T&gt; {
+<span class="fc" id="L66">    return object : SimpleObjectProperty&lt;T&gt;(owner, prop.name) {</span>
+<span class="fc" id="L67">        override fun get() = prop.get(owner)</span>
+<span class="fc" id="L68">        override fun set(v: T) = prop.set(owner, v)</span>
+    }
+}
+
+/**
+ * Convert an owner instance and a corresponding property reference into a readonly observable
+ */
+fun &lt;S, T&gt; observable(owner: S, prop: KProperty1&lt;S, T&gt;): ReadOnlyObjectProperty&lt;T&gt; {
+<span class="nc" id="L76">    return object : ReadOnlyObjectWrapper&lt;T&gt;(owner, prop.name) {</span>
+<span class="nc" id="L77">        override fun get() = prop.get(owner)</span>
+    }
+}
+
+/**
+ * Convert an bean instance and a corresponding getter/setter reference into a writable observable.
+ *
+ * Example: val observableName = observable(myPojo, MyPojo::getName, MyPojo::setName)
+ */
+fun &lt;S : Any, T&gt; observable(bean: S, getter: KFunction&lt;T&gt;, setter: KFunction2&lt;S, T, Unit&gt;): PojoProperty&lt;T&gt; {
+<span class="nc bnc" id="L87" title="All 2 branches missed.">    val propName = getter.name.substring(3).decapitalize()</span>
+
+<span class="nc" id="L89">    return object : PojoProperty&lt;T&gt;(bean, propName) {</span>
+<span class="nc" id="L90">        override fun get() = getter.call(bean)</span>
+        override fun set(newValue: T) {
+<span class="nc" id="L92">            setter.invoke(bean, newValue)</span>
+<span class="nc" id="L93">        }</span>
+    }
+}
+
+<span class="nc" id="L97">open class PojoProperty&lt;T&gt;(bean: Any, propName: String) : SimpleObjectProperty&lt;T&gt;(bean, propName) {</span>
+    fun refresh() {
+<span class="nc" id="L99">        fireValueChangedEvent()</span>
+<span class="nc" id="L100">    }</span>
+}
+
+
+@JvmName(&quot;pojoObservable&quot;)
+inline fun &lt;reified T : Any&gt; Any.observable(propName: String) =
+        this.observable(propertyName = propName, propertyType = T::class)
+
+/**
+ * Convert a pojo bean instance into a writable observable.
+ *
+ * Example: val observableName = myPojo.observable(MyPojo::getName, MyPojo::setName)
+ *            or
+ *          val observableName = myPojo.observable(MyPojo::getName)
+ *            or
+ *          val observableName = myPojo.observable(&quot;name&quot;)
+ */
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+fun &lt;S : Any, T : Any&gt; S.observable(
+<span class="fc" id="L119">        getter: KFunction&lt;T&gt;? = null,</span>
+<span class="fc" id="L120">        setter: KFunction2&lt;S, T, Unit&gt;? = null,</span>
+<span class="fc" id="L121">        propertyName: String? = null,</span>
+<span class="fc" id="L122">        @Suppress(&quot;UNUSED_PARAMETER&quot;) propertyType: KClass&lt;T&gt;? = null</span>
+): ObjectProperty&lt;T&gt; {
+<span class="pc bpc" id="L124" title="1 of 4 branches missed.">    if (getter == null &amp;&amp; propertyName == null) throw AssertionError(&quot;Either getter or propertyName must be provided&quot;)</span>
+<span class="fc bfc" id="L125" title="All 2 branches covered.">    val propName = propertyName</span>
+<span class="pc bpc" id="L126" title="4 of 8 branches missed.">            ?: getter?.name?.substring(3)?.decapitalize()</span>
+
+<span class="fc" id="L128">    return JavaBeanObjectPropertyBuilder.create().apply {</span>
+<span class="fc" id="L129">        bean(this@observable)</span>
+<span class="fc" id="L130">        this.name(propName)</span>
+<span class="fc bfc" id="L131" title="All 2 branches covered.">        if (getter != null) this.getter(getter.javaMethod)</span>
+<span class="fc bfc" id="L132" title="All 2 branches covered.">        if (setter != null) this.setter(setter.javaMethod)</span>
+<span class="pc bpc" id="L133" title="1 of 2 branches missed.">    }.build() as ObjectProperty&lt;T&gt;</span>
+}
+
+enum class SingleAssignThreadSafetyMode {
+    SYNCHRONIZED,
+    NONE
+}
+
+<span class="fc" id="L141">fun &lt;T&gt; singleAssign(threadSafetyMode: SingleAssignThreadSafetyMode = SingleAssignThreadSafetyMode.SYNCHRONIZED): SingleAssign&lt;T&gt; =</span>
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">        if (threadSafetyMode == SingleAssignThreadSafetyMode.SYNCHRONIZED) SynchronizedSingleAssign() else UnsynchronizedSingleAssign()</span>
+
+interface SingleAssign&lt;T&gt; {
+    fun isInitialized(): Boolean
+    operator fun getValue(thisRef: Any?, property: KProperty&lt;*&gt;): T
+    operator fun setValue(thisRef: Any?, property: KProperty&lt;*&gt;, value: T)
+}
+
+<span class="fc" id="L150">private class SynchronizedSingleAssign&lt;T&gt; : UnsynchronizedSingleAssign&lt;T&gt;() {</span>
+
+    @Volatile
+<span class="fc" id="L153">    override var _value: Any? = UNINITIALIZED_VALUE</span>
+
+<span class="fc" id="L155">    override operator fun setValue(thisRef: Any?, property: KProperty&lt;*&gt;, value: T) = synchronized(this) {</span>
+<span class="fc" id="L156">        super.setValue(thisRef, property, value)</span>
+<span class="fc" id="L157">    }</span>
+}
+
+<span class="fc" id="L160">private open class UnsynchronizedSingleAssign&lt;T&gt; : SingleAssign&lt;T&gt; {</span>
+
+<span class="fc" id="L162">    protected object UNINITIALIZED_VALUE</span>
+
+<span class="pc" id="L164">    protected open var _value: Any? = UNINITIALIZED_VALUE</span>
+
+    override operator fun getValue(thisRef: Any?, property: KProperty&lt;*&gt;): T {
+<span class="fc bfc" id="L167" title="All 2 branches covered.">        if (!isInitialized()) throw UninitializedPropertyAccessException(&quot;Value has not been assigned yet!&quot;)</span>
+        @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="fc" id="L169">        return _value as T</span>
+    }
+
+    override operator fun setValue(thisRef: Any?, property: KProperty&lt;*&gt;, value: T) {
+<span class="fc bfc" id="L173" title="All 2 branches covered.">        if (isInitialized()) throw Exception(&quot;Value has already been assigned!&quot;)</span>
+<span class="fc" id="L174">        _value = value</span>
+<span class="fc" id="L175">    }</span>
+
+<span class="fc" id="L177">    override fun isInitialized() = _value != UNINITIALIZED_VALUE</span>
+}
+
+/**
+ * Binds this property to an observable, automatically unbinding it before if already bound.
+ */
+fun &lt;T&gt; Property&lt;T&gt;.cleanBind(observable: ObservableValue&lt;T&gt;) {
+<span class="fc" id="L184">    unbind()</span>
+<span class="fc" id="L185">    bind(observable)</span>
+<span class="fc" id="L186">}</span>
+
+<span class="fc" id="L188">operator fun &lt;T&gt; ObservableValue&lt;T&gt;.getValue(thisRef: Any, property: KProperty&lt;*&gt;) = value</span>
+<span class="fc" id="L189">operator fun &lt;T&gt; Property&lt;T&gt;.setValue(thisRef: Any, property: KProperty&lt;*&gt;, value: T?) = setValue(value)</span>
+
+fun ObservableValue&lt;String&gt;.matches(pattern: Regex): BooleanBinding {
+<span class="nc" id="L192">    return booleanBinding {</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        it?.matches(pattern) ?: false</span>
+    }
+}
+
+<span class="fc" id="L197">operator fun ObservableDoubleValue.getValue(thisRef: Any, property: KProperty&lt;*&gt;) = get()</span>
+<span class="fc" id="L198">operator fun DoubleProperty.setValue(thisRef: Any, property: KProperty&lt;*&gt;, value: Double) = set(value)</span>
+
+<span class="nc" id="L200">operator fun ObservableFloatValue.getValue(thisRef: Any, property: KProperty&lt;*&gt;) = get()</span>
+<span class="nc" id="L201">operator fun FloatProperty.setValue(thisRef: Any, property: KProperty&lt;*&gt;, value: Float) = set(value)</span>
+
+<span class="nc" id="L203">operator fun ObservableLongValue.getValue(thisRef: Any, property: KProperty&lt;*&gt;) = get()</span>
+<span class="nc" id="L204">operator fun LongProperty.setValue(thisRef: Any, property: KProperty&lt;*&gt;, value: Long) = set(value)</span>
+
+<span class="fc" id="L206">operator fun ObservableIntegerValue.getValue(thisRef: Any, property: KProperty&lt;*&gt;) = get()</span>
+<span class="fc" id="L207">operator fun IntegerProperty.setValue(thisRef: Any, property: KProperty&lt;*&gt;, value: Int) = set(value)</span>
+
+<span class="fc" id="L209">operator fun ObservableBooleanValue.getValue(thisRef: Any, property: KProperty&lt;*&gt;) = get()</span>
+<span class="fc" id="L210">operator fun BooleanProperty.setValue(thisRef: Any, property: KProperty&lt;*&gt;, value: Boolean) = set(value)</span>
+
+// These were removed because they shadow observable properties. For example &quot;someVar by SimpleListProperty&lt;E&gt;&quot;  would
+// have type MutableList&lt;E&gt; instead of ObservableList&lt;E&gt;.
+//operator fun &lt;E&gt; ObservableListValue&lt;E&gt;.getValue(thisRef: Any, property: KProperty&lt;*&gt;): MutableList&lt;E&gt; = value
+//operator fun &lt;E&gt; ListProperty&lt;E&gt;.setValue(thisRef: Any, property: KProperty&lt;*&gt;, list: List&lt;E&gt;) = set(FXCollections.observableList(list))
+//
+//operator fun &lt;E&gt; ObservableSetValue&lt;E&gt;.getValue(thisRef: Any, property: KProperty&lt;*&gt;): MutableSet&lt;E&gt; = value
+//operator fun &lt;E&gt; SetProperty&lt;E&gt;.setValue(thisRef: Any, property: KProperty&lt;*&gt;, set: Set&lt;E&gt;) = set(FXCollections.observableSet(set))
+//
+//operator fun &lt;K, V&gt; ObservableMapValue&lt;K, V&gt;.getValue(thisRef: Any, property: KProperty&lt;*&gt;): MutableMap&lt;K, V&gt; = value
+//operator fun &lt;K, V&gt; MapProperty&lt;K, V&gt;.setValue(thisRef: Any, property: KProperty&lt;*&gt;, map: Map&lt;K, V&gt;) = set(FXCollections.observableMap(map))
+
+<span class="fc" id="L223">operator fun DoubleExpression.plus(other: Number): DoubleBinding = add(other.toDouble())</span>
+<span class="fc" id="L224">operator fun DoubleExpression.plus(other: ObservableNumberValue): DoubleBinding = add(other)</span>
+
+operator fun DoubleProperty.plusAssign(other: Number) {
+<span class="fc" id="L227">    value += other.toDouble()</span>
+<span class="fc" id="L228">}</span>
+
+operator fun DoubleProperty.plusAssign(other: ObservableNumberValue) {
+<span class="fc" id="L231">    value += other.doubleValue()</span>
+<span class="fc" id="L232">}</span>
+
+<span class="fc" id="L234">operator fun DoubleExpression.minus(other: Number): DoubleBinding = subtract(other.toDouble())</span>
+<span class="fc" id="L235">operator fun DoubleExpression.minus(other: ObservableNumberValue): DoubleBinding = subtract(other)</span>
+
+operator fun DoubleProperty.minusAssign(other: Number) {
+<span class="fc" id="L238">    value -= other.toDouble()</span>
+<span class="fc" id="L239">}</span>
+
+operator fun DoubleProperty.minusAssign(other: ObservableNumberValue) {
+<span class="fc" id="L242">    value -= other.doubleValue()</span>
+<span class="fc" id="L243">}</span>
+
+<span class="fc" id="L245">operator fun DoubleExpression.unaryMinus(): DoubleBinding = negate()</span>
+
+<span class="fc" id="L247">operator fun DoubleExpression.times(other: Number): DoubleBinding = multiply(other.toDouble())</span>
+<span class="fc" id="L248">operator fun DoubleExpression.times(other: ObservableNumberValue): DoubleBinding = multiply(other)</span>
+
+operator fun DoubleProperty.timesAssign(other: Number) {
+<span class="fc" id="L251">    value *= other.toDouble()</span>
+<span class="fc" id="L252">}</span>
+
+operator fun DoubleProperty.timesAssign(other: ObservableNumberValue) {
+<span class="fc" id="L255">    value *= other.doubleValue()</span>
+<span class="fc" id="L256">}</span>
+
+<span class="fc" id="L258">operator fun DoubleExpression.div(other: Number): DoubleBinding = divide(other.toDouble())</span>
+<span class="fc" id="L259">operator fun DoubleExpression.div(other: ObservableNumberValue): DoubleBinding = divide(other)</span>
+
+operator fun DoubleProperty.divAssign(other: Number) {
+<span class="fc" id="L262">    value /= other.toDouble()</span>
+<span class="fc" id="L263">}</span>
+
+operator fun DoubleProperty.divAssign(other: ObservableNumberValue) {
+<span class="fc" id="L266">    value /= other.doubleValue()</span>
+<span class="fc" id="L267">}</span>
+
+
+<span class="fc" id="L270">operator fun DoubleExpression.rem(other: Number): DoubleBinding = doubleBinding(this) { get() % other.toDouble() }</span>
+<span class="fc" id="L271">operator fun DoubleExpression.rem(other: ObservableNumberValue): DoubleBinding = doubleBinding(this, other) { get() % other.doubleValue() }</span>
+
+operator fun DoubleProperty.remAssign(other: Number) {
+<span class="fc" id="L274">    value %= other.toDouble()</span>
+<span class="fc" id="L275">}</span>
+
+operator fun DoubleProperty.remAssign(other: ObservableNumberValue) {
+<span class="fc" id="L278">    value %= other.doubleValue()</span>
+<span class="fc" id="L279">}</span>
+
+<span class="fc" id="L281">operator fun ObservableDoubleValue.compareTo(other: Number) = get().compareTo(other.toDouble())</span>
+
+<span class="fc" id="L283">operator fun ObservableDoubleValue.compareTo(other: ObservableNumberValue) = get().compareTo(other.doubleValue())</span>
+
+<span class="fc" id="L285">operator fun FloatExpression.plus(other: Number): FloatBinding = add(other.toFloat())</span>
+<span class="fc" id="L286">operator fun FloatExpression.plus(other: Double): DoubleBinding = add(other)</span>
+<span class="pc bpc" id="L287" title="1 of 2 branches missed.">operator fun FloatExpression.plus(other: ObservableNumberValue): FloatBinding = add(other) as FloatBinding</span>
+<span class="pc bpc" id="L288" title="1 of 2 branches missed.">operator fun FloatExpression.plus(other: ObservableDoubleValue): DoubleBinding = add(other) as DoubleBinding</span>
+
+operator fun FloatProperty.plusAssign(other: Number) {
+<span class="fc" id="L291">    value += other.toFloat()</span>
+<span class="fc" id="L292">}</span>
+
+operator fun FloatProperty.plusAssign(other: ObservableNumberValue) {
+<span class="fc" id="L295">    value += other.floatValue()</span>
+<span class="fc" id="L296">}</span>
+
+<span class="fc" id="L298">operator fun FloatExpression.minus(other: Number): FloatBinding = subtract(other.toFloat())</span>
+<span class="fc" id="L299">operator fun FloatExpression.minus(other: Double): DoubleBinding = subtract(other)</span>
+<span class="pc bpc" id="L300" title="1 of 2 branches missed.">operator fun FloatExpression.minus(other: ObservableNumberValue): FloatBinding = subtract(other) as FloatBinding</span>
+<span class="pc bpc" id="L301" title="1 of 2 branches missed.">operator fun FloatExpression.minus(other: ObservableDoubleValue): DoubleBinding = subtract(other) as DoubleBinding</span>
+
+operator fun FloatProperty.minusAssign(other: Number) {
+<span class="fc" id="L304">    value -= other.toFloat()</span>
+<span class="fc" id="L305">}</span>
+
+operator fun FloatProperty.minusAssign(other: ObservableNumberValue) {
+<span class="fc" id="L308">    value -= other.floatValue()</span>
+<span class="fc" id="L309">}</span>
+
+<span class="fc" id="L311">operator fun FloatExpression.unaryMinus(): FloatBinding = negate()</span>
+
+<span class="fc" id="L313">operator fun FloatExpression.times(other: Number): FloatBinding = multiply(other.toFloat())</span>
+<span class="fc" id="L314">operator fun FloatExpression.times(other: Double): DoubleBinding = multiply(other)</span>
+<span class="pc bpc" id="L315" title="1 of 2 branches missed.">operator fun FloatExpression.times(other: ObservableNumberValue): FloatBinding = multiply(other) as FloatBinding</span>
+<span class="pc bpc" id="L316" title="1 of 2 branches missed.">operator fun FloatExpression.times(other: ObservableDoubleValue): DoubleBinding = multiply(other) as DoubleBinding</span>
+
+operator fun FloatProperty.timesAssign(other: Number) {
+<span class="fc" id="L319">    value *= other.toFloat()</span>
+<span class="fc" id="L320">}</span>
+
+operator fun FloatProperty.timesAssign(other: ObservableNumberValue) {
+<span class="fc" id="L323">    value *= other.floatValue()</span>
+<span class="fc" id="L324">}</span>
+
+
+<span class="fc" id="L327">operator fun FloatExpression.div(other: Number): FloatBinding = divide(other.toFloat())</span>
+<span class="fc" id="L328">operator fun FloatExpression.div(other: Double): DoubleBinding = divide(other)</span>
+<span class="pc bpc" id="L329" title="1 of 2 branches missed.">operator fun FloatExpression.div(other: ObservableNumberValue): FloatBinding = divide(other) as FloatBinding</span>
+<span class="pc bpc" id="L330" title="1 of 2 branches missed.">operator fun FloatExpression.div(other: ObservableDoubleValue): DoubleBinding = divide(other) as DoubleBinding</span>
+
+operator fun FloatProperty.divAssign(other: Number) {
+<span class="fc" id="L333">    value /= other.toFloat()</span>
+<span class="fc" id="L334">}</span>
+
+operator fun FloatProperty.divAssign(other: ObservableNumberValue) {
+<span class="fc" id="L337">    value /= other.floatValue()</span>
+<span class="fc" id="L338">}</span>
+
+
+<span class="fc" id="L341">operator fun FloatExpression.rem(other: Number): FloatBinding = floatBinding(this) { get() % other.toFloat() }</span>
+<span class="fc" id="L342">operator fun FloatExpression.rem(other: Double): DoubleBinding = doubleBinding(this) { get() % other }</span>
+<span class="fc" id="L343">operator fun FloatExpression.rem(other: ObservableNumberValue): FloatBinding = floatBinding(this, other) { get() % other.floatValue() }</span>
+<span class="fc" id="L344">operator fun FloatExpression.rem(other: ObservableDoubleValue): DoubleBinding = doubleBinding(this, other) { get() % other.get() }</span>
+
+operator fun FloatProperty.remAssign(other: Number) {
+<span class="fc" id="L347">    value %= other.toFloat()</span>
+<span class="fc" id="L348">}</span>
+
+operator fun FloatProperty.remAssign(other: ObservableNumberValue) {
+<span class="fc" id="L351">    value %= other.floatValue()</span>
+<span class="fc" id="L352">}</span>
+
+<span class="fc" id="L354">operator fun ObservableFloatValue.compareTo(other: Number) = get().compareTo(other.toFloat())</span>
+
+<span class="fc" id="L356">operator fun ObservableFloatValue.compareTo(other: ObservableNumberValue) = get().compareTo(other.floatValue())</span>
+
+
+<span class="fc" id="L359">operator fun IntegerExpression.plus(other: Int): IntegerBinding = add(other)</span>
+<span class="fc" id="L360">operator fun IntegerExpression.plus(other: Long): LongBinding = add(other)</span>
+<span class="fc" id="L361">operator fun IntegerExpression.plus(other: Float): FloatBinding = add(other)</span>
+<span class="fc" id="L362">operator fun IntegerExpression.plus(other: Double): DoubleBinding = add(other)</span>
+<span class="pc bpc" id="L363" title="1 of 2 branches missed.">operator fun IntegerExpression.plus(other: ObservableIntegerValue): IntegerBinding = add(other) as IntegerBinding</span>
+<span class="pc bpc" id="L364" title="1 of 2 branches missed.">operator fun IntegerExpression.plus(other: ObservableLongValue): LongBinding = add(other) as LongBinding</span>
+<span class="pc bpc" id="L365" title="1 of 2 branches missed.">operator fun IntegerExpression.plus(other: ObservableFloatValue): FloatBinding = add(other) as FloatBinding</span>
+<span class="pc bpc" id="L366" title="1 of 2 branches missed.">operator fun IntegerExpression.plus(other: ObservableDoubleValue): DoubleBinding = add(other) as DoubleBinding</span>
+
+operator fun IntegerProperty.plusAssign(other: Number) {
+<span class="fc" id="L369">    value += other.toInt()</span>
+<span class="fc" id="L370">}</span>
+
+operator fun IntegerProperty.plusAssign(other: ObservableNumberValue) {
+<span class="fc" id="L373">    value += other.intValue()</span>
+<span class="fc" id="L374">}</span>
+
+<span class="fc" id="L376">operator fun IntegerExpression.minus(other: Int): IntegerBinding = subtract(other)</span>
+<span class="fc" id="L377">operator fun IntegerExpression.minus(other: Long): LongBinding = subtract(other)</span>
+<span class="fc" id="L378">operator fun IntegerExpression.minus(other: Float): FloatBinding = subtract(other)</span>
+<span class="fc" id="L379">operator fun IntegerExpression.minus(other: Double): DoubleBinding = subtract(other)</span>
+<span class="pc bpc" id="L380" title="1 of 2 branches missed.">operator fun IntegerExpression.minus(other: ObservableIntegerValue): IntegerBinding = subtract(other) as IntegerBinding</span>
+<span class="pc bpc" id="L381" title="1 of 2 branches missed.">operator fun IntegerExpression.minus(other: ObservableLongValue): LongBinding = subtract(other) as LongBinding</span>
+<span class="pc bpc" id="L382" title="1 of 2 branches missed.">operator fun IntegerExpression.minus(other: ObservableFloatValue): FloatBinding = subtract(other) as FloatBinding</span>
+<span class="pc bpc" id="L383" title="1 of 2 branches missed.">operator fun IntegerExpression.minus(other: ObservableDoubleValue): DoubleBinding = subtract(other) as DoubleBinding</span>
+
+operator fun IntegerProperty.minusAssign(other: Number) {
+<span class="fc" id="L386">    value -= other.toInt()</span>
+<span class="fc" id="L387">}</span>
+
+operator fun IntegerProperty.minusAssign(other: ObservableNumberValue) {
+<span class="fc" id="L390">    value -= other.intValue()</span>
+<span class="fc" id="L391">}</span>
+
+<span class="fc" id="L393">operator fun IntegerExpression.unaryMinus(): IntegerBinding = negate()</span>
+
+<span class="fc" id="L395">operator fun IntegerExpression.times(other: Int): IntegerBinding = multiply(other)</span>
+<span class="fc" id="L396">operator fun IntegerExpression.times(other: Long): LongBinding = multiply(other)</span>
+<span class="fc" id="L397">operator fun IntegerExpression.times(other: Float): FloatBinding = multiply(other)</span>
+<span class="fc" id="L398">operator fun IntegerExpression.times(other: Double): DoubleBinding = multiply(other)</span>
+<span class="pc bpc" id="L399" title="1 of 2 branches missed.">operator fun IntegerExpression.times(other: ObservableIntegerValue): IntegerBinding = multiply(other) as IntegerBinding</span>
+<span class="pc bpc" id="L400" title="1 of 2 branches missed.">operator fun IntegerExpression.times(other: ObservableLongValue): LongBinding = multiply(other) as LongBinding</span>
+<span class="pc bpc" id="L401" title="1 of 2 branches missed.">operator fun IntegerExpression.times(other: ObservableFloatValue): FloatBinding = multiply(other) as FloatBinding</span>
+<span class="pc bpc" id="L402" title="1 of 2 branches missed.">operator fun IntegerExpression.times(other: ObservableDoubleValue): DoubleBinding = multiply(other) as DoubleBinding</span>
+
+operator fun IntegerProperty.timesAssign(other: Number) {
+<span class="fc" id="L405">    value *= other.toInt()</span>
+<span class="fc" id="L406">}</span>
+
+operator fun IntegerProperty.timesAssign(other: ObservableNumberValue) {
+<span class="fc" id="L409">    value *= other.intValue()</span>
+<span class="fc" id="L410">}</span>
+
+<span class="fc" id="L412">operator fun IntegerExpression.div(other: Int): IntegerBinding = divide(other)</span>
+<span class="fc" id="L413">operator fun IntegerExpression.div(other: Long): LongBinding = divide(other)</span>
+<span class="fc" id="L414">operator fun IntegerExpression.div(other: Float): FloatBinding = divide(other)</span>
+<span class="fc" id="L415">operator fun IntegerExpression.div(other: Double): DoubleBinding = divide(other)</span>
+<span class="pc bpc" id="L416" title="1 of 2 branches missed.">operator fun IntegerExpression.div(other: ObservableIntegerValue): IntegerBinding = divide(other) as IntegerBinding</span>
+<span class="pc bpc" id="L417" title="1 of 2 branches missed.">operator fun IntegerExpression.div(other: ObservableLongValue): LongBinding = divide(other) as LongBinding</span>
+<span class="pc bpc" id="L418" title="1 of 2 branches missed.">operator fun IntegerExpression.div(other: ObservableFloatValue): FloatBinding = divide(other) as FloatBinding</span>
+<span class="pc bpc" id="L419" title="1 of 2 branches missed.">operator fun IntegerExpression.div(other: ObservableDoubleValue): DoubleBinding = divide(other) as DoubleBinding</span>
+
+operator fun IntegerProperty.divAssign(other: Number) {
+<span class="fc" id="L422">    value /= other.toInt()</span>
+<span class="fc" id="L423">}</span>
+
+operator fun IntegerProperty.divAssign(other: ObservableNumberValue) {
+<span class="fc" id="L426">    value /= other.intValue()</span>
+<span class="fc" id="L427">}</span>
+
+<span class="fc" id="L429">operator fun IntegerExpression.rem(other: Int): IntegerBinding = integerBinding(this) { get() % other }</span>
+<span class="fc" id="L430">operator fun IntegerExpression.rem(other: Long): LongBinding = longBinding(this) { get() % other }</span>
+<span class="fc" id="L431">operator fun IntegerExpression.rem(other: Float): FloatBinding = floatBinding(this) { get() % other }</span>
+<span class="fc" id="L432">operator fun IntegerExpression.rem(other: Double): DoubleBinding = doubleBinding(this) { get() % other }</span>
+<span class="fc" id="L433">operator fun IntegerExpression.rem(other: ObservableIntegerValue): IntegerBinding = integerBinding(this, other) { get() % other.get() }</span>
+<span class="fc" id="L434">operator fun IntegerExpression.rem(other: ObservableLongValue): LongBinding = longBinding(this, other) { get() % other.get() }</span>
+<span class="fc" id="L435">operator fun IntegerExpression.rem(other: ObservableFloatValue): FloatBinding = floatBinding(this, other) { get() % other.get() }</span>
+<span class="fc" id="L436">operator fun IntegerExpression.rem(other: ObservableDoubleValue): DoubleBinding = doubleBinding(this, other) { get() % other.get() }</span>
+
+operator fun IntegerProperty.remAssign(other: Number) {
+<span class="fc" id="L439">    value %= other.toInt()</span>
+<span class="fc" id="L440">}</span>
+
+operator fun IntegerProperty.remAssign(other: ObservableNumberValue) {
+<span class="fc" id="L443">    value %= other.intValue()</span>
+<span class="fc" id="L444">}</span>
+
+operator fun ObservableIntegerValue.rangeTo(other: ObservableIntegerValue): Sequence&lt;IntegerProperty&gt;
+<span class="fc" id="L447">        = get().rangeTo(other.get()).asSequence().map(::SimpleIntegerProperty)</span>
+
+operator fun ObservableIntegerValue.rangeTo(other: Int): Sequence&lt;IntegerProperty&gt;
+<span class="fc" id="L450">        = get().rangeTo(other).asSequence().map(::SimpleIntegerProperty)</span>
+
+operator fun ObservableIntegerValue.rangeTo(other: ObservableLongValue): Sequence&lt;LongProperty&gt;
+<span class="fc" id="L453">        = get().rangeTo(other.get()).asSequence().map(::SimpleLongProperty)</span>
+
+operator fun ObservableIntegerValue.rangeTo(other: Long): Sequence&lt;LongProperty&gt;
+<span class="fc" id="L456">        = get().rangeTo(other).asSequence().map(::SimpleLongProperty)</span>
+
+<span class="fc" id="L458">operator fun ObservableIntegerValue.compareTo(other: Number) = get().compareTo(other.toDouble())</span>
+<span class="fc" id="L459">operator fun ObservableIntegerValue.compareTo(other: ObservableNumberValue) = get().compareTo(other.doubleValue())</span>
+
+
+<span class="fc" id="L462">operator fun LongExpression.plus(other: Number): LongBinding = add(other.toLong())</span>
+<span class="fc" id="L463">operator fun LongExpression.plus(other: Float): FloatBinding = add(other)</span>
+<span class="fc" id="L464">operator fun LongExpression.plus(other: Double): DoubleBinding = add(other)</span>
+<span class="pc bpc" id="L465" title="1 of 2 branches missed.">operator fun LongExpression.plus(other: ObservableNumberValue): LongBinding = add(other) as LongBinding</span>
+<span class="pc bpc" id="L466" title="1 of 2 branches missed.">operator fun LongExpression.plus(other: ObservableFloatValue): FloatBinding = add(other) as FloatBinding</span>
+<span class="pc bpc" id="L467" title="1 of 2 branches missed.">operator fun LongExpression.plus(other: ObservableDoubleValue): DoubleBinding = add(other) as DoubleBinding</span>
+
+operator fun LongProperty.plusAssign(other: Number) {
+<span class="fc" id="L470">    value += other.toLong()</span>
+<span class="fc" id="L471">}</span>
+
+operator fun LongProperty.plusAssign(other: ObservableNumberValue) {
+<span class="fc" id="L474">    value += other.longValue()</span>
+<span class="fc" id="L475">}</span>
+
+<span class="fc" id="L477">operator fun LongExpression.minus(other: Number): LongBinding = subtract(other.toLong())</span>
+<span class="fc" id="L478">operator fun LongExpression.minus(other: Float): FloatBinding = subtract(other)</span>
+<span class="fc" id="L479">operator fun LongExpression.minus(other: Double): DoubleBinding = subtract(other)</span>
+<span class="pc bpc" id="L480" title="1 of 2 branches missed.">operator fun LongExpression.minus(other: ObservableNumberValue): LongBinding = subtract(other) as LongBinding</span>
+<span class="pc bpc" id="L481" title="1 of 2 branches missed.">operator fun LongExpression.minus(other: ObservableFloatValue): FloatBinding = subtract(other) as FloatBinding</span>
+<span class="pc bpc" id="L482" title="1 of 2 branches missed.">operator fun LongExpression.minus(other: ObservableDoubleValue): DoubleBinding = subtract(other) as DoubleBinding</span>
+
+operator fun LongProperty.minusAssign(other: Number) {
+<span class="fc" id="L485">    value -= other.toLong()</span>
+<span class="fc" id="L486">}</span>
+
+operator fun LongProperty.minusAssign(other: ObservableNumberValue) {
+<span class="fc" id="L489">    value -= other.longValue()</span>
+<span class="fc" id="L490">}</span>
+
+<span class="fc" id="L492">operator fun LongExpression.unaryMinus(): LongBinding = negate()</span>
+
+
+<span class="fc" id="L495">operator fun LongExpression.times(other: Number): LongBinding = multiply(other.toLong())</span>
+<span class="fc" id="L496">operator fun LongExpression.times(other: Float): FloatBinding = multiply(other)</span>
+<span class="fc" id="L497">operator fun LongExpression.times(other: Double): DoubleBinding = multiply(other)</span>
+<span class="pc bpc" id="L498" title="1 of 2 branches missed.">operator fun LongExpression.times(other: ObservableNumberValue): LongBinding = multiply(other) as LongBinding</span>
+<span class="pc bpc" id="L499" title="1 of 2 branches missed.">operator fun LongExpression.times(other: ObservableFloatValue): FloatBinding = multiply(other) as FloatBinding</span>
+<span class="pc bpc" id="L500" title="1 of 2 branches missed.">operator fun LongExpression.times(other: ObservableDoubleValue): DoubleBinding = multiply(other) as DoubleBinding</span>
+
+operator fun LongProperty.timesAssign(other: Number) {
+<span class="fc" id="L503">    value *= other.toLong()</span>
+<span class="fc" id="L504">}</span>
+
+operator fun LongProperty.timesAssign(other: ObservableNumberValue) {
+<span class="fc" id="L507">    value *= other.longValue()</span>
+<span class="fc" id="L508">}</span>
+
+<span class="fc" id="L510">operator fun LongExpression.div(other: Number): LongBinding = divide(other.toLong())</span>
+<span class="fc" id="L511">operator fun LongExpression.div(other: Float): FloatBinding = divide(other)</span>
+<span class="fc" id="L512">operator fun LongExpression.div(other: Double): DoubleBinding = divide(other)</span>
+<span class="pc bpc" id="L513" title="1 of 2 branches missed.">operator fun LongExpression.div(other: ObservableNumberValue): LongBinding = divide(other) as LongBinding</span>
+<span class="pc bpc" id="L514" title="1 of 2 branches missed.">operator fun LongExpression.div(other: ObservableFloatValue): FloatBinding = divide(other) as FloatBinding</span>
+<span class="pc bpc" id="L515" title="1 of 2 branches missed.">operator fun LongExpression.div(other: ObservableDoubleValue): DoubleBinding = divide(other) as DoubleBinding</span>
+
+operator fun LongProperty.divAssign(other: Number) {
+<span class="fc" id="L518">    value /= other.toLong()</span>
+<span class="fc" id="L519">}</span>
+
+operator fun LongProperty.divAssign(other: ObservableNumberValue) {
+<span class="fc" id="L522">    value /= other.longValue()</span>
+<span class="fc" id="L523">}</span>
+
+<span class="fc" id="L525">operator fun LongExpression.rem(other: Number): LongBinding = longBinding(this) { get() % other.toLong() }</span>
+<span class="fc" id="L526">operator fun LongExpression.rem(other: Float): FloatBinding = floatBinding(this) { get() % other }</span>
+<span class="fc" id="L527">operator fun LongExpression.rem(other: Double): DoubleBinding = doubleBinding(this) { get() % other }</span>
+
+<span class="fc" id="L529">operator fun LongExpression.rem(other: ObservableNumberValue): LongBinding = longBinding(this, other) { this.get() % other.longValue() }</span>
+<span class="fc" id="L530">operator fun LongExpression.rem(other: ObservableFloatValue): FloatBinding = floatBinding(this, other) { this.get() % other.get() }</span>
+<span class="fc" id="L531">operator fun LongExpression.rem(other: ObservableDoubleValue): DoubleBinding = doubleBinding(this, other) { this.get() % other.get() }</span>
+
+operator fun LongProperty.remAssign(other: Number) {
+<span class="fc" id="L534">    value %= other.toLong()</span>
+<span class="fc" id="L535">}</span>
+
+operator fun LongProperty.remAssign(other: ObservableNumberValue) {
+<span class="fc" id="L538">    value %= other.longValue()</span>
+<span class="fc" id="L539">}</span>
+
+operator fun ObservableLongValue.rangeTo(other: ObservableLongValue): Sequence&lt;LongProperty&gt;
+<span class="fc" id="L542">        = get().rangeTo(other.get()).asSequence().map { SimpleLongProperty(it) }</span>
+
+operator fun ObservableLongValue.rangeTo(other: Long): Sequence&lt;LongProperty&gt;
+<span class="fc" id="L545">        = get().rangeTo(other).asSequence().map(::SimpleLongProperty)</span>
+
+operator fun ObservableLongValue.rangeTo(other: ObservableIntegerValue): Sequence&lt;LongProperty&gt;
+<span class="fc" id="L548">        = get().rangeTo(other.get()).asSequence().map(::SimpleLongProperty)</span>
+
+operator fun ObservableLongValue.rangeTo(other: Int): Sequence&lt;LongProperty&gt;
+<span class="fc" id="L551">        = get().rangeTo(other).asSequence().map(::SimpleLongProperty)</span>
+
+<span class="fc" id="L553">operator fun ObservableLongValue.compareTo(other: Number) = get().compareTo(other.toDouble())</span>
+<span class="fc" id="L554">operator fun ObservableLongValue.compareTo(other: ObservableNumberValue) = get().compareTo(other.doubleValue())</span>
+
+
+<span class="fc" id="L557">infix fun NumberExpression.gt(other: Int): BooleanBinding = greaterThan(other)</span>
+<span class="fc" id="L558">infix fun NumberExpression.gt(other: Long): BooleanBinding = greaterThan(other)</span>
+<span class="fc" id="L559">infix fun NumberExpression.gt(other: Float): BooleanBinding = greaterThan(other)</span>
+<span class="fc" id="L560">infix fun NumberExpression.gt(other: Double): BooleanBinding = greaterThan(other)</span>
+<span class="fc" id="L561">infix fun NumberExpression.gt(other: ObservableNumberValue): BooleanBinding = greaterThan(other)</span>
+
+<span class="fc" id="L563">infix fun NumberExpression.ge(other: Int): BooleanBinding = greaterThanOrEqualTo(other)</span>
+<span class="fc" id="L564">infix fun NumberExpression.ge(other: Long): BooleanBinding = greaterThanOrEqualTo(other)</span>
+<span class="fc" id="L565">infix fun NumberExpression.ge(other: Float): BooleanBinding = greaterThanOrEqualTo(other)</span>
+<span class="fc" id="L566">infix fun NumberExpression.ge(other: Double): BooleanBinding = greaterThanOrEqualTo(other)</span>
+<span class="fc" id="L567">infix fun NumberExpression.ge(other: ObservableNumberValue): BooleanBinding = greaterThanOrEqualTo(other)</span>
+
+<span class="fc" id="L569">infix fun NumberExpression.eq(other: Int): BooleanBinding = isEqualTo(other)</span>
+<span class="fc" id="L570">infix fun NumberExpression.eq(other: Long): BooleanBinding = isEqualTo(other)</span>
+<span class="fc" id="L571">infix fun NumberExpression.eq(other: ObservableNumberValue): BooleanBinding = isEqualTo(other)</span>
+
+<span class="fc" id="L573">infix fun NumberExpression.le(other: Int): BooleanBinding = lessThanOrEqualTo(other)</span>
+<span class="fc" id="L574">infix fun NumberExpression.le(other: Long): BooleanBinding = lessThanOrEqualTo(other)</span>
+<span class="fc" id="L575">infix fun NumberExpression.le(other: Float): BooleanBinding = lessThanOrEqualTo(other)</span>
+<span class="fc" id="L576">infix fun NumberExpression.le(other: Double): BooleanBinding = lessThanOrEqualTo(other)</span>
+<span class="fc" id="L577">infix fun NumberExpression.le(other: ObservableNumberValue): BooleanBinding = lessThanOrEqualTo(other)</span>
+
+<span class="fc" id="L579">infix fun NumberExpression.lt(other: Int): BooleanBinding = lessThan(other)</span>
+<span class="fc" id="L580">infix fun NumberExpression.lt(other: Long): BooleanBinding = lessThan(other)</span>
+<span class="fc" id="L581">infix fun NumberExpression.lt(other: Float): BooleanBinding = lessThan(other)</span>
+<span class="fc" id="L582">infix fun NumberExpression.lt(other: Double): BooleanBinding = lessThan(other)</span>
+<span class="fc" id="L583">infix fun NumberExpression.lt(other: ObservableNumberValue): BooleanBinding = lessThan(other)</span>
+
+
+@Suppress(&quot;EXTENSION_SHADOWED_BY_MEMBER&quot;)
+<span class="nc" id="L587">operator fun BooleanExpression.not(): BooleanBinding = not()</span>
+
+<span class="fc" id="L589">infix fun BooleanExpression.and(other: Boolean): BooleanBinding = and(SimpleBooleanProperty(other))</span>
+<span class="fc" id="L590">infix fun BooleanExpression.and(other: ObservableBooleanValue): BooleanBinding = and(other)</span>
+
+<span class="fc" id="L592">infix fun BooleanExpression.or(other: Boolean): BooleanBinding = or(SimpleBooleanProperty(other))</span>
+<span class="fc" id="L593">infix fun BooleanExpression.or(other: ObservableBooleanValue): BooleanBinding = or(other)</span>
+
+<span class="fc" id="L595">infix fun BooleanExpression.xor(other: Boolean): BooleanBinding = booleanBinding(this) { get() xor other }</span>
+<span class="fc" id="L596">infix fun BooleanExpression.xor(other: ObservableBooleanValue): BooleanBinding = booleanBinding(this, other) { get() xor other.get() }</span>
+
+<span class="fc" id="L598">infix fun BooleanExpression.eq(other: Boolean): BooleanBinding = isEqualTo(SimpleBooleanProperty(other))</span>
+<span class="fc" id="L599">infix fun BooleanExpression.eq(other: ObservableBooleanValue): BooleanBinding = isEqualTo(other)</span>
+
+
+<span class="fc" id="L602">operator fun StringExpression.plus(other: Any): StringExpression = concat(other)</span>
+operator fun StringProperty.plusAssign(other: Any) {
+<span class="fc" id="L604">    value += other</span>
+<span class="fc" id="L605">}</span>
+
+<span class="fc" id="L607">operator fun StringExpression.get(index: Int): Binding&lt;Char?&gt; = objectBinding(this) {</span>
+<span class="pc bpc" id="L608" title="1 of 2 branches missed.">    if (index &lt; get().length)</span>
+<span class="fc" id="L609">        get()[index]</span>
+    else
+<span class="nc" id="L611">        null</span>
+<span class="fc" id="L612">}</span>
+
+<span class="fc" id="L614">operator fun StringExpression.get(index: ObservableIntegerValue): Binding&lt;Char?&gt; = objectBinding(this, index) {</span>
+<span class="pc bpc" id="L615" title="1 of 2 branches missed.">    if (index &lt; get().length)</span>
+<span class="fc" id="L616">        get()[index.get()]</span>
+    else
+<span class="nc" id="L618">        null</span>
+<span class="fc" id="L619">}</span>
+
+<span class="fc" id="L621">operator fun StringExpression.get(start: Int, end: Int): StringBinding = stringBinding(this) { get().subSequence(start, end).toString() }</span>
+<span class="fc" id="L622">operator fun StringExpression.get(start: ObservableIntegerValue, end: Int): StringBinding = stringBinding(this, start) { get().subSequence(start.get(), end).toString() }</span>
+<span class="fc" id="L623">operator fun StringExpression.get(start: Int, end: ObservableIntegerValue): StringBinding = stringBinding(this, end) { get().subSequence(start, end.get()).toString() }</span>
+<span class="fc" id="L624">operator fun StringExpression.get(start: ObservableIntegerValue, end: ObservableIntegerValue): StringBinding = stringBinding(this, start, end) { get().subSequence(start.get(), end.get()).toString() }</span>
+
+<span class="pc bpc" id="L626" title="1 of 2 branches missed.">operator fun StringExpression.unaryMinus(): StringBinding = stringBinding(this) { get().reversed() }</span>
+
+<span class="fc" id="L628">operator fun StringExpression.compareTo(other: String): Int = get().compareTo(other)</span>
+<span class="fc" id="L629">operator fun StringExpression.compareTo(other: ObservableStringValue): Int = get().compareTo(other.get())</span>
+
+<span class="fc" id="L631">infix fun StringExpression.gt(other: String): BooleanBinding = greaterThan(other)</span>
+<span class="fc" id="L632">infix fun StringExpression.gt(other: ObservableStringValue): BooleanBinding = greaterThan(other)</span>
+
+<span class="fc" id="L634">infix fun StringExpression.ge(other: String): BooleanBinding = greaterThanOrEqualTo(other)</span>
+<span class="fc" id="L635">infix fun StringExpression.ge(other: ObservableStringValue): BooleanBinding = greaterThanOrEqualTo(other)</span>
+
+<span class="fc" id="L637">infix fun StringExpression.eq(other: String): BooleanBinding = isEqualTo(other)</span>
+<span class="fc" id="L638">infix fun StringExpression.eq(other: ObservableStringValue): BooleanBinding = isEqualTo(other)</span>
+
+<span class="fc" id="L640">infix fun StringExpression.le(other: String): BooleanBinding = lessThanOrEqualTo(other)</span>
+<span class="fc" id="L641">infix fun StringExpression.le(other: ObservableStringValue): BooleanBinding = lessThanOrEqualTo(other)</span>
+
+<span class="fc" id="L643">infix fun StringExpression.lt(other: String): BooleanBinding = lessThan(other)</span>
+<span class="fc" id="L644">infix fun StringExpression.lt(other: ObservableStringValue): BooleanBinding = lessThan(other)</span>
+<span class="nc bnc" id="L645" title="All 2 branches missed.">fun ObservableValue&lt;String&gt;.isBlank(): BooleanBinding = booleanBinding { it?.isBlank() ?: true }</span>
+<span class="nc bnc" id="L646" title="All 4 branches missed.">fun ObservableValue&lt;String&gt;.isNotBlank(): BooleanBinding = booleanBinding { it?.isNotBlank() ?: false }</span>
+
+<span class="fc" id="L648">infix fun StringExpression.eqIgnoreCase(other: String): BooleanBinding = isEqualToIgnoreCase(other)</span>
+<span class="fc" id="L649">infix fun StringExpression.eqIgnoreCase(other: ObservableStringValue): BooleanBinding = isEqualToIgnoreCase(other)</span>
+
+
+fun &lt;T&gt; ObservableValue&lt;T&gt;.integerBinding(vararg dependencies: Observable, op: (T?) -&gt; Int): IntegerBinding
+<span class="fc" id="L653">        = Bindings.createIntegerBinding(Callable { op(value) }, this, *dependencies)</span>
+
+fun &lt;T : Any&gt; integerBinding(receiver: T, vararg dependencies: Observable, op: T.() -&gt; Int): IntegerBinding
+<span class="nc" id="L656">        = Bindings.createIntegerBinding(Callable { receiver.op() }, *createObservableArray(receiver, *dependencies))</span>
+
+fun &lt;T&gt; ObservableValue&lt;T&gt;.longBinding(vararg dependencies: Observable, op: (T?) -&gt; Long): LongBinding
+<span class="fc" id="L659">        = Bindings.createLongBinding(Callable { op(value) }, this, *dependencies)</span>
+
+fun &lt;T : Any&gt; longBinding(receiver: T, vararg dependencies: Observable, op: T.() -&gt; Long): LongBinding
+<span class="nc" id="L662">        = Bindings.createLongBinding(Callable { receiver.op() }, *createObservableArray(receiver, *dependencies))</span>
+
+fun &lt;T&gt; ObservableValue&lt;T&gt;.doubleBinding(vararg dependencies: Observable, op: (T?) -&gt; Double): DoubleBinding
+<span class="fc" id="L665">        = Bindings.createDoubleBinding(Callable { op(value) }, this, *dependencies)</span>
+
+fun &lt;T : Any&gt; doubleBinding(receiver: T, vararg dependencies: Observable, op: T.() -&gt; Double): DoubleBinding
+<span class="nc" id="L668">        = Bindings.createDoubleBinding(Callable { receiver.op() }, *createObservableArray(receiver, *dependencies))</span>
+
+fun &lt;T&gt; ObservableValue&lt;T&gt;.floatBinding(vararg dependencies: Observable, op: (T?) -&gt; Float): FloatBinding
+<span class="fc" id="L671">        = Bindings.createFloatBinding(Callable { op(value) }, this, *dependencies)</span>
+
+fun &lt;T : Any&gt; floatBinding(receiver: T, vararg dependencies: Observable, op: T.() -&gt; Float): FloatBinding
+<span class="nc" id="L674">        = Bindings.createFloatBinding(Callable { receiver.op() }, *createObservableArray(receiver, *dependencies))</span>
+
+fun &lt;T&gt; ObservableValue&lt;T&gt;.booleanBinding(vararg dependencies: Observable, op: (T?) -&gt; Boolean): BooleanBinding =
+<span class="fc" id="L677">        Bindings.createBooleanBinding(Callable { op(value) }, this, *dependencies)</span>
+
+fun &lt;T : Any&gt; booleanBinding(receiver: T, vararg dependencies: Observable, op: T.() -&gt; Boolean): BooleanBinding
+<span class="fc" id="L680">        = Bindings.createBooleanBinding(Callable { receiver.op() }, *createObservableArray(receiver, *dependencies))</span>
+
+/**
+ * A Boolean binding that tracks all items in an observable list and create an observable boolean
+ * value by anding together an observable boolean representing each element in the observable list.
+ * Whenever the list changes, the binding is updated as well
+ */
+<span class="fc" id="L687">fun &lt;T : Any&gt; booleanListBinding(list: ObservableList&lt;T&gt;, defaultValue: Boolean = false, itemToBooleanExpr: T.() -&gt; BooleanExpression): BooleanExpression {</span>
+<span class="fc" id="L688">    val facade = SimpleBooleanProperty()</span>
+<span class="fc" id="L689">    fun rebind() {</span>
+<span class="fc bfc" id="L690" title="All 2 branches covered.">        if (list.isEmpty()) {</span>
+<span class="fc" id="L691">            facade.unbind()</span>
+<span class="fc" id="L692">            facade.value = defaultValue</span>
+        } else {
+<span class="fc" id="L694">            facade.cleanBind(list.map(itemToBooleanExpr).reduce { a, b -&gt; a.and(b) })</span>
+        }
+<span class="fc" id="L696">    }</span>
+<span class="fc" id="L697">    list.onChange { rebind() }</span>
+<span class="fc" id="L698">    rebind()</span>
+<span class="fc" id="L699">    return facade</span>
+}
+
+fun &lt;T&gt; ObservableValue&lt;T&gt;.stringBinding(vararg dependencies: Observable, op: (T?) -&gt; String?): StringBinding
+<span class="fc" id="L703">        = Bindings.createStringBinding(Callable { op(value) }, this, *dependencies)</span>
+
+fun &lt;T : Any&gt; stringBinding(receiver: T, vararg dependencies: Observable, op: T.() -&gt; String?): StringBinding =
+<span class="fc" id="L706">        Bindings.createStringBinding(Callable { receiver.op() }, *createObservableArray(receiver, *dependencies))</span>
+
+fun &lt;T, R&gt; ObservableValue&lt;T&gt;.objectBinding(vararg dependencies: Observable, op: (T?) -&gt; R?): Binding&lt;R?&gt;
+<span class="fc" id="L709">        = Bindings.createObjectBinding(Callable { op(value) }, this, *dependencies)</span>
+
+fun &lt;T : Any, R&gt; objectBinding(receiver: T, vararg dependencies: Observable, op: T.() -&gt; R?): ObjectBinding&lt;R?&gt;
+<span class="fc" id="L712">        = Bindings.createObjectBinding(Callable { receiver.op() }, *createObservableArray(receiver, *dependencies))</span>
+
+fun &lt;T : Any, R&gt; nonNullObjectBinding(receiver: T, vararg dependencies: Observable, op: T.() -&gt; R): ObjectBinding&lt;R&gt;
+<span class="nc" id="L715">        = Bindings.createObjectBinding(Callable { receiver.op() }, *createObservableArray(receiver, *dependencies))</span>
+
+private fun &lt;T&gt; createObservableArray(receiver: T, vararg dependencies: Observable): Array&lt;out Observable&gt; =
+<span class="pc bpc" id="L718" title="1 of 2 branches missed.">        if (receiver is Observable) arrayOf(receiver, *dependencies) else dependencies</span>
+
+
+/* Generate a calculated IntegerProperty that keeps track of the number of items in this ObservableList */
+<span class="nc" id="L722">val ObservableList&lt;*&gt;.sizeProperty: IntegerBinding get() = integerBinding(this) { size }</span>
+
+/**
+ * Assign the value from the creator to this WritableValue if and only if it is currently null
+ */
+fun &lt;T&gt; WritableValue&lt;T&gt;.assignIfNull(creator: () -&gt; T) {
+<span class="fc bfc" id="L728" title="All 2 branches covered.">    if (value == null) value = creator()</span>
+<span class="fc" id="L729">}</span>
+
+<span class="fc" id="L731">fun Double.toProperty(): DoubleProperty = SimpleDoubleProperty(this)</span>
+<span class="fc" id="L732">fun Float.toProperty(): FloatProperty = SimpleFloatProperty(this)</span>
+<span class="fc" id="L733">fun Long.toProperty(): LongProperty = SimpleLongProperty(this)</span>
+<span class="fc" id="L734">fun Int.toProperty(): IntegerProperty = SimpleIntegerProperty(this)</span>
+<span class="fc" id="L735">fun Boolean.toProperty(): BooleanProperty = SimpleBooleanProperty(this)</span>
+<span class="fc" id="L736">fun String.toProperty(): StringProperty = SimpleStringProperty(this)</span>
+
+<span class="nc bnc" id="L738" title="All 2 branches missed.">fun String?.toProperty() = SimpleStringProperty(this ?: &quot;&quot;)</span>
+<span class="nc bnc" id="L739" title="All 2 branches missed.">fun Double?.toProperty() = SimpleDoubleProperty(this ?: 0.0)</span>
+<span class="nc bnc" id="L740" title="All 2 branches missed.">fun Float?.toProperty() = SimpleFloatProperty(this ?: 0.0F)</span>
+<span class="nc bnc" id="L741" title="All 2 branches missed.">fun Long?.toProperty() = SimpleLongProperty(this ?: 0L)</span>
+<span class="nc bnc" id="L742" title="All 2 branches missed.">fun Boolean?.toProperty() = SimpleBooleanProperty(this ?: false)</span>
+<span class="nc" id="L743">fun &lt;T : Any&gt; T?.toProperty() = SimpleObjectProperty&lt;T&gt;(this)</span>
+
+/**
+ * Convert the given key in this map to a Property using the given propertyGenerator function.
+ *
+ * The generator is passed the initial value corresponding to the given key.
+ *
+ * Changes to the generated Property will automatically be written back into the map.
+ */
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+fun &lt;S, V, X : V&gt; MutableMap&lt;S, V&gt;.toProperty(key: S, propertyGenerator: (X?) -&gt; Property&lt;X&gt;): Property&lt;X&gt; {
+<span class="fc" id="L754">    val initialValue = this[key] as X?</span>
+<span class="fc" id="L755">    val property = propertyGenerator(initialValue)</span>
+<span class="fc" id="L756">    property.onChange { this[key] = it as X }</span>
+<span class="fc" id="L757">    return property</span>
+}
+
+/**
+ * Convenience SimpleXXXProperty function builders
+ */
+
+<span class="nc" id="L764">fun booleanProperty(value: Boolean = false): BooleanProperty = SimpleBooleanProperty(value)</span>
+<span class="nc" id="L765">fun doubleProperty(value: Double = 0.0): DoubleProperty = SimpleDoubleProperty(value)</span>
+<span class="nc" id="L766">fun floatProperty(value: Float = 0F): FloatProperty = SimpleFloatProperty(value)</span>
+<span class="nc" id="L767">fun intProperty(value: Int = 0): IntegerProperty = SimpleIntegerProperty(value)</span>
+<span class="nc" id="L768">fun &lt;V&gt; listProperty(value: ObservableList&lt;V&gt;? = null): ListProperty&lt;V&gt; = SimpleListProperty(value)</span>
+<span class="nc" id="L769">fun &lt;V&gt; listProperty(vararg values: V): ListProperty&lt;V&gt; = SimpleListProperty(values.toMutableList().asObservable())</span>
+<span class="nc" id="L770">fun longProperty(value: Long): LongProperty = SimpleLongProperty(value)</span>
+<span class="nc" id="L771">fun &lt;K, V&gt; mapProperty(value: ObservableMap&lt;K, V&gt;? = null): MapProperty&lt;K, V&gt; = SimpleMapProperty(value)</span>
+<span class="nc" id="L772">fun &lt;T&gt; objectProperty(value: T? = null): ObjectProperty&lt;T&gt; = SimpleObjectProperty(value)</span>
+<span class="nc" id="L773">fun &lt;V&gt; setProperty(value: ObservableSet&lt;V&gt;? = null): SetProperty&lt;V&gt; = SimpleSetProperty(value)</span>
+<span class="nc" id="L774">fun stringProperty(value: String? = null): StringProperty = SimpleStringProperty(value)</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

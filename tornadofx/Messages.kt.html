@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Messages.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Messages.kt</span></div><h1>Messages.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import java.io.IOException
+import java.io.InputStream
+import java.io.InputStreamReader
+import java.nio.charset.StandardCharsets
+import java.security.AccessController
+import java.security.PrivilegedActionException
+import java.security.PrivilegedExceptionAction
+import java.text.MessageFormat
+import java.util.*
+
+<span class="fc" id="L13">private fun &lt;EXCEPTION: Throwable, RETURN&gt; doPrivileged(privilegedAction: ()-&gt;RETURN) : RETURN = try {</span>
+<span class="fc" id="L14">    AccessController.doPrivileged(</span>
+<span class="fc" id="L15">            PrivilegedExceptionAction&lt;RETURN&gt; {  privilegedAction() }</span>
+    )
+<span class="nc" id="L17">} catch (e: PrivilegedActionException) {</span>
+    @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc bnc" id="L19" title="All 2 branches missed.">    throw e.exception as EXCEPTION</span>
+<span class="fc" id="L20">}</span>
+
+
+<span class="fc" id="L23">object FXResourceBundleControl : ResourceBundle.Control() {</span>
+
+    override fun newBundle(baseName: String, locale: Locale, format: String, loader: ClassLoader, reload: Boolean): ResourceBundle? {
+<span class="fc" id="L26">        val bundleName = toBundleName(baseName, locale)</span>
+<span class="pc bpc" id="L27" title="1 of 3 branches missed.">        return when (format) {</span>
+
+<span class="pc bpc" id="L29" title="1 of 2 branches missed.">            &quot;java.class&quot; -&gt; try {</span>
+                @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="pc bpc" id="L31" title="1 of 2 branches missed.">                val bundleClass = loader.loadClass(bundleName) as Class&lt;out ResourceBundle&gt;</span>
+
+                // If the class isn't a ResourceBundle subclass, throw a ClassCastException.
+<span class="pc bpc" id="L34" title="1 of 2 branches missed.">                if (ResourceBundle::class.java.isAssignableFrom(bundleClass)) bundleClass.newInstance()</span>
+<span class="fc" id="L35">                else throw ClassCastException(bundleClass.name + &quot; cannot be cast to ResourceBundle&quot;)</span>
+
+<span class="fc" id="L37">            } catch (e: ClassNotFoundException) { null }</span>
+<span class="pc bpc" id="L38" title="1 of 2 branches missed.">            &quot;java.properties&quot; -&gt; {</span>
+<span class="fc" id="L39">                val resourceName: String = toResourceName(bundleName, &quot;properties&quot;)</span>
+<span class="pc bpc" id="L40" title="1 of 2 branches missed.">                doPrivileged&lt;IOException, InputStream?&gt; {</span>
+<span class="pc bpc" id="L41" title="1 of 2 branches missed.">                    if (!reload) loader.getResourceAsStream(resourceName)</span>
+<span class="nc bnc" id="L42" title="All 6 branches missed.">                    else loader.getResource(resourceName)?.openConnection()?.apply {</span>
+<span class="nc" id="L43">                        useCaches = false // Disable caches to get fresh data for reloading.</span>
+<span class="nc" id="L44">                    } ?.inputStream</span>
+<span class="pc" id="L45">                }?.use { FXPropertyResourceBundle(InputStreamReader(it, StandardCharsets.UTF_8)) }</span>
+            }
+<span class="nc" id="L47">            else -&gt; throw IllegalArgumentException(&quot;unknown format: $format&quot;)</span>
+        }!!
+    }
+}
+
+/**
+ * Convenience function to support lookup via messages[&quot;key&quot;]
+ */
+<span class="nc" id="L55">operator fun ResourceBundle.get(key: String) = getString(key)</span>
+
+/**
+ * Convenience function to retrieve a translation and format it with values.
+ */
+fun ResourceBundle.format(key: String, vararg fields: Any) =
+<span class="nc" id="L61">        MessageFormat(this[key], locale).format(fields)</span>
+
+<span class="nc" id="L63">class FXPropertyResourceBundle(input: InputStreamReader): PropertyResourceBundle(input) {</span>
+    fun inheritFromGlobal() {
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        parent = FX.messages.takeUnless(::equals)</span>
+<span class="nc" id="L66">    }</span>
+
+    /**
+     * Lookup resource in this bundle. If no value, lookup in parent bundle if defined.
+     * If we still have no value, return &quot;[key]&quot; instead of null.
+     */
+<span class="nc bnc" id="L72" title="All 2 branches missed.">    override fun handleGetObject(key: String?) = super.handleGetObject(key)</span>
+<span class="nc bnc" id="L73" title="All 4 branches missed.">            ?: parent?.getObject(key)</span>
+<span class="nc" id="L74">            ?: &quot;[$key]&quot;</span>
+
+    /**
+     * Always return true, since we want to supply a default text message instead of throwing exception
+     */
+<span class="nc" id="L79">    override fun containsKey(key: String) = true</span>
+}
+
+<span class="fc" id="L82">internal object EmptyResourceBundle : ResourceBundle() {</span>
+<span class="nc" id="L83">    override fun getKeys(): Enumeration&lt;String&gt; = Collections.emptyEnumeration()</span>
+<span class="nc" id="L84">    override fun handleGetObject(key: String) = &quot;[$key]&quot;</span>
+<span class="nc" id="L85">    override fun containsKey(p0: String) = true</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

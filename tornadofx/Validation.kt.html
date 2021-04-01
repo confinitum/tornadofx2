@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Validation.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Validation.kt</span></div><h1>Validation.kt</h1><pre class="source lang-java linenums">@file:Suppress(&quot;unused&quot;)
+
+package tornadofx
+
+import javafx.beans.binding.BooleanExpression
+import javafx.beans.property.BooleanProperty
+import javafx.beans.property.ReadOnlyBooleanProperty
+import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.value.ObservableValue
+import javafx.collections.FXCollections
+import javafx.scene.Node
+import javafx.scene.control.TextInputControl
+import kotlin.concurrent.thread
+
+enum class ValidationSeverity { Error, Warning, Info, Success }
+
+sealed class ValidationTrigger {
+<span class="nc" id="L18">    object OnBlur : ValidationTrigger()</span>
+<span class="fc" id="L19">    data class OnChange(val delay: Long = 0) : ValidationTrigger()</span>
+<span class="nc" id="L20">    object None : ValidationTrigger()</span>
+}
+
+<span class="fc" id="L23">class ValidationMessage(val message: String?, val severity: ValidationSeverity)</span>
+
+<span class="fc" id="L25">class ValidationContext {</span>
+<span class="pc" id="L26">    val validators = FXCollections.observableArrayList&lt;Validator&lt;*&gt;&gt;()</span>
+
+    /**
+     * The decoration provider decides what kind of decoration should be applied to
+     * a control when validation fails. The default decorator will paint a small triangle
+     * in the top left corner and display a Tooltip with the error message.
+     */
+<span class="pc" id="L33">    var decorationProvider: (ValidationMessage) -&gt; Decorator? = { SimpleMessageDecorator(it.message, it.severity) }</span>
+
+    /**
+     * Add the given validator to the given property. The supplied node will be decorated by
+     * the current decorationProvider for this context if validation fails.
+     *
+     * The validator function is executed in the scope of this ValidationContex to give
+     * access to other fields and shortcuts like the error and warning functions.
+     *
+     * The validation trigger decides when the validation is applied. ValidationTrigger.OnBlur
+     * tracks focus on the supplied node while OnChange tracks changes to the property itself.
+     */
+    inline fun &lt;reified T&gt; addValidator(
+            node: Node,
+            property: ObservableValue&lt;T&gt;,
+<span class="nc" id="L48">            trigger: ValidationTrigger = ValidationTrigger.OnChange(),</span>
+<span class="nc" id="L49">            noinline validator: ValidationContext.(T?) -&gt; ValidationMessage?) = addValidator(Validator(node, property, trigger, validator))</span>
+
+<span class="fc" id="L51">    fun &lt;T&gt; addValidator(validator: Validator&lt;T&gt;, decorateErrors: Boolean = true): Validator&lt;T&gt; {</span>
+<span class="fc" id="L52">        when (val trigger = validator.trigger) {</span>
+<span class="pc bpc" id="L53" title="1 of 2 branches missed.">            is ValidationTrigger.OnChange -&gt; {</span>
+<span class="fc" id="L54">                var delayActive = false</span>
+
+<span class="fc" id="L56">                validator.property.onChange {</span>
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">                    if (trigger.delay == 0L) {</span>
+<span class="fc" id="L58">                        validator.validate(decorateErrors)</span>
+                    } else {
+<span class="nc bnc" id="L60" title="All 2 branches missed.">                        if (!delayActive) {</span>
+<span class="nc" id="L61">                            delayActive = true</span>
+<span class="nc" id="L62">                            thread {</span>
+<span class="nc" id="L63">                                Thread.sleep(trigger.delay)</span>
+<span class="nc" id="L64">                                FX.runAndWait {</span>
+<span class="nc" id="L65">                                    validator.validate(decorateErrors)</span>
+<span class="nc" id="L66">                                }</span>
+<span class="nc" id="L67">                                delayActive = false</span>
+<span class="nc" id="L68">                            }</span>
+                        }
+                    }
+<span class="fc" id="L71">                }</span>
+            }
+<span class="nc bnc" id="L73" title="All 2 branches missed.">            ValidationTrigger.OnBlur -&gt; {</span>
+<span class="nc" id="L74">                validator.node.focusedProperty().onChange {</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">                    if (!it) validator.validate(decorateErrors)</span>
+<span class="nc" id="L76">                }</span>
+            }
+        }
+<span class="fc" id="L79">        validators.add(validator)</span>
+<span class="fc" id="L80">        return validator</span>
+    }
+
+    /**
+     * A boolean indicating the current validation status.
+     */
+<span class="pc" id="L86">    val valid: ReadOnlyBooleanProperty = SimpleBooleanProperty(true)</span>
+<span class="fc" id="L87">    val isValid by valid</span>
+
+    /**
+     * Rerun all validators (or just the ones passed in) and return a boolean indicating if validation passed.
+     */
+<span class="nc" id="L92">    fun validate(vararg fields: ObservableValue&lt;*&gt;) = validate(true, true,false, fields = *fields)</span>
+
+    /**
+     * Rerun all validators (or just the ones passed in) and return a boolean indicating if validation passed.
+     * It is allowed to pass inn fields that has no corresponding validator. They will register as validated.
+     */
+<span class="nc" id="L98">    fun validate(focusFirstError: Boolean = true, decorateErrors: Boolean = true, failFast: Boolean = false, vararg fields: ObservableValue&lt;*&gt;): Boolean {</span>
+<span class="fc bfc" id="L99" title="All 4 branches covered.">        val validateThese = if (fields.isEmpty()) validators else validators.filter {</span>
+<span class="nc" id="L100">            val facade = it.property.viewModelFacade</span>
+<span class="nc bnc" id="L101" title="All 6 branches missed.">            facade != null &amp;&amp; facade in fields</span>
+        }
+
+        @Suppress(&quot;SimplifiableCallChain&quot;)
+<span class="pc bpc" id="L105" title="1 of 2 branches missed.">        val firstFailingNode = when(failFast) {</span>
+<span class="pc bpc" id="L106" title="5 of 6 branches missed.">            true -&gt; validateThese.firstOrNull { !it.validate(decorateErrors) }</span>
+<span class="pc bpc" id="L107" title="5 of 6 branches missed.">            false -&gt; validateThese.filter { !it.validate(decorateErrors) }.firstOrNull()</span>
+        }?.node
+
+<span class="pc bpc" id="L110" title="2 of 4 branches missed.">        if (focusFirstError) firstFailingNode?.requestFocus()</span>
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">        return firstFailingNode == null</span>
+    }
+
+    /**
+     * Add validator for a TextInputControl and validate the control's textProperty. Useful when
+     * you don't bind against a ViewModel or other backing property.
+     */
+<span class="nc" id="L118">    fun addValidator(node: TextInputControl, trigger: ValidationTrigger = ValidationTrigger.OnChange(), validator: ValidationContext.(String?) -&gt; ValidationMessage?) =</span>
+<span class="nc" id="L119">            addValidator&lt;String&gt;(node, node.textProperty(), trigger, validator)</span>
+
+
+<span class="pc" id="L122">    fun error(message: String? = null) = ValidationMessage(message, ValidationSeverity.Error)</span>
+<span class="nc" id="L123">    fun info(message: String? = null) = ValidationMessage(message, ValidationSeverity.Info)</span>
+<span class="nc" id="L124">    fun warning(message: String? = null) = ValidationMessage(message, ValidationSeverity.Warning)</span>
+<span class="nc" id="L125">    fun success(message: String? = null) = ValidationMessage(message, ValidationSeverity.Success)</span>
+
+    /**
+     * Update the valid property state. If the calling validator was valid we need to see if any of the other properties are invalid.
+     * If the calling validator is invalid, we know the state is invalid so no need to check the other validators.
+     */
+    internal fun updateValidState(callingValidatorState: Boolean) {
+<span class="pc bpc" id="L132" title="4 of 12 branches missed.">        (valid as BooleanProperty).value = if (callingValidatorState) validators.find { !it.isValid } == null else false</span>
+<span class="fc" id="L133">    }</span>
+
+<span class="fc" id="L135">    inner class Validator&lt;T&gt;(</span>
+<span class="nc" id="L136">            val node: Node,</span>
+<span class="fc" id="L137">            val property: ObservableValue&lt;T&gt;,</span>
+<span class="pc" id="L138">            val trigger: ValidationTrigger = ValidationTrigger.OnChange(),</span>
+<span class="nc" id="L139">            val validator: ValidationContext.(T?) -&gt; ValidationMessage?) {</span>
+
+<span class="pc" id="L141">        var result: ValidationMessage? = null</span>
+<span class="nc" id="L142">        var decorator: Decorator? = null</span>
+<span class="pc" id="L143">        val valid: BooleanExpression = SimpleBooleanProperty(true)</span>
+<span class="fc" id="L144">        val isValid: Boolean get() = valid.value</span>
+
+<span class="fc" id="L146">        fun validate(decorateErrors: Boolean = true): Boolean {</span>
+<span class="fc bfc" id="L147" title="All 2 branches covered.">            decorator?.apply { undecorate(node) }</span>
+<span class="fc" id="L148">            decorator = null</span>
+
+<span class="fc" id="L150">            result = validator(this@ValidationContext, property.value).also {</span>
+<span class="pc bpc" id="L151" title="2 of 6 branches missed.">                (valid as BooleanProperty).value = it == null || it.severity != ValidationSeverity.Error</span>
+<span class="fc" id="L152">            }</span>
+
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">            if (decorateErrors) {</span>
+<span class="fc bfc" id="L155" title="All 2 branches covered.">                result?.apply {</span>
+<span class="fc" id="L156">                    decorator = decorationProvider(this)</span>
+<span class="fc" id="L157">                    decorator!!.decorate(node)</span>
+<span class="fc" id="L158">                }</span>
+            }
+
+<span class="fc" id="L161">            updateValidState(isValid)</span>
+<span class="fc" id="L162">            return isValid</span>
+        }
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

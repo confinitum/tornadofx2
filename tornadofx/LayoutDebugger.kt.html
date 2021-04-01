@@ -1,0 +1,449 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LayoutDebugger.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">LayoutDebugger.kt</span></div><h1>LayoutDebugger.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.application.Platform
+import javafx.beans.property.DoubleProperty
+import javafx.beans.property.Property
+import javafx.beans.property.SimpleObjectProperty
+import javafx.beans.property.StringProperty
+import javafx.event.EventHandler
+import javafx.geometry.Bounds
+import javafx.geometry.Insets
+import javafx.geometry.Pos
+import javafx.scene.Node
+import javafx.scene.Parent
+import javafx.scene.Scene
+import javafx.scene.canvas.Canvas
+import javafx.scene.control.*
+import javafx.scene.input.MouseEvent
+import javafx.scene.layout.*
+import javafx.scene.paint.Color
+import javafx.scene.shape.Shape
+import javafx.stage.Modality
+import javafx.util.StringConverter
+import javafx.util.converter.DoubleStringConverter
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc" id="L26">class LayoutDebugger : Fragment() {</span>
+<span class="nc" id="L27">    override val root = BorderPane()</span>
+
+<span class="nc" id="L29">    lateinit var debuggingScene: Scene</span>
+    private lateinit var debuggingRoot: Parent
+
+<span class="nc" id="L32">    val hoveredNode = SimpleObjectProperty&lt;Node&gt;()</span>
+<span class="nc" id="L33">    val selectedNode = SimpleObjectProperty&lt;Node&gt;()</span>
+<span class="nc" id="L34">    var nodeTree: TreeView&lt;NodeContainer&gt; by singleAssign()</span>
+<span class="nc" id="L35">    val propertyContainer = ScrollPane()</span>
+<span class="nc" id="L36">    val stackpane = StackPane()</span>
+<span class="nc" id="L37">    val overlay = Canvas()</span>
+<span class="nc" id="L38">    val gc = overlay.graphicsContext2D</span>
+
+<span class="nc" id="L40">    init {</span>
+<span class="nc" id="L41">        overlay.isMouseTransparent = true</span>
+<span class="nc" id="L42">        stackpane += overlay</span>
+<span class="nc" id="L43">        gc.fill = c(&quot;#99bbbb&quot;, 0.4)</span>
+
+<span class="nc" id="L45">        with(root) {</span>
+<span class="nc" id="L46">            setPrefSize(800.0, 600.0)</span>
+
+<span class="nc" id="L48">            center {</span>
+<span class="nc" id="L49">                splitpane {</span>
+<span class="nc" id="L50">                    setDividerPosition(0, 0.3)</span>
+<span class="nc" id="L51">                    treeview&lt;NodeContainer&gt; {</span>
+<span class="nc" id="L52">                        nodeTree = this</span>
+<span class="nc" id="L53">                    }</span>
+<span class="nc" id="L54">                    this += propertyContainer.apply {</span>
+<span class="nc" id="L55">                        paddingAll = 10</span>
+<span class="nc" id="L56">                    }</span>
+<span class="nc" id="L57">                }</span>
+<span class="nc" id="L58">            }</span>
+<span class="nc" id="L59">        }</span>
+
+<span class="nc" id="L61">        hookListeners()</span>
+<span class="nc" id="L62">    }</span>
+
+    private fun hookListeners() {
+<span class="nc" id="L65">        nodeTree.selectionModel.selectedItemProperty().onChange {</span>
+<span class="nc bnc" id="L66" title="All 4 branches missed.">            if (it?.value != null) setSelectedNode(it.value.node)</span>
+<span class="nc" id="L67">        }</span>
+
+        // Position overlay over hovered node
+<span class="nc" id="L70">        hoveredNode.addListener { observableValue, oldNode, newNode -&gt;</span>
+<span class="nc bnc" id="L71" title="All 4 branches missed.">            if (oldNode != newNode &amp;&amp; newNode != null)</span>
+<span class="nc" id="L72">                positionOverlayOver(newNode)</span>
+<span class="nc bnc" id="L73" title="All 4 branches missed.">            else if (newNode == null &amp;&amp; oldNode != null)</span>
+<span class="nc" id="L74">                clearOverlay()</span>
+<span class="nc" id="L75">        }</span>
+<span class="nc" id="L76">    }</span>
+
+    private fun positionOverlayOver(node: Node) {
+<span class="nc" id="L79">        val p = node.localToScene(node.boundsInLocal)</span>
+<span class="nc" id="L80">        clearOverlay()</span>
+<span class="nc" id="L81">        gc.fillRect(p.minX, p.minY, p.width, p.height)</span>
+<span class="nc" id="L82">    }</span>
+
+    private fun clearOverlay() {
+<span class="nc" id="L85">        gc.clearRect(0.0, 0.0, overlay.width, overlay.height)</span>
+<span class="nc" id="L86">    }</span>
+
+<span class="nc" id="L88">    val hoverHandler = EventHandler&lt;MouseEvent&gt; { event -&gt;</span>
+<span class="nc" id="L89">        val newHover = event.target</span>
+<span class="nc bnc" id="L90" title="All 4 branches missed.">        if (newHover is Node &amp;&amp; hoveredNode.value != newHover)</span>
+<span class="nc" id="L91">            hoveredNode.value = newHover</span>
+<span class="nc" id="L92">    }</span>
+
+<span class="nc" id="L94">    val sceneExitedHandler = EventHandler&lt;MouseEvent&gt; { event -&gt;</span>
+<span class="nc" id="L95">        hoveredNode.value = null</span>
+<span class="nc" id="L96">    }</span>
+
+<span class="nc" id="L98">    val clickHandler = EventHandler&lt;MouseEvent&gt; { event -&gt;</span>
+<span class="nc" id="L99">        val clickedTarget = event.target</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        if (clickedTarget is Node) setSelectedNode(clickedTarget)</span>
+<span class="nc" id="L101">        event.consume()</span>
+<span class="nc" id="L102">    }</span>
+
+    private fun setSelectedNode(node: Node) {
+<span class="nc" id="L105">        selectedNode.value = node</span>
+<span class="nc" id="L106">        val treeItem = selectedNode.value.properties[&quot;tornadofx.layoutdebugger.treeitem&quot;]</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">        if (treeItem is NodeTreeItem) {</span>
+<span class="nc" id="L108">            nodeTree.selectionModel.select(treeItem)</span>
+<span class="nc" id="L109">            propertyContainer.nodePropertyView(treeItem.value.node)</span>
+        }
+<span class="nc" id="L111">    }</span>
+
+    override fun onDock() {
+        // Prevent the debugger from being reloaded
+<span class="nc" id="L115">        Platform.runLater {</span>
+<span class="nc" id="L116">            modalStage!!.scene.properties[&quot;tornadofx.layoutdebugger&quot;] = this</span>
+<span class="nc" id="L117">        }</span>
+
+<span class="nc" id="L119">        title = &quot;Layout Debugger [%s]&quot;.format(debuggingScene)</span>
+
+<span class="nc" id="L121">        with(debuggingScene) {</span>
+            // Prevent the scene from being reloaded while the debugger is running
+<span class="nc" id="L123">            properties[&quot;tornadofx.layoutdebugger&quot;] = this@LayoutDebugger</span>
+<span class="nc" id="L124">            addEventFilter(MouseEvent.MOUSE_EXITED, sceneExitedHandler)</span>
+<span class="nc" id="L125">            addEventFilter(MouseEvent.MOUSE_MOVED, hoverHandler)</span>
+<span class="nc" id="L126">            addEventFilter(MouseEvent.MOUSE_CLICKED, clickHandler)</span>
+<span class="nc" id="L127">        }</span>
+
+        // Overlay has same size as scene
+<span class="nc" id="L130">        overlay.widthProperty().cleanBind(debuggingScene.widthProperty())</span>
+<span class="nc" id="L131">        overlay.heightProperty().cleanBind(debuggingScene.heightProperty())</span>
+
+        // Stackpane becomes the new scene root and contains the currentScene.root and our overlay
+<span class="nc" id="L134">        debuggingRoot = debuggingScene.root</span>
+<span class="nc" id="L135">        stackpane += debuggingRoot</span>
+<span class="nc" id="L136">        stackpane += debuggingRoot</span>
+<span class="nc" id="L137">        debuggingScene.root = stackpane</span>
+<span class="nc" id="L138">        overlay.toFront()</span>
+
+        // Populate the node tree
+<span class="nc" id="L141">        with(nodeTree) {</span>
+<span class="nc" id="L142">            root = NodeTreeItem(NodeContainer(debuggingRoot))</span>
+<span class="nc" id="L143">            populate(</span>
+<span class="nc" id="L144">                    itemFactory = { NodeTreeItem(it) },</span>
+<span class="nc bnc" id="L145" title="All 2 branches missed.">                    childFactory = { it.value.node.getChildList()?.map(::NodeContainer) }</span>
+            )
+
+            // Hover on a node in the tree should visualize in the scene graph
+<span class="nc" id="L149">            setCellFactory {</span>
+<span class="nc" id="L150">                object : TreeCell&lt;NodeContainer&gt;() {</span>
+<span class="nc" id="L151">                    init {</span>
+<span class="nc" id="L152">                        addEventFilter(MouseEvent.MOUSE_ENTERED) {</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">                            item?.apply {</span>
+<span class="nc" id="L154">                                hoveredNode.value = node</span>
+<span class="nc" id="L155">                                style {</span>
+<span class="nc" id="L156">                                    backgroundColor += gc.fill</span>
+<span class="nc" id="L157">                                }</span>
+<span class="nc" id="L158">                            }</span>
+<span class="nc" id="L159">                        }</span>
+<span class="nc" id="L160">                        addEventFilter(MouseEvent.MOUSE_EXITED) {</span>
+<span class="nc" id="L161">                            hoveredNode.value = null</span>
+<span class="nc" id="L162">                            style {</span>
+<span class="nc" id="L163">                                backgroundColor = multi()</span>
+<span class="nc" id="L164">                            }</span>
+<span class="nc" id="L165">                        }</span>
+<span class="nc" id="L166">                    }</span>
+
+                    override fun updateItem(item: NodeContainer?, empty: Boolean) {
+<span class="nc" id="L169">                        super.updateItem(item, empty)</span>
+
+<span class="nc" id="L171">                        graphic = null</span>
+<span class="nc" id="L172">                        text = null</span>
+
+<span class="nc bnc" id="L174" title="All 4 branches missed.">                        if (!empty &amp;&amp; item != null)</span>
+<span class="nc" id="L175">                            text = item.node.javaClass.name.substringAfterLast(&quot;\\$&quot;).substringAfterLast(&quot;.&quot;)</span>
+<span class="nc" id="L176">                    }</span>
+                }
+            }
+<span class="nc" id="L179">        }</span>
+<span class="nc" id="L180">    }</span>
+
+    override fun onUndock() {
+<span class="nc" id="L183">        debuggingRoot.removeFromParent()</span>
+<span class="nc" id="L184">        debuggingScene.root = debuggingRoot</span>
+<span class="nc" id="L185">        debuggingScene.properties[&quot;tornadofx.layoutdebugger&quot;] = null</span>
+<span class="nc" id="L186">        debuggingScene.removeEventFilter(MouseEvent.MOUSE_MOVED, hoverHandler)</span>
+<span class="nc" id="L187">        debuggingScene.removeEventFilter(MouseEvent.MOUSE_CLICKED, clickHandler)</span>
+<span class="nc" id="L188">    }</span>
+
+    companion object {
+<span class="nc" id="L191">        fun debug(scene: Scene) = with(find&lt;LayoutDebugger&gt;()) {</span>
+<span class="nc" id="L192">            debuggingScene = scene</span>
+<span class="nc" id="L193">            openModal(modality = Modality.NONE)</span>
+<span class="nc" id="L194">        }</span>
+    }
+
+<span class="nc" id="L197">    class NodeContainer(val node: Node)</span>
+<span class="nc" id="L198">    inner class NodeTreeItem(container: NodeContainer) : TreeItem&lt;NodeContainer&gt;(container) {</span>
+<span class="nc" id="L199">        init {</span>
+<span class="nc" id="L200">            container.node.properties[&quot;tornadofx.layoutdebugger.treeitem&quot;] = this</span>
+<span class="nc" id="L201">        }</span>
+    }
+
+    /**
+     * Property editor for node. We can't bind directly to these properties as
+     * they might have app bindings already, so we have to jump through some hoops
+     * to synchronize values between this editor and the Node properties.
+     */
+<span class="nc" id="L209">    fun ScrollPane.nodePropertyView(node: Node) = form {</span>
+<span class="nc" id="L210">        fieldset(&quot;Node info&quot;) {</span>
+<span class="nc" id="L211">            field(&quot;ClassName&quot;) {</span>
+<span class="nc" id="L212">                text(node.javaClass.name)</span>
+<span class="nc" id="L213">            }</span>
+<span class="nc" id="L214">            field(&quot;StyleClass&quot;) {</span>
+<span class="nc" id="L215">                text(node.styleClass.joinToString(&quot;, &quot;) { &quot;.$it&quot; })</span>
+<span class="nc" id="L216">            }</span>
+<span class="nc" id="L217">            field(&quot;Id&quot;) {</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">                text(node.id ?: &quot;&quot;)</span>
+<span class="nc" id="L219">            }</span>
+<span class="nc" id="L220">        }</span>
+<span class="nc" id="L221">        fieldset(&quot;Dimensions&quot;) {</span>
+<span class="nc" id="L222">            fun Bounds.describe() = &quot;(${minX.toInt()}, ${width.toInt()}), (${minY.toInt()}, ${height.toInt()})&quot;</span>
+<span class="nc" id="L223">            field(&quot;Layout bounds&quot;) {</span>
+<span class="nc" id="L224">                label(node.layoutBounds.describe())</span>
+<span class="nc" id="L225">            }</span>
+<span class="nc" id="L226">            field(&quot;Bounds in parent&quot;) {</span>
+<span class="nc" id="L227">                label(node.boundsInParent.describe())</span>
+<span class="nc" id="L228">            }</span>
+<span class="nc" id="L229">            field(&quot;Bounds in local&quot;) {</span>
+<span class="nc" id="L230">                label(node.boundsInLocal.describe())</span>
+<span class="nc" id="L231">            }</span>
+<span class="nc" id="L232">        }</span>
+<span class="nc" id="L233">        fieldset(&quot;Properties&quot;) {</span>
+<span class="nc bnc" id="L234" title="All 2 branches missed.">            if (node is Labeled) {</span>
+<span class="nc" id="L235">                field(&quot;Text&quot;) {</span>
+<span class="nc" id="L236">                    textfield() {</span>
+<span class="nc" id="L237">                        textProperty().shadowBindTo(node.textProperty())</span>
+<span class="nc" id="L238">                        prefColumnCount = 30</span>
+<span class="nc" id="L239">                    }</span>
+<span class="nc" id="L240">                }</span>
+            }
+<span class="nc bnc" id="L242" title="All 2 branches missed.">            if (node is TextInputControl) {</span>
+<span class="nc" id="L243">                field(&quot;Text&quot;) {</span>
+<span class="nc" id="L244">                    textfield(node.text) {</span>
+<span class="nc" id="L245">                        prefColumnCount = 30</span>
+<span class="nc" id="L246">                        textProperty().shadowBindTo(node.textProperty())</span>
+<span class="nc" id="L247">                    }</span>
+<span class="nc" id="L248">                }</span>
+            }
+<span class="nc bnc" id="L250" title="All 2 branches missed.">            if (node is Shape) {</span>
+<span class="nc" id="L251">                field(&quot;Fill&quot;) {</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">                    colorpicker(node.fill as? Color) {</span>
+<span class="nc" id="L253">                        valueProperty().onChange { newValue -&gt;</span>
+<span class="nc" id="L254">                            node.fillProperty().unbind()</span>
+<span class="nc" id="L255">                            node.fill = newValue</span>
+<span class="nc" id="L256">                        }</span>
+<span class="nc" id="L257">                    }</span>
+<span class="nc" id="L258">                }</span>
+            }
+<span class="nc bnc" id="L260" title="All 2 branches missed.">            if (node.parent is HBox) {</span>
+<span class="nc" id="L261">                field(&quot;HBox Grow&quot;) {</span>
+<span class="nc" id="L262">                    combobox&lt;Priority&gt; {</span>
+<span class="nc" id="L263">                        items = observableListOf(Priority.SOMETIMES, Priority.ALWAYS, Priority.NEVER)</span>
+<span class="nc bnc" id="L264" title="All 2 branches missed.">                        value = HBox.getHgrow(node) ?: Priority.NEVER</span>
+<span class="nc" id="L265">                        valueProperty().onChange {</span>
+<span class="nc" id="L266">                            HBox.setHgrow(node, it)</span>
+<span class="nc" id="L267">                        }</span>
+<span class="nc" id="L268">                    }</span>
+<span class="nc" id="L269">                }</span>
+<span class="nc" id="L270">                field(&quot;HBox Margin&quot;) {</span>
+<span class="nc" id="L271">                    textfield(InsetsConverter().toString(HBox.getMargin(node))) {</span>
+<span class="nc" id="L272">                        textProperty().onChange {</span>
+<span class="nc" id="L273">                            HBox.setMargin(node, InsetsConverter().fromString(it))</span>
+<span class="nc" id="L274">                        }</span>
+<span class="nc" id="L275">                        prefColumnCount = 10</span>
+<span class="nc" id="L276">                    }</span>
+<span class="nc" id="L277">                }</span>
+            }
+<span class="nc bnc" id="L279" title="All 2 branches missed.">            if (node.parent is VBox) {</span>
+<span class="nc" id="L280">                field(&quot;VBox Grow&quot;) {</span>
+<span class="nc" id="L281">                    combobox&lt;Priority&gt; {</span>
+<span class="nc" id="L282">                        items = observableListOf(Priority.SOMETIMES, Priority.ALWAYS, Priority.NEVER)</span>
+<span class="nc bnc" id="L283" title="All 2 branches missed.">                        value = VBox.getVgrow(node) ?: Priority.NEVER</span>
+<span class="nc" id="L284">                        valueProperty().onChange {</span>
+<span class="nc" id="L285">                            VBox.setVgrow(node, it)</span>
+<span class="nc" id="L286">                        }</span>
+<span class="nc" id="L287">                    }</span>
+<span class="nc" id="L288">                }</span>
+<span class="nc" id="L289">                field(&quot;VBox Margin&quot;) {</span>
+<span class="nc" id="L290">                    textfield(InsetsConverter().toString(VBox.getMargin(node))) {</span>
+<span class="nc" id="L291">                        textProperty().onChange {</span>
+<span class="nc" id="L292">                            VBox.setMargin(node, InsetsConverter().fromString(it))</span>
+<span class="nc" id="L293">                        }</span>
+<span class="nc" id="L294">                        prefColumnCount = 10</span>
+<span class="nc" id="L295">                    }</span>
+<span class="nc" id="L296">                }</span>
+            }
+<span class="nc bnc" id="L298" title="All 2 branches missed.">            if (node is HBox) {</span>
+<span class="nc" id="L299">                alignmentCombo(node.alignmentProperty())</span>
+<span class="nc" id="L300">                spacingEditor(node.spacingProperty())</span>
+            }
+<span class="nc bnc" id="L302" title="All 2 branches missed.">            if (node is VBox) {</span>
+<span class="nc" id="L303">                alignmentCombo(node.alignmentProperty())</span>
+<span class="nc" id="L304">                spacingEditor(node.spacingProperty())</span>
+            }
+<span class="nc bnc" id="L306" title="All 2 branches missed.">            if (node is StackPane) alignmentCombo(node.alignmentProperty())</span>
+<span class="nc bnc" id="L307" title="All 2 branches missed.">            if (node is FlowPane) alignmentCombo(node.alignmentProperty())</span>
+<span class="nc bnc" id="L308" title="All 2 branches missed.">            if (node is TitledPane) alignmentCombo(node.alignmentProperty())</span>
+<span class="nc bnc" id="L309" title="All 2 branches missed.">            if (node is GridPane) alignmentCombo(node.alignmentProperty())</span>
+
+<span class="nc bnc" id="L311" title="All 2 branches missed.">            if (node is Region) {</span>
+                // Background/fills is immutable, so a new background object must be created with the augmented fill
+<span class="nc bnc" id="L313" title="All 8 branches missed.">                if (!node.background?.fills.isNullOrEmpty()) {</span>
+<span class="nc" id="L314">                    field(&quot;Background fill&quot;) {</span>
+<span class="nc" id="L315">                        vbox(3.0) {</span>
+<span class="nc" id="L316">                            node.background.fills.forEachIndexed { i, backgroundFill -&gt;</span>
+<span class="nc bnc" id="L317" title="All 2 branches missed.">                                val initialColor: Color? = backgroundFill.fill as? Color</span>
+<span class="nc" id="L318">                                colorpicker(initialColor) {</span>
+<span class="nc" id="L319">                                    isEditable = true</span>
+<span class="nc" id="L320">                                    valueProperty().onChange { newColor -&gt;</span>
+<span class="nc" id="L321">                                        val newFills = node.background.fills.mapIndexed { ix, fill -&gt;</span>
+<span class="nc bnc" id="L322" title="All 2 branches missed.">                                            if (ix == i) BackgroundFill(newColor, fill.radii, fill.insets)</span>
+<span class="nc" id="L323">                                            else fill</span>
+                                        }
+<span class="nc" id="L325">                                        node.backgroundProperty().unbind()</span>
+<span class="nc" id="L326">                                        node.background = Background(newFills, node.background.images)</span>
+<span class="nc" id="L327">                                    }</span>
+<span class="nc" id="L328">                                }</span>
+<span class="nc" id="L329">                            }</span>
+<span class="nc" id="L330">                        }</span>
+<span class="nc" id="L331">                    }</span>
+                } else {
+                    // Add one background color if none present
+<span class="nc" id="L334">                    field(&quot;Background fill&quot;) {</span>
+<span class="nc" id="L335">                        colorpicker() {</span>
+<span class="nc" id="L336">                            isEditable = true</span>
+<span class="nc" id="L337">                            valueProperty().addListener { observableValue, oldColor, newColor -&gt;</span>
+<span class="nc" id="L338">                                node.background = Background(BackgroundFill(newColor, null, null))</span>
+<span class="nc" id="L339">                            }</span>
+<span class="nc" id="L340">                        }</span>
+<span class="nc" id="L341">                    }</span>
+                }
+
+                // Padding
+<span class="nc" id="L345">                field(&quot;Padding&quot;) {</span>
+<span class="nc" id="L346">                    textfield() {</span>
+<span class="nc" id="L347">                        textProperty().shadowBindTo(node.paddingProperty(), InsetsConverter())</span>
+<span class="nc" id="L348">                        prefColumnCount = 10</span>
+<span class="nc" id="L349">                    }</span>
+<span class="nc" id="L350">                }</span>
+
+<span class="nc" id="L352">                field(&quot;Pref/min/max width&quot;) {</span>
+<span class="nc" id="L353">                    textfield() {</span>
+<span class="nc" id="L354">                        textProperty().shadowBindTo(node.prefWidthProperty(), DoubleStringConverter())</span>
+<span class="nc" id="L355">                        prefColumnCount = 10</span>
+<span class="nc" id="L356">                    }</span>
+<span class="nc" id="L357">                    textfield() {</span>
+<span class="nc" id="L358">                        textProperty().shadowBindTo(node.minWidthProperty(), DoubleStringConverter())</span>
+<span class="nc" id="L359">                        prefColumnCount = 10</span>
+<span class="nc" id="L360">                    }</span>
+<span class="nc" id="L361">                    textfield() {</span>
+<span class="nc" id="L362">                        textProperty().shadowBindTo(node.maxWidthProperty(), DoubleStringConverter())</span>
+<span class="nc" id="L363">                        prefColumnCount = 10</span>
+<span class="nc" id="L364">                    }</span>
+<span class="nc" id="L365">                }</span>
+
+<span class="nc" id="L367">                field(&quot;Pref/min/max height&quot;) {</span>
+<span class="nc" id="L368">                    textfield {</span>
+<span class="nc" id="L369">                        textProperty().shadowBindTo(node.prefHeightProperty(), DoubleStringConverter())</span>
+<span class="nc" id="L370">                        prefColumnCount = 10</span>
+<span class="nc" id="L371">                    }</span>
+<span class="nc" id="L372">                    textfield {</span>
+<span class="nc" id="L373">                        textProperty().shadowBindTo(node.minHeightProperty(), DoubleStringConverter())</span>
+<span class="nc" id="L374">                        prefColumnCount = 10</span>
+<span class="nc" id="L375">                    }</span>
+<span class="nc" id="L376">                    textfield {</span>
+<span class="nc" id="L377">                        textProperty().shadowBindTo(node.maxHeightProperty(), DoubleStringConverter())</span>
+<span class="nc" id="L378">                        prefColumnCount = 10</span>
+<span class="nc" id="L379">                    }</span>
+<span class="nc" id="L380">                }</span>
+
+            }
+<span class="nc" id="L383">        }</span>
+<span class="nc" id="L384">    }</span>
+
+    private fun Fieldset.spacingEditor(spacingProperty: DoubleProperty) {
+<span class="nc" id="L387">        field(&quot;Spacing&quot;) {</span>
+<span class="nc" id="L388">            textfield {</span>
+<span class="nc" id="L389">                textProperty().shadowBindTo(spacingProperty, DoubleStringConverter())</span>
+<span class="nc" id="L390">                prefColumnCount = 10</span>
+<span class="nc" id="L391">            }</span>
+<span class="nc" id="L392">        }</span>
+<span class="nc" id="L393">    }</span>
+
+    fun Fieldset.alignmentCombo(property: Property&lt;Pos&gt;) {
+<span class="nc" id="L396">        field(&quot;Alignment&quot;) {</span>
+<span class="nc" id="L397">            combobox&lt;Pos&gt; {</span>
+<span class="nc" id="L398">                items = observableListOf(Pos.TOP_LEFT, Pos.TOP_CENTER, Pos.TOP_RIGHT, Pos.CENTER_LEFT, Pos.CENTER, Pos.CENTER_RIGHT, Pos.BOTTOM_LEFT,</span>
+<span class="nc" id="L399">                        Pos.BOTTOM_CENTER, Pos.BOTTOM_RIGHT, Pos.BASELINE_LEFT, Pos.BASELINE_CENTER, Pos.BASELINE_RIGHT)</span>
+<span class="nc" id="L400">                valueProperty().shadowBindTo(property)</span>
+<span class="nc" id="L401">            }</span>
+<span class="nc" id="L402">        }</span>
+<span class="nc" id="L403">    }</span>
+
+<span class="nc" id="L405">    class InsetsConverter : StringConverter&lt;Insets&gt;() {</span>
+<span class="nc bnc" id="L406" title="All 2 branches missed.">        override fun toString(v: Insets?) = if (v == null) &quot;&quot; else &quot;${v.top.s()} ${v.right.s()} ${v.bottom.s()} ${v.left.s()}&quot;</span>
+        override fun fromString(s: String?): Insets {
+<span class="nc" id="L408">            try {</span>
+<span class="nc bnc" id="L409" title="All 6 branches missed.">                if (s.isNullOrBlank()) return Insets.EMPTY</span>
+<span class="nc" id="L410">                val parts = s.split(&quot; &quot;)</span>
+<span class="nc bnc" id="L411" title="All 2 branches missed.">                if (parts.size == 1) return Insets(s.toDouble())</span>
+<span class="nc bnc" id="L412" title="All 2 branches missed.">                if (parts.size == 2) return Insets(parts[0].toDouble(), parts[1].toDouble(), parts[0].toDouble(), parts[1].toDouble())</span>
+<span class="nc bnc" id="L413" title="All 2 branches missed.">                if (parts.size == 4) return Insets(parts[0].toDouble(), parts[1].toDouble(), parts[2].toDouble(), parts[3].toDouble())</span>
+<span class="nc" id="L414">            } catch (ignored: Exception) {</span>
+            }
+<span class="nc" id="L416">            return Insets.EMPTY</span>
+        }
+
+        private fun Double.s(): String {
+<span class="nc bnc" id="L420" title="All 2 branches missed.">            if (this == 0.0) return &quot;0&quot;</span>
+<span class="nc" id="L421">            val s = toString()</span>
+<span class="nc bnc" id="L422" title="All 2 branches missed.">            if (s.endsWith(&quot;.0&quot;)) return s.substringBefore(&quot;.&quot;)</span>
+<span class="nc" id="L423">            return s</span>
+        }
+    }
+
+
+    fun &lt;T&gt; Property&lt;T&gt;.shadowBindTo(nodeProperty: Property&lt;T&gt;) {
+<span class="nc" id="L429">        bindBidirectional(object : SimpleObjectProperty&lt;T&gt;(nodeProperty.value) {</span>
+            override fun set(newValue: T?) {
+<span class="nc" id="L431">                super.set(newValue)</span>
+<span class="nc" id="L432">                nodeProperty.unbind()</span>
+<span class="nc" id="L433">                nodeProperty.value = newValue</span>
+<span class="nc" id="L434">            }</span>
+        })
+<span class="nc" id="L436">    }</span>
+
+    inline fun &lt;reified T, reified C : StringConverter&lt;out T&gt;&gt; StringProperty.shadowBindTo(nodeProperty: Property&lt;T&gt;, converter: C) {
+<span class="nc" id="L439">        bindBidirectional(object : SimpleObjectProperty&lt;T&gt;(nodeProperty.value) {</span>
+            override fun set(newValue: T?) {
+<span class="nc" id="L441">                super.set(newValue)</span>
+<span class="nc" id="L442">                nodeProperty.unbind()</span>
+<span class="nc" id="L443">                nodeProperty.value = newValue</span>
+<span class="nc" id="L444">            }</span>
+        }, converter as StringConverter&lt;T&gt;)
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

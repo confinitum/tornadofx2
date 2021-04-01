@@ -1,0 +1,585 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ViewModel.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">ViewModel.kt</span></div><h1>ViewModel.kt</h1><pre class="source lang-java linenums">@file:Suppress(&quot;unused&quot;)
+
+package tornadofx
+
+import javafx.beans.Observable
+import javafx.beans.binding.Bindings
+import javafx.beans.binding.BooleanBinding
+import javafx.beans.binding.BooleanExpression
+import javafx.beans.property.*
+import javafx.beans.value.ChangeListener
+import javafx.beans.value.ObservableValue
+import javafx.collections.*
+import javafx.scene.Node
+import javafx.scene.control.*
+import javafx.scene.paint.Paint
+import tornadofx.FX.Companion.runAndWait
+import java.time.LocalDate
+import java.util.*
+import java.util.concurrent.Callable
+import kotlin.collections.ArrayList
+import kotlin.reflect.KFunction
+import kotlin.reflect.KMutableProperty1
+import kotlin.reflect.KProperty1
+
+<span class="pc" id="L25">val viewModelBundle: ResourceBundle = ResourceBundle.getBundle(&quot;tornadofx/i18n/ViewModel&quot;)</span>
+
+<span class="fc" id="L27">open class ViewModel : Component(), ScopedInstance {</span>
+<span class="fc" id="L28">    val propertyMap: ObservableMap&lt;Property&lt;*&gt;, () -&gt; Property&lt;*&gt;?&gt; = FXCollections.observableHashMap&lt;Property&lt;*&gt;, () -&gt; Property&lt;*&gt;?&gt;()</span>
+<span class="fc" id="L29">    val propertyCache: ObservableMap&lt;Property&lt;*&gt;, Property&lt;*&gt;&gt; = FXCollections.observableHashMap&lt;Property&lt;*&gt;, Property&lt;*&gt;&gt;()</span>
+<span class="fc" id="L30">    val externalChangeListeners: ObservableMap&lt;Property&lt;*&gt;, ChangeListener&lt;Any&gt;&gt; = FXCollections.observableHashMap&lt;Property&lt;*&gt;, ChangeListener&lt;Any&gt;&gt;()</span>
+<span class="fc" id="L31">    val dirtyProperties: ObservableList&lt;ObservableValue&lt;*&gt;&gt; = FXCollections.observableArrayList&lt;ObservableValue&lt;*&gt;&gt;()</span>
+<span class="fc bfc" id="L32" title="All 2 branches covered.">    open val dirty = booleanBinding(dirtyProperties, dirtyProperties) { isNotEmpty() }</span>
+    @Deprecated(&quot;Use dirty property instead&quot;, ReplaceWith(&quot;dirty&quot;))
+<span class="nc" id="L34">    fun dirtyStateProperty() = dirty</span>
+
+<span class="pc" id="L36">    val validationContext = ValidationContext()</span>
+<span class="fc" id="L37">    val ignoreDirtyStateProperties = FXCollections.observableArrayList&lt;ObservableValue&lt;out Any&gt;&gt;()</span>
+<span class="fc" id="L38">    val autocommitProperties = FXCollections.observableArrayList&lt;ObservableValue&lt;out Any&gt;&gt;()</span>
+
+    companion object {
+<span class="pc" id="L41">        val propertyToViewModel = WeakHashMap&lt;Observable, ViewModel&gt;()</span>
+<span class="pc" id="L42">        val propertyToFacade = WeakHashMap&lt;Observable, Property&lt;*&gt;&gt;()</span>
+<span class="nc" id="L43">        fun getViewModelForProperty(property: Observable): ViewModel? = propertyToViewModel[property]</span>
+<span class="nc" id="L44">        fun getFacadeForProperty(property: Observable): Property&lt;*&gt;? = propertyToFacade[property]</span>
+
+        /**
+         * Register the combination of a property that has been bound to a property
+         * that might be a facade in a ViewModel. This is done to be able to locate
+         * the validation context for this binding.
+         */
+        fun register(property: ObservableValue&lt;*&gt;, possiblyFacade: ObservableValue&lt;*&gt;?) {
+<span class="pc bpc" id="L52" title="1 of 6 branches missed.">            val propertyOwner = (possiblyFacade as? Property&lt;*&gt;)?.bean as? ViewModel</span>
+<span class="pc bpc" id="L53" title="1 of 2 branches missed.">            if (propertyOwner != null) {</span>
+<span class="nc" id="L54">                propertyToFacade[property] = possiblyFacade</span>
+<span class="nc" id="L55">                propertyToViewModel[property] = propertyOwner</span>
+            }
+<span class="fc" id="L57">        }</span>
+    }
+
+<span class="fc" id="L60">    init {</span>
+<span class="fc" id="L61">        autocommitProperties.onChange {</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">            while (it.next()) {</span>
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">                if (it.wasAdded()) {</span>
+<span class="fc" id="L64">                    it.addedSubList.forEach { facade -&gt;</span>
+<span class="fc" id="L65">                        facade.addListener { obs, _, nv -&gt;</span>
+<span class="pc bpc" id="L66" title="2 of 4 branches missed.">                            if (validate(fields = *arrayOf(facade))) propertyMap[obs]!!.invoke()?.value = nv</span>
+<span class="fc" id="L67">                        }</span>
+<span class="fc" id="L68">                    }</span>
+                }
+            }
+<span class="fc" id="L71">        }</span>
+<span class="fc" id="L72">    }</span>
+
+    /**
+     * Wrap a JavaFX property and return the ViewModel facade for this property
+     *
+     * The value is returned in a lambda so that you can swap source objects
+     * and call rebind to change the underlying source object in the mappings.
+     *
+     * You can bind a facade towards any kind of property as long as it can
+     * be converted to a JavaFX property. TornadoFX provides a way to support
+     * most property types via a concise syntax, see below for examples.
+     * ```
+     * class PersonViewModel(var person: Person) : ViewModel() {
+     *     // Bind JavaFX property
+     *     val name = bind { person.nameProperty() }
+     *
+     *     // Bind Kotlin var based property
+     *     val name = bind { person.observable(Person::name) }
+     *
+     *     // Bind Java POJO getter/setter
+     *     val name = bind { person.observable(Person::getName, Person::setName) }
+     *
+     *     // Bind Java POJO by property name (not type safe)
+     *     val name = bind { person.observable(&quot;name&quot;) }
+     * }
+     * ```
+     */
+    @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc bnc" id="L100" title="All 4 branches missed.">    inline fun &lt;reified PropertyType : Property&lt;T&gt;, reified T : Any, ResultType : PropertyType&gt; bind(autocommit: Boolean = false, forceObjectProperty: Boolean = false, defaultValue: T? = null, noinline propertyProducer: () -&gt; PropertyType?): ResultType {</span>
+<span class="nc" id="L101">        val prop = propertyProducer()</span>
+
+<span class="nc bnc" id="L103" title="All 2 branches missed.">        val facade : Property&lt;*&gt; = if (forceObjectProperty) {</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">            BindingAwareSimpleObjectProperty&lt;T&gt;(this, prop?.name)</span>
+        } else {
+<span class="nc" id="L106">            val propertyType = PropertyType::class.java</span>
+<span class="nc" id="L107">            val typeParam = T::class.java</span>
+
+            // Match PropertyType against known Property types first
+<span class="nc" id="L110">            when {</span>
+<span class="nc bnc" id="L111" title="All 4 branches missed.">                IntegerProperty::class.java.isAssignableFrom(propertyType) -&gt; BindingAwareSimpleIntegerProperty(this, prop?.name)</span>
+<span class="nc bnc" id="L112" title="All 4 branches missed.">                LongProperty::class.java.isAssignableFrom(propertyType) -&gt; BindingAwareSimpleLongProperty(this, prop?.name)</span>
+<span class="nc bnc" id="L113" title="All 4 branches missed.">                DoubleProperty::class.java.isAssignableFrom(propertyType) -&gt; BindingAwareSimpleDoubleProperty(this, prop?.name)</span>
+<span class="nc bnc" id="L114" title="All 4 branches missed.">                FloatProperty::class.java.isAssignableFrom(propertyType) -&gt; BindingAwareSimpleFloatProperty(this, prop?.name)</span>
+<span class="nc bnc" id="L115" title="All 4 branches missed.">                BooleanProperty::class.java.isAssignableFrom(propertyType) -&gt; BindingAwareSimpleBooleanProperty(this, prop?.name)</span>
+<span class="nc bnc" id="L116" title="All 4 branches missed.">                StringProperty::class.java.isAssignableFrom(propertyType) -&gt; BindingAwareSimpleStringProperty(this, prop?.name)</span>
+<span class="nc bnc" id="L117" title="All 4 branches missed.">                ObservableList::class.java.isAssignableFrom(propertyType) -&gt; BindingAwareSimpleListProperty&lt;T&gt;(this, prop?.name)</span>
+<span class="nc bnc" id="L118" title="All 4 branches missed.">                SimpleListProperty::class.java.isAssignableFrom(propertyType) -&gt; BindingAwareSimpleListProperty&lt;T&gt;(this, prop?.name)</span>
+<span class="nc bnc" id="L119" title="All 4 branches missed.">                List::class.java.isAssignableFrom(propertyType) -&gt; BindingAwareSimpleListProperty&lt;T&gt;(this, prop?.name)</span>
+<span class="nc bnc" id="L120" title="All 4 branches missed.">                ObservableSet::class.java.isAssignableFrom(propertyType) -&gt; BindingAwareSimpleSetProperty&lt;T&gt;(this, prop?.name)</span>
+<span class="nc bnc" id="L121" title="All 4 branches missed.">                Set::class.java.isAssignableFrom(propertyType) -&gt; BindingAwareSimpleSetProperty&lt;T&gt;(this, prop?.name)</span>
+<span class="nc bnc" id="L122" title="All 4 branches missed.">                Map::class.java.isAssignableFrom(propertyType) -&gt; BindingAwareSimpleMapProperty&lt;Any, Any&gt;(this, prop?.name)</span>
+<span class="nc bnc" id="L123" title="All 4 branches missed.">                ObservableMap::class.java.isAssignableFrom(propertyType) -&gt; BindingAwareSimpleMapProperty&lt;Any, Any&gt;(this, prop?.name)</span>
+
+            // Match against the type of the Property
+<span class="nc bnc" id="L126" title="All 4 branches missed.">                java.lang.Integer::class.java.isAssignableFrom(typeParam) -&gt; BindingAwareSimpleIntegerProperty(this, prop?.name)</span>
+<span class="nc bnc" id="L127" title="All 4 branches missed.">                java.lang.Long::class.java.isAssignableFrom(typeParam) -&gt; BindingAwareSimpleLongProperty(this, prop?.name)</span>
+<span class="nc bnc" id="L128" title="All 4 branches missed.">                java.lang.Double::class.java.isAssignableFrom(typeParam) -&gt; BindingAwareSimpleDoubleProperty(this, prop?.name)</span>
+<span class="nc bnc" id="L129" title="All 4 branches missed.">                java.lang.Float::class.java.isAssignableFrom(typeParam) -&gt; BindingAwareSimpleFloatProperty(this, prop?.name)</span>
+<span class="nc bnc" id="L130" title="All 4 branches missed.">                java.lang.Boolean::class.java.isAssignableFrom(typeParam) -&gt; BindingAwareSimpleBooleanProperty(this, prop?.name)</span>
+<span class="nc bnc" id="L131" title="All 4 branches missed.">                java.lang.String::class.java.isAssignableFrom(typeParam) -&gt; BindingAwareSimpleStringProperty(this, prop?.name)</span>
+<span class="nc bnc" id="L132" title="All 4 branches missed.">                ObservableList::class.java.isAssignableFrom(typeParam) -&gt; BindingAwareSimpleListProperty&lt;T&gt;(this, prop?.name)</span>
+<span class="nc bnc" id="L133" title="All 4 branches missed.">                List::class.java.isAssignableFrom(typeParam) -&gt; BindingAwareSimpleListProperty&lt;T&gt;(this, prop?.name)</span>
+<span class="nc bnc" id="L134" title="All 4 branches missed.">                ObservableSet::class.java.isAssignableFrom(typeParam) -&gt; BindingAwareSimpleSetProperty&lt;T&gt;(this, prop?.name)</span>
+<span class="nc bnc" id="L135" title="All 4 branches missed.">                Set::class.java.isAssignableFrom(typeParam) -&gt; BindingAwareSimpleSetProperty&lt;T&gt;(this, prop?.name)</span>
+<span class="nc bnc" id="L136" title="All 4 branches missed.">                Map::class.java.isAssignableFrom(typeParam) -&gt; BindingAwareSimpleMapProperty&lt;Any,Any&gt;(this, prop?.name)</span>
+
+            // Default to Object wrapper
+<span class="nc bnc" id="L139" title="All 2 branches missed.">                else -&gt; BindingAwareSimpleObjectProperty&lt;T&gt;(this, prop?.name)</span>
+            }
+        }
+
+<span class="nc" id="L143">        assignValue(facade, prop, defaultValue)</span>
+
+<span class="nc" id="L145">        facade.addListener(dirtyListener)</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        if (facade is ObservableList&lt;*&gt;)</span>
+<span class="nc" id="L147">            facade.addListener(dirtyListListener)</span>
+
+<span class="nc" id="L149">        propertyMap[facade] = propertyProducer</span>
+<span class="nc" id="L150">        propertyCache[facade] = prop</span>
+
+        // Listener that can track external changes for this facade
+<span class="nc" id="L153">        externalChangeListeners[facade] = ChangeListener { _, _, nv -&gt;</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">            val facadeProperty = (facade as Property&lt;Any&gt;)</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">            if (!facadeProperty.isBound)</span>
+<span class="nc" id="L156">                facadeProperty.value = nv</span>
+<span class="nc" id="L157">        }</span>
+
+        // Update facade when the property returned to us is changed externally
+<span class="nc bnc" id="L160" title="All 2 branches missed.">        prop?.addListener(externalChangeListeners[facade]!!)</span>
+
+        // Autocommit makes sure changes are written back to the underlying property. Validation will run before the commit is performed.
+<span class="nc bnc" id="L163" title="All 2 branches missed.">        if (autocommit) autocommitProperties.add(facade)</span>
+
+<span class="nc" id="L165">        return facade as ResultType</span>
+    }
+
+<span class="nc bnc" id="L168" title="All 4 branches missed.">    inline fun &lt;reified T : Any&gt; property(autocommit: Boolean = false, forceObjectProperty: Boolean = false, defaultValue: T? = null, noinline op: () -&gt; Property&lt;T&gt;) = PropertyDelegate(bind(autocommit, forceObjectProperty, defaultValue, op))</span>
+
+<span class="fc" id="L170">    val dirtyListener: ChangeListener&lt;Any&gt; = ChangeListener { property, _, newValue -&gt;</span>
+<span class="pc bpc" id="L171" title="1 of 2 branches missed.">        if (property in ignoreDirtyStateProperties) return@ChangeListener</span>
+
+<span class="pc bpc" id="L173" title="1 of 2 branches missed.">        val sourceValue = propertyMap[property]!!.invoke()?.value</span>
+<span class="fc bfc" id="L174" title="All 2 branches covered.">        if (sourceValue == newValue) {</span>
+<span class="fc" id="L175">            dirtyProperties.remove(property)</span>
+<span class="pc bpc" id="L176" title="1 of 4 branches missed.">        } else if (property !in autocommitProperties &amp;&amp; property !in dirtyProperties) {</span>
+<span class="fc" id="L177">            dirtyProperties.add(property)</span>
+        }
+<span class="fc" id="L179">    }</span>
+
+<span class="pc" id="L181">    val dirtyListListener: ListChangeListener&lt;Any&gt; = ListChangeListener { c -&gt;</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">        while (c.next()) {</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">            val property = c.list as ObservableValue&lt;out Any&gt;</span>
+
+<span class="nc bnc" id="L185" title="All 6 branches missed.">            if (property !in ignoreDirtyStateProperties &amp;&amp; property !in autocommitProperties &amp;&amp; property !in dirtyProperties) {</span>
+<span class="nc" id="L186">                dirtyProperties.add(property)</span>
+            }
+        }
+<span class="nc" id="L189">    }</span>
+
+<span class="fc" id="L191">    val isDirty: Boolean get() = dirty.value</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">    val isNotDirty: Boolean get() = !isDirty</span>
+
+<span class="fc" id="L194">    fun validate(focusFirstError: Boolean = true, decorateErrors: Boolean = true, failFast: Boolean = false, vararg fields: ObservableValue&lt;*&gt;): Boolean =</span>
+<span class="fc" id="L195">            validationContext.validate(focusFirstError, decorateErrors,failFast, *fields)</span>
+
+<span class="nc" id="L197">    fun clearDecorators() = validationContext.validate(focusFirstError = false, decorateErrors = false)</span>
+
+    /**
+     * This function is called after a successful commit, right before the optional successFn call sent to the commit
+     * call is invoked.
+     */
+    open fun onCommit() {
+
+<span class="fc" id="L205">    }</span>
+
+    /**
+     * This function is called after a successful commit, right before the optional successFn call sent to the commit
+     * call is invoked.
+     *
+     * @param commits A list of the committed properties, including the old and new value
+     */
+    open fun onCommit(commits: List&lt;Commit&gt;) {
+
+<span class="fc" id="L215">    }</span>
+
+<span class="fc" id="L217">    fun commit(vararg fields: ObservableValue&lt;*&gt;, successFn: () -&gt; Unit = {}) =</span>
+<span class="fc" id="L218">            commit(false, true, fields = *fields, successFn = successFn)</span>
+
+    /**
+     * Perform validation and flush the values into the source object if validation passes.
+     *
+     * Optionally commit only the passed in properties instead of all (default).
+     *
+     * @param force Force flush even if validation fails
+     */
+<span class="nc" id="L227">    fun commit(force: Boolean = false, focusFirstError: Boolean = true, vararg fields: ObservableValue&lt;*&gt;, successFn: () -&gt; Unit = {}): Boolean {</span>
+<span class="fc" id="L228">        var committed = true</span>
+
+<span class="fc" id="L230">        val commits = mutableListOf&lt;Commit&gt;()</span>
+<span class="fc" id="L231">        runAndWait {</span>
+<span class="pc bpc" id="L232" title="3 of 4 branches missed.">            if (!validate(focusFirstError, fields = *fields) &amp;&amp; !force) {</span>
+<span class="nc" id="L233">                committed = false</span>
+            } else {
+<span class="pc bpc" id="L235" title="3 of 6 branches missed.">                val commitThese = if (fields.isNotEmpty()) fields.toList() else propertyMap.keys</span>
+<span class="fc bfc" id="L236" title="All 2 branches covered.">                for (facade in commitThese) {</span>
+<span class="pc bpc" id="L237" title="1 of 2 branches missed.">                    val prop: Property&lt;*&gt;? = propertyMap[facade]?.invoke()</span>
+<span class="pc bpc" id="L238" title="1 of 2 branches missed.">                    if (prop != null) {</span>
+<span class="fc" id="L239">                        val event = Commit(facade, prop.value, facade.value)</span>
+<span class="fc" id="L240">                        commits.add(event)</span>
+<span class="fc" id="L241">                        prop.value = facade.value</span>
+                    }
+                }
+<span class="fc" id="L244">                dirtyProperties.removeAll(commitThese)</span>
+            }
+<span class="fc" id="L246">        }</span>
+
+<span class="pc bpc" id="L248" title="1 of 2 branches missed.">        if (committed) {</span>
+<span class="fc" id="L249">            onCommit()</span>
+<span class="fc" id="L250">            onCommit(commits)</span>
+<span class="fc" id="L251">            successFn.invoke()</span>
+        }
+<span class="fc" id="L253">        return committed</span>
+    }
+
+    fun markDirty(property: ObservableValue&lt;*&gt;) {
+<span class="nc bnc" id="L257" title="All 4 branches missed.">        require(propertyMap.containsKey(property)){&quot;The property $property is not a facade of this ViewModel ($this)&quot;}</span>
+<span class="nc" id="L258">        dirtyProperties+=property</span>
+<span class="nc" id="L259">    }</span>
+
+    /**
+     * Rollback all or the specified fields
+     */
+    @Suppress(&quot;UNCHECKED_CAST&quot;)
+    fun rollback(vararg fields: Property&lt;*&gt;) {
+<span class="fc" id="L266">        runAndWait {</span>
+<span class="pc bpc" id="L267" title="3 of 6 branches missed.">            val rollbackThese = if (fields.isNotEmpty()) fields.toList() else propertyMap.keys</span>
+
+<span class="fc bfc" id="L269" title="All 2 branches covered.">            for (facade in rollbackThese) {</span>
+<span class="pc bpc" id="L270" title="1 of 2 branches missed.">                val prop: Property&lt;*&gt;? = propertyMap[facade]?.invoke()</span>
+
+                // Rebind external change listener in case the source property changed
+<span class="fc" id="L273">                val oldProp = propertyCache[facade]</span>
+<span class="pc bpc" id="L274" title="1 of 2 branches missed.">                if (oldProp != prop) {</span>
+<span class="pc bpc" id="L275" title="1 of 2 branches missed.">                    val extListener = externalChangeListeners[facade] as ChangeListener&lt;Any&gt;</span>
+<span class="pc bpc" id="L276" title="1 of 2 branches missed.">                    oldProp?.removeListener(extListener)</span>
+<span class="pc bpc" id="L277" title="1 of 2 branches missed.">                    prop?.removeListener(extListener)</span>
+<span class="pc bpc" id="L278" title="1 of 2 branches missed.">                    prop?.addListener(extListener)</span>
+<span class="fc" id="L279">                    propertyCache[facade] = prop</span>
+                }
+<span class="fc" id="L281">                assignValue(facade, prop)</span>
+            }
+<span class="fc" id="L283">            dirtyProperties.clear()</span>
+<span class="fc" id="L284">        }</span>
+<span class="fc" id="L285">    }</span>
+
+<span class="fc" id="L287">    fun assignValue(facade: Property&lt;*&gt;, prop: Property&lt;*&gt;?, defaultValue: Any? = null) {</span>
+<span class="pc bpc" id="L288" title="1 of 4 branches missed.">        facade.value = prop?.value ?: defaultValue</span>
+
+        // Never allow null collection values
+<span class="fc bfc" id="L291" title="All 2 branches covered.">        if (facade.value == null) {</span>
+<span class="fc" id="L292">            when (facade) {</span>
+<span class="pc bpc" id="L293" title="1 of 2 branches missed.">                is ListProperty&lt;*&gt; -&gt; facade.value = FXCollections.observableArrayList()</span>
+<span class="pc bpc" id="L294" title="1 of 2 branches missed.">                is SetProperty&lt;*&gt; -&gt; facade.value = FXCollections.observableSet()</span>
+<span class="pc bpc" id="L295" title="1 of 2 branches missed.">                is MapProperty&lt;*, *&gt; -&gt; facade.value = FXCollections.observableHashMap()</span>
+<span class="pc bpc" id="L296" title="1 of 2 branches missed.">                is MutableList&lt;*&gt; -&gt; facade.value = ArrayList&lt;Any&gt;()</span>
+<span class="pc bpc" id="L297" title="1 of 2 branches missed.">                is MutableMap&lt;*, *&gt; -&gt; facade.value = HashMap&lt;Any, Any&gt;()</span>
+            }
+        }
+<span class="fc" id="L300">    }</span>
+
+    inline fun &lt;reified T&gt; addValidator(
+            node: Node,
+            property: ObservableValue&lt;T&gt;,
+<span class="nc" id="L305">            trigger: ValidationTrigger = ValidationTrigger.OnChange(),</span>
+            noinline validator: ValidationContext.(T?) -&gt; ValidationMessage?) {
+
+<span class="nc" id="L308">        validationContext.addValidator(node, property, trigger, validator)</span>
+        // Force update of valid state
+<span class="nc" id="L310">        validationContext.validate(false, false)</span>
+<span class="nc" id="L311">    }</span>
+
+    fun setDecorationProvider(decorationProvider: (ValidationMessage) -&gt; Decorator?) {
+<span class="nc" id="L314">        validationContext.decorationProvider = decorationProvider</span>
+<span class="nc" id="L315">    }</span>
+
+<span class="nc" id="L317">    val isValid: Boolean get() = validationContext.isValid</span>
+<span class="nc" id="L318">    val valid: ReadOnlyBooleanProperty get() = validationContext.valid</span>
+
+    /**
+     * Create a boolean binding indicating if the given list of properties are currently valid
+     * with regards to the ValidationContext of this ViewModel.
+     */
+    fun valid(vararg fields: Property&lt;*&gt;): BooleanExpression {
+<span class="nc" id="L325">        val matchingValidators = FXCollections.observableArrayList&lt;ValidationContext.Validator&lt;*&gt;&gt;()</span>
+
+<span class="nc" id="L327">        fun updateMatchingValidators() {</span>
+<span class="nc" id="L328">            matchingValidators.setAll(validationContext.validators.filter {</span>
+<span class="nc" id="L329">                val facade = it.property.viewModelFacade</span>
+<span class="nc bnc" id="L330" title="All 6 branches missed.">                facade != null &amp;&amp; facade in fields</span>
+            })
+<span class="nc" id="L332">        }</span>
+
+<span class="nc" id="L334">        validationContext.validators.onChange { updateMatchingValidators() }</span>
+<span class="nc" id="L335">        updateMatchingValidators()</span>
+
+<span class="nc" id="L337">        return booleanListBinding(matchingValidators) { valid }</span>
+    }
+
+    /**
+     * Extract the value of the corresponding source property
+     */
+<span class="pc bpc" id="L343" title="2 of 4 branches missed.">    fun &lt;T&gt; backingValue(property: Property&lt;T&gt;) = propertyMap[property]?.invoke()?.value</span>
+
+<span class="fc" id="L345">    fun &lt;T&gt; isDirty(property: Property&lt;T&gt;) = backingValue(property) != property.value</span>
+<span class="nc bnc" id="L346" title="All 2 branches missed.">    fun &lt;T&gt; isNotDirty(property: Property&lt;T&gt;) = !isDirty(property)</span>
+}
+
+/**
+ * Check if a given property from the ViewModel is dirty. This is a shorthand form of:
+ *
+ * `model.isDirty(model.property)`
+ *
+ * With this you can write:
+ *
+ * `model.property.isDirty`
+ *
+ */
+<span class="pc bpc" id="L359" title="2 of 4 branches missed.">val &lt;T&gt; Property&lt;T&gt;.isDirty: Boolean get() = (bean as? ViewModel)?.isDirty(this) ?: false</span>
+<span class="nc bnc" id="L360" title="All 2 branches missed.">val &lt;T&gt; Property&lt;T&gt;.isNotDirty: Boolean get() = !isDirty</span>
+
+/**
+ * Listen to changes in the given observable and call the op with the new value on change.
+ * After each change the viewmodel is rolled back to reflect the values in the new source object or objects.
+ */
+<span class="fc" id="L366">fun &lt;V : ViewModel, T&gt; V.rebindOnChange(observable: ObservableValue&lt;T&gt;, op: V.(T?) -&gt; Unit = {}) {</span>
+<span class="fc" id="L367">    observable.addListener { _, _, newValue -&gt;</span>
+<span class="fc" id="L368">        op(this, newValue)</span>
+<span class="fc" id="L369">        rollback()</span>
+<span class="fc" id="L370">    }</span>
+<span class="fc" id="L371">}</span>
+
+/**
+ * Rebind the itemProperty of the ViewModel when the itemProperty in the ListCellFragment changes.
+ */
+<span class="nc" id="L376">fun &lt;V : ItemViewModel&lt;T&gt;, T&gt; V.bindTo(itemFragment: ItemFragment&lt;T&gt;) = apply {</span>
+<span class="nc" id="L377">    itemProperty.bind(itemFragment.itemProperty)</span>
+<span class="nc" id="L378">}</span>
+
+/**
+ * Rebind the itemProperty of the ViewModel when the itemProperty in the TableCellFragment changes.
+ * TODO: Do we need this, or can we just use the one above?
+ */
+<span class="nc" id="L384">fun &lt;V : ItemViewModel&lt;T&gt;, S, T&gt; V.bindToItem(cellFragment: TableCellFragment&lt;S, T&gt;) = apply {</span>
+<span class="nc" id="L385">    itemProperty.bind(cellFragment.itemProperty)</span>
+<span class="nc" id="L386">}</span>
+
+/**
+ * Rebind the rowItemProperty of the ViewModel when the itemProperty in the TableCellFragment changes.
+ */
+<span class="nc" id="L391">fun &lt;V : ItemViewModel&lt;S&gt;, S, T&gt; V.bindToRowItem(cellFragment: TableCellFragment&lt;S, T&gt;) = apply {</span>
+<span class="nc" id="L392">    itemProperty.bind(cellFragment.rowItemProperty)</span>
+<span class="nc" id="L393">}</span>
+
+fun &lt;V : ViewModel, T : ObservableValue&lt;X&gt;, X&gt; V.dirtyStateFor(modelField: KProperty1&lt;V, T&gt;): BooleanBinding {
+<span class="fc" id="L396">    val prop = modelField.get(this)</span>
+<span class="fc" id="L397">    return Bindings.createBooleanBinding(Callable { prop in dirtyProperties }, dirtyProperties)</span>
+}
+
+fun &lt;V : ViewModel, T&gt; V.rebindOnTreeItemChange(observable: ObservableValue&lt;TreeItem&lt;T&gt;&gt;, op: V.(T?) -&gt; Unit) {
+<span class="nc" id="L401">    observable.addListener { _, _, newValue -&gt;</span>
+<span class="nc bnc" id="L402" title="All 2 branches missed.">        op(newValue?.value)</span>
+<span class="nc" id="L403">        rollback()</span>
+<span class="nc" id="L404">    }</span>
+<span class="nc" id="L405">}</span>
+
+fun &lt;V : ViewModel, T&gt; V.rebindOnChange(tableview: TableView&lt;T&gt;, op: V.(T?) -&gt; Unit)
+<span class="nc" id="L408">        = rebindOnChange(tableview.selectionModel.selectedItemProperty(), op)</span>
+
+fun &lt;V : ViewModel, T&gt; V.rebindOnChange(listview: ListView&lt;T&gt;, op: V.(T?) -&gt; Unit)
+<span class="nc" id="L411">        = rebindOnChange(listview.selectionModel.selectedItemProperty(), op)</span>
+
+fun &lt;V : ViewModel, T&gt; V.rebindOnChange(treeview: TreeView&lt;T&gt;, op: V.(T?) -&gt; Unit)
+<span class="nc" id="L414">        = rebindOnTreeItemChange(treeview.selectionModel.selectedItemProperty(), op)</span>
+
+fun &lt;V : ViewModel, T&gt; V.rebindOnChange(treetableview: TreeTableView&lt;T&gt;, op: V.(T?) -&gt; Unit)
+<span class="nc" id="L417">        = rebindOnTreeItemChange(treetableview.selectionModel.selectedItemProperty(), op)</span>
+
+fun &lt;T : ViewModel&gt; T.rebind(op: (T.() -&gt; Unit)) {
+<span class="nc" id="L420">    op()</span>
+<span class="nc" id="L421">    rollback()</span>
+<span class="nc" id="L422">}</span>
+
+/**
+ * Add the given validator to a property that resides inside a ViewModel. The supplied node will be
+ * decorated by the current decorationProvider for this context inside the ViewModel of the property
+ * if validation fails.
+ *
+ * The validator function is executed in the scope of this ValidationContext to give
+ * access to other fields and shortcuts like the error and warning functions.
+ *
+ * The validation trigger decides when the validation is applied. ValidationTrigger.OnBlur
+ * tracks focus on the supplied node while OnChange tracks changes to the property itself.
+ */
+<span class="nc" id="L435">inline fun &lt;reified T&gt; Property&lt;T&gt;.addValidator(node: Node, trigger: ValidationTrigger = ValidationTrigger.OnChange(), noinline validator: ValidationContext.(T?) -&gt; ValidationMessage?)</span>
+<span class="nc bnc" id="L436" title="All 4 branches missed.">        = requireNotNull(bean as? ViewModel){&quot;The addValidator extension on Property can only be used on properties inside a ViewModel. Use validator.addValidator() instead.&quot;}</span>
+<span class="nc" id="L437">        .addValidator(node, this, trigger, validator)</span>
+
+<span class="nc" id="L439">fun TextInputControl.required(trigger: ValidationTrigger = ValidationTrigger.OnChange(), message: String? = viewModelBundle[&quot;required&quot;])</span>
+<span class="nc bnc" id="L440" title="All 6 branches missed.">        = validator(trigger) { if (it.isNullOrBlank()) error(message) else null }</span>
+
+<span class="nc" id="L442">fun TextInputControl.requiredWhen(condition: Boolean, trigger: ValidationTrigger = ValidationTrigger.OnChange(), message: String? = viewModelBundle[&quot;required&quot;])</span>
+<span class="nc bnc" id="L443" title="All 8 branches missed.">        = validator(trigger) { if (condition &amp;&amp; it.isNullOrBlank()) error(message) else null }</span>
+
+<span class="nc" id="L445">fun TextInputControl.requiredWhen(condition: ObservableValue&lt;Boolean&gt;, trigger: ValidationTrigger = ValidationTrigger.OnChange(), message: String? = viewModelBundle[&quot;required&quot;])</span>
+<span class="nc bnc" id="L446" title="All 8 branches missed.">        = validator(trigger) { if (condition.value &amp;&amp; it.isNullOrBlank()) error(message) else null }</span>
+
+<span class="nc bnc" id="L448" title="All 2 branches missed.">inline fun &lt;reified T&gt; ComboBoxBase&lt;T&gt;.required(trigger: ValidationTrigger = ValidationTrigger.OnChange(), message: String? = viewModelBundle[&quot;required&quot;])</span>
+<span class="nc bnc" id="L449" title="All 2 branches missed.">        = validator(trigger) { if (it == null) error(message) else null }</span>
+
+/**
+ * Add a validator to a ComboBox that is already bound to a model property.
+ */
+<span class="nc" id="L454">inline fun &lt;reified T&gt; ComboBoxBase&lt;T&gt;.validator(trigger: ValidationTrigger = ValidationTrigger.OnChange(), noinline validator: ValidationContext.(T?) -&gt; ValidationMessage?)</span>
+<span class="nc" id="L455">        = validator(this, valueProperty(), trigger, validator)</span>
+
+/**
+ * Add a validator to a ChoiceBox that is already bound to a model property.
+ */
+<span class="nc" id="L460">inline fun &lt;reified T&gt; ChoiceBox&lt;T&gt;.validator(trigger: ValidationTrigger = ValidationTrigger.OnChange(), noinline validator: ValidationContext.(T?) -&gt; ValidationMessage?)</span>
+<span class="nc" id="L461">        = validator(this, valueProperty(), trigger, validator)</span>
+
+/**
+ * Add a validator to a Spinner that is already bound to a model property.
+ */
+<span class="nc" id="L466">inline fun &lt;reified T&gt; Spinner&lt;T&gt;.validator(trigger: ValidationTrigger = ValidationTrigger.OnChange(), noinline validator: ValidationContext.(T?) -&gt; ValidationMessage?)</span>
+<span class="nc" id="L467">        = validator(this, valueFactory.valueProperty(), trigger, validator)</span>
+
+<span class="nc bnc" id="L469" title="All 2 branches missed.">inline fun &lt;reified T&gt; Spinner&lt;T&gt;.required(trigger: ValidationTrigger = tornadofx.ValidationTrigger.OnChange(), message: String? = tornadofx.viewModelBundle[&quot;required&quot;])</span>
+<span class="nc bnc" id="L470" title="All 2 branches missed.">        = validator(trigger) { if (it == null) error(message) else null }</span>
+
+/**
+ * Add a validator to a TextInputControl that is already bound to a model property.
+ */
+<span class="nc" id="L475">fun TextInputControl.validator(trigger: ValidationTrigger = ValidationTrigger.OnChange(), validator: ValidationContext.(String?) -&gt; ValidationMessage?)</span>
+<span class="nc" id="L476">        = validator(this, textProperty(), trigger, validator)</span>
+
+/**
+ * Add a validator to a Labeled Control that is already bound to a model property.
+ */
+<span class="nc" id="L481">fun Labeled.validator(trigger: ValidationTrigger = ValidationTrigger.OnChange(), validator: ValidationContext.(String?) -&gt; ValidationMessage?)</span>
+<span class="nc" id="L482">        = validator(this, textProperty(), trigger, validator)</span>
+
+/**
+ * Add a validator to a ColorPicker that is already bound to a model property.
+ */
+<span class="nc" id="L487">fun ColorPicker.validator(trigger: ValidationTrigger = ValidationTrigger.OnChange(), validator: ValidationContext.(Paint?) -&gt; ValidationMessage?)</span>
+<span class="nc" id="L488">        = validator(this, valueProperty(), trigger, validator)</span>
+
+/**
+ * Add a validator to a DatePicker that is already bound to a model property.
+ */
+<span class="nc" id="L493">fun DatePicker.validator(trigger: ValidationTrigger = ValidationTrigger.OnChange(), validator: ValidationContext.(LocalDate?) -&gt; ValidationMessage?)</span>
+<span class="nc" id="L494">        = validator(this, valueProperty(), trigger, validator)</span>
+
+/**
+ * Add a validator to a CheckBox that is already bound to a model property.
+ */
+<span class="nc" id="L499">fun CheckBox.validator(trigger: ValidationTrigger = ValidationTrigger.OnChange(), validator: ValidationContext.(Boolean?) -&gt; ValidationMessage?)</span>
+<span class="nc" id="L500">        = validator(this, selectedProperty(), trigger, validator)</span>
+
+/**
+ * Add a validator to a RadioButton that is already bound to a model property.
+ */
+<span class="nc" id="L505">fun RadioButton.validator(trigger: ValidationTrigger = ValidationTrigger.OnChange(), validator: ValidationContext.(Boolean?) -&gt; ValidationMessage?)</span>
+<span class="nc" id="L506">        = validator(this, selectedProperty(), trigger, validator)</span>
+
+/**
+ * Add a validator to the given Control for the given model property.
+ */
+<span class="nc" id="L511">inline fun &lt;reified T&gt; validator(control: Control, property: Property&lt;T&gt;, trigger: ValidationTrigger, model: ViewModel? = null, noinline validator: ValidationContext.(T?) -&gt; ValidationMessage?)</span>
+<span class="nc bnc" id="L512" title="All 4 branches missed.">        = requireNotNull(model ?: property.viewModel){</span>
+<span class="nc" id="L513">    &quot;The addValidator extension can only be used on inputs that are already bound bidirectionally to a property in a Viewmodel. &quot; +</span>
+            &quot;Use validator.addValidator() instead or make the property's bean field point to a ViewModel.&quot;
+<span class="nc" id="L515">        }.addValidator(control, property, trigger, validator)</span>
+
+inline fun &lt;reified T&gt; validator(control: Control, property: Property&lt;T&gt;, trigger: ValidationTrigger, noinline validator: ValidationContext.(T?) -&gt; ValidationMessage?)
+        = validator(control, property, trigger, null, validator)
+
+/**
+ * Extract the ViewModel from a property that is bound towards a ViewModel Facade
+ */
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc bnc" id="L524" title="All 4 branches missed.">val Property&lt;*&gt;.viewModel: ViewModel? get() = (bean as? ViewModel) ?: ViewModel.getViewModelForProperty(this)</span>
+
+/**
+ * Extract the ViewModel Facade from a property that is bound towards it
+ */
+<span class="nc" id="L529">val ObservableValue&lt;*&gt;.viewModelFacade: Property&lt;*&gt;? get() = ViewModel.getFacadeForProperty(this)</span>
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="fc" id="L532">open class ItemViewModel&lt;T&gt; @JvmOverloads constructor(initialValue: T? = null, val itemProperty: ObjectProperty&lt;T&gt; = SimpleObjectProperty(initialValue)) : ViewModel() {</span>
+<span class="fc" id="L533">    var item by itemProperty</span>
+
+<span class="pc" id="L535">    val empty = itemProperty.isNull</span>
+<span class="nc" id="L536">    val isEmpty: Boolean get() = empty.value</span>
+<span class="nc bnc" id="L537" title="All 2 branches missed.">    val isNotEmpty: Boolean get() = empty.value.not()</span>
+
+<span class="fc" id="L539">    init {</span>
+<span class="fc" id="L540">        rebindOnChange(itemProperty)</span>
+<span class="fc" id="L541">    }</span>
+
+<span class="nc" id="L543">    fun &lt;N&gt; select(nested: (T) -&gt; ObservableValue&lt;N&gt;) = itemProperty.select(nested)</span>
+
+    fun asyncItem(func: () -&gt; T?) =
+<span class="nc bnc" id="L546" title="All 8 branches missed.">            task { func() } success { if (itemProperty.isBound &amp;&amp; item is JsonModel) (item as JsonModel).update(it as JsonModel) else item = it }</span>
+
+    @JvmName(&quot;bindField&quot;)
+<span class="nc bnc" id="L549" title="All 4 branches missed.">    inline fun &lt;reified N : Any, ReturnType : Property&lt;N&gt;&gt; bind(property: KProperty1&lt;T, N?&gt;, autocommit: Boolean = false, forceObjectProperty: Boolean = false, defaultValue: N? = null): ReturnType</span>
+<span class="nc bnc" id="L550" title="All 2 branches missed.">            = bind(autocommit, forceObjectProperty, defaultValue) { item?.let { property.get(it).toProperty() } }</span>
+
+    @JvmName(&quot;bindMutableField&quot;)
+<span class="nc bnc" id="L553" title="All 4 branches missed.">    inline fun &lt;reified N : Any, ReturnType : Property&lt;N&gt;&gt; bind(property: KMutableProperty1&lt;T, N&gt;, autocommit: Boolean = false, forceObjectProperty: Boolean = false, defaultValue: N? = null): ReturnType</span>
+<span class="nc bnc" id="L554" title="All 2 branches missed.">            = bind(autocommit, forceObjectProperty, defaultValue) { item?.observable(property) }</span>
+
+    @JvmName(&quot;bindMutableNullableField&quot;)
+<span class="nc bnc" id="L557" title="All 4 branches missed.">    inline fun &lt;reified N : Any, ReturnType : Property&lt;N&gt;&gt; bind(property: KMutableProperty1&lt;T, N?&gt;, autocommit: Boolean = false, forceObjectProperty: Boolean = false, defaultValue: N? = null): ReturnType</span>
+<span class="nc bnc" id="L558" title="All 6 branches missed.">            = bind(autocommit, forceObjectProperty, defaultValue) { (item?.observable(property) ?: SimpleObjectProperty&lt;N&gt;()) as Property&lt;N&gt; }</span>
+
+    @JvmName(&quot;bindProperty&quot;)
+<span class="nc bnc" id="L561" title="All 4 branches missed.">    inline fun &lt;reified N : Any, reified PropertyType : Property&lt;N&gt;, ReturnType : PropertyType&gt; bind(property: KProperty1&lt;T, PropertyType&gt;, autocommit: Boolean = false, forceObjectProperty: Boolean = false, defaultValue: N? = null): ReturnType</span>
+<span class="nc bnc" id="L562" title="All 2 branches missed.">            = bind(autocommit, forceObjectProperty, defaultValue) { item?.let { property.get(it) } }</span>
+
+    @JvmName(&quot;bindMutableProperty&quot;)
+<span class="nc bnc" id="L565" title="All 2 branches missed.">    inline fun &lt;reified N : Any, reified PropertyType : Property&lt;N&gt;, ReturnType : PropertyType&gt; bind(property: KMutableProperty1&lt;T, PropertyType&gt;, autocommit: Boolean = false, forceObjectProperty: Boolean = false): ReturnType</span>
+<span class="nc bnc" id="L566" title="All 2 branches missed.">            = bind(autocommit, forceObjectProperty) { item?.observable(property) } as ReturnType</span>
+
+    @JvmName(&quot;bindGetter&quot;)
+<span class="nc bnc" id="L569" title="All 4 branches missed.">    inline fun &lt;reified N : Any, ReturnType : Property&lt;N&gt;&gt; bind(property: KFunction&lt;N&gt;, autocommit: Boolean = false, forceObjectProperty: Boolean = false, defaultValue: N? = null): ReturnType</span>
+<span class="nc bnc" id="L570" title="All 2 branches missed.">            = bind(autocommit, forceObjectProperty, defaultValue) { item?.let { property.call(it).toProperty() } }</span>
+
+    @JvmName(&quot;bindPropertyFunction&quot;)
+<span class="nc bnc" id="L573" title="All 4 branches missed.">    inline fun &lt;reified N : Any, reified PropertyType : Property&lt;N&gt;, ReturnType : PropertyType&gt; bind(property: KFunction&lt;PropertyType&gt;, autocommit: Boolean = false, forceObjectProperty: Boolean = false, defaultValue: N? = null): ReturnType</span>
+<span class="nc bnc" id="L574" title="All 2 branches missed.">            = bind(autocommit, forceObjectProperty, defaultValue) { item?.let { property.call(it) } }</span>
+}
+
+<span class="fc" id="L577">class Commit(val property: ObservableValue&lt;*&gt;, val oldValue: Any?, val newValue: Any?) {</span>
+<span class="fc" id="L578">    val changed: Boolean get() = oldValue != newValue</span>
+}
+
+/**
+ * Mark this ViewModel facade property as dirty in it's owning ViewModel.
+ */
+<span class="nc bnc" id="L584" title="All 2 branches missed.">fun Property&lt;*&gt;.markDirty() = viewModel?.markDirty(this)</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

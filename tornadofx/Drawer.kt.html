@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Drawer.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Drawer.kt</span></div><h1>Drawer.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.property.*
+import javafx.beans.value.ObservableValue
+import javafx.collections.FXCollections
+import javafx.event.EventTarget
+import javafx.geometry.Orientation
+import javafx.geometry.Side
+import javafx.scene.Group
+import javafx.scene.Node
+import javafx.scene.control.ContextMenu
+import javafx.scene.control.ToggleButton
+import javafx.scene.control.ToolBar
+import javafx.scene.layout.BorderPane
+import javafx.scene.layout.Priority
+import javafx.scene.layout.VBox
+import javafx.scene.paint.Color
+
+fun EventTarget.drawer(
+<span class="nc" id="L20">        side: Side = Side.LEFT,</span>
+<span class="nc" id="L21">        multiselect: Boolean = false,</span>
+<span class="nc" id="L22">        floatingContent: Boolean = false,</span>
+        op: Drawer.() -&gt; Unit
+<span class="nc" id="L24">) = Drawer(side, multiselect, floatingContent).attachTo(this, op)</span>
+
+<span class="nc" id="L26">class Drawer(side: Side, multiselect: Boolean, floatingContent: Boolean) : BorderPane() {</span>
+<span class="nc" id="L27">    val dockingSideProperty: ObjectProperty&lt;Side&gt; = SimpleObjectProperty(side)</span>
+<span class="nc" id="L28">    var dockingSide by dockingSideProperty</span>
+
+<span class="nc" id="L30">    val floatingDrawersProperty: BooleanProperty = SimpleBooleanProperty(floatingContent)</span>
+<span class="nc" id="L31">    var floatingDrawers by floatingDrawersProperty</span>
+
+<span class="nc" id="L33">    val maxContentSizeProperty: ObjectProperty&lt;Number&gt; = SimpleObjectProperty&lt;Number&gt;()</span>
+<span class="nc" id="L34">    var maxContentSize by maxContentSizeProperty</span>
+
+<span class="nc" id="L36">    val fixedContentSizeProperty: ObjectProperty&lt;Number&gt; = SimpleObjectProperty&lt;Number&gt;()</span>
+<span class="nc" id="L37">    var fixedContentSize by fixedContentSizeProperty</span>
+
+<span class="nc" id="L39">    val buttonArea = ToolBar().addClass(DrawerStyles.buttonArea)</span>
+<span class="nc" id="L40">    val contentArea = ExpandedDrawerContentArea()</span>
+
+<span class="nc" id="L42">    val items = FXCollections.observableArrayList&lt;DrawerItem&gt;()</span>
+
+<span class="nc" id="L44">    val multiselectProperty: BooleanProperty = SimpleBooleanProperty(multiselect)</span>
+<span class="nc" id="L45">    var multiselect by multiselectProperty</span>
+
+<span class="nc" id="L47">    val contextMenu = ContextMenu()</span>
+
+<span class="nc" id="L49">    override fun getUserAgentStylesheet() = DrawerStyles().base64URL.toExternalForm()</span>
+
+<span class="nc" id="L51">    fun item(title: String? = null, icon: Node? = null, expanded: Boolean = false, showHeader: Boolean = multiselect, op: DrawerItem.() -&gt; Unit) =</span>
+<span class="nc" id="L52">            item(SimpleStringProperty(title), SimpleObjectProperty(icon), expanded, showHeader, op)</span>
+
+<span class="nc" id="L54">    fun item(title: ObservableValue&lt;String?&gt;, icon: ObservableValue&lt;Node?&gt;? = null, expanded: Boolean = multiselect, showHeader: Boolean = true, op: DrawerItem.() -&gt; Unit): DrawerItem {</span>
+<span class="nc" id="L55">        val item = DrawerItem(this, title, icon, showHeader)</span>
+<span class="nc" id="L56">        item.button.textProperty().bind(title)</span>
+<span class="nc" id="L57">        op(item)</span>
+<span class="nc" id="L58">        items.add(item)</span>
+<span class="nc bnc" id="L59" title="All 2 branches missed.">        if (expanded) item.button.isSelected = true</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        (parent?.uiComponent&lt;UIComponent&gt;() as? Workspace)?.apply {</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">            if (root.dynamicComponentMode) {</span>
+<span class="nc" id="L62">                root.dynamicComponents.add(item)</span>
+            }
+<span class="nc" id="L64">        }</span>
+<span class="nc" id="L65">        return item</span>
+    }
+
+<span class="nc" id="L68">    fun item(uiComponent: UIComponent, expanded: Boolean = false, showHeader: Boolean = multiselect, op: DrawerItem.() -&gt; Unit = {}): DrawerItem {</span>
+<span class="nc" id="L69">        val item = DrawerItem(this, uiComponent.titleProperty, uiComponent.iconProperty, showHeader)</span>
+<span class="nc" id="L70">        item.button.textProperty().bind(uiComponent.headingProperty)</span>
+<span class="nc" id="L71">        item.children.add(uiComponent.root)</span>
+<span class="nc" id="L72">        op(item)</span>
+<span class="nc" id="L73">        items.add(item)</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        if (expanded) item.button.isSelected = true</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">        (parent?.uiComponent&lt;UIComponent&gt;() as? Workspace)?.apply {</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">            if (root.dynamicComponentMode) {</span>
+<span class="nc" id="L77">                root.dynamicComponents.add(item)</span>
+            }
+<span class="nc" id="L79">        }</span>
+<span class="nc" id="L80">        return item</span>
+    }
+
+<span class="nc" id="L83">    init {</span>
+<span class="nc" id="L84">        addClass(DrawerStyles.drawer)</span>
+
+<span class="nc" id="L86">        configureDockingSide()</span>
+<span class="nc" id="L87">        configureContextMenu()</span>
+<span class="nc" id="L88">        enforceMultiSelect()</span>
+
+        // Redraw if floating mode is toggled
+<span class="nc" id="L91">        floatingDrawersProperty.onChange {</span>
+<span class="nc" id="L92">            updateContentArea()</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">            parent?.requestLayout()</span>
+<span class="nc bnc" id="L94" title="All 4 branches missed.">            scene?.root?.requestLayout()</span>
+<span class="nc" id="L95">        }</span>
+
+        // Adapt docking behavior to parent
+<span class="nc" id="L98">        parentProperty().onChange {</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">            if (it is BorderPane) {</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">                if (it.left == this) dockingSide = Side.LEFT</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">                else if (it.right == this) dockingSide = Side.RIGHT</span>
+<span class="nc bnc" id="L102" title="All 2 branches missed.">                else if (it.bottom == this) dockingSide = Side.BOTTOM</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">                else if (it.top == this) dockingSide = Side.TOP</span>
+            }
+<span class="nc" id="L105">        }</span>
+
+        // Track side property change
+<span class="nc" id="L108">        dockingSideProperty.onChange { configureDockingSide() }</span>
+
+        // Track button additions/removal
+<span class="nc" id="L111">        items.onChange { change -&gt;</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">            while (change.next()) {</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">                if (change.wasAdded()) {</span>
+<span class="nc" id="L114">                    change.addedSubList.asSequence().mapEach { button }.forEach {</span>
+<span class="nc" id="L115">                        configureRotation(it)</span>
+<span class="nc" id="L116">                        buttonArea += Group(it)</span>
+<span class="nc" id="L117">                    }</span>
+                }
+<span class="nc bnc" id="L119" title="All 2 branches missed.">                if (change.wasRemoved()) {</span>
+<span class="nc" id="L120">                    change.removed.forEach {</span>
+<span class="nc" id="L121">                        val group = it.button.parent</span>
+<span class="nc" id="L122">                        it.button.removeFromParent()</span>
+<span class="nc" id="L123">                        group.removeFromParent()</span>
+<span class="nc" id="L124">                        contentArea.children.remove(it)</span>
+<span class="nc" id="L125">                    }</span>
+                }
+            }
+<span class="nc" id="L128">        }</span>
+<span class="nc" id="L129">    }</span>
+
+    private fun enforceMultiSelect() {
+<span class="nc" id="L132">        multiselectProperty.onChange {</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">            if (!multiselect) {</span>
+<span class="nc" id="L134">                contentArea.children.drop(1).forEach {</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">                    (it as DrawerItem).button.isSelected = false</span>
+<span class="nc" id="L136">                }</span>
+            }
+<span class="nc" id="L138">        }</span>
+<span class="nc" id="L139">    }</span>
+
+    private fun configureContextMenu() {
+<span class="nc" id="L142">        contextMenu.checkmenuitem(&quot;Floating drawers&quot;) {</span>
+<span class="nc" id="L143">            selectedProperty().bindBidirectional(floatingDrawersProperty)</span>
+<span class="nc" id="L144">        }</span>
+<span class="nc" id="L145">        contextMenu.checkmenuitem(&quot;Multiselect&quot;) {</span>
+<span class="nc" id="L146">            selectedProperty().bindBidirectional(multiselectProperty)</span>
+<span class="nc" id="L147">        }</span>
+<span class="nc" id="L148">        buttonArea.setOnContextMenuRequested {</span>
+<span class="nc" id="L149">            contextMenu.show(buttonArea, it.screenX, it.screenY)</span>
+<span class="nc" id="L150">        }</span>
+<span class="nc" id="L151">    }</span>
+
+    private fun configureRotation(button: ToggleButton) {
+<span class="nc bnc" id="L154" title="All 5 branches missed.">        button.rotate = when (dockingSide) {</span>
+<span class="nc" id="L155">            Side.LEFT -&gt; -90.0</span>
+<span class="nc" id="L156">            Side.RIGHT -&gt; 90.0</span>
+<span class="nc" id="L157">            else -&gt; 0.0</span>
+        }
+<span class="nc" id="L159">    }</span>
+
+    private fun configureDockingSide() {
+<span class="nc bnc" id="L162" title="All 7 branches missed.">        when (dockingSide) {</span>
+            Side.LEFT -&gt; {
+<span class="nc" id="L164">                left = buttonArea</span>
+<span class="nc" id="L165">                right = null</span>
+<span class="nc" id="L166">                bottom = null</span>
+<span class="nc" id="L167">                top = null</span>
+<span class="nc" id="L168">                buttonArea.orientation = Orientation.VERTICAL</span>
+            }
+            Side.RIGHT -&gt; {
+<span class="nc" id="L171">                left = null</span>
+<span class="nc" id="L172">                right = buttonArea</span>
+<span class="nc" id="L173">                bottom = null</span>
+<span class="nc" id="L174">                top = null</span>
+<span class="nc" id="L175">                buttonArea.orientation = Orientation.VERTICAL</span>
+            }
+            Side.BOTTOM -&gt; {
+<span class="nc" id="L178">                left = null</span>
+<span class="nc" id="L179">                right = null</span>
+<span class="nc" id="L180">                bottom = buttonArea</span>
+<span class="nc" id="L181">                top = null</span>
+<span class="nc" id="L182">                buttonArea.orientation = Orientation.HORIZONTAL</span>
+            }
+            Side.TOP -&gt; {
+<span class="nc" id="L185">                left = null</span>
+<span class="nc" id="L186">                right = null</span>
+<span class="nc" id="L187">                bottom = null</span>
+<span class="nc" id="L188">                top = buttonArea</span>
+<span class="nc" id="L189">                buttonArea.orientation = Orientation.HORIZONTAL</span>
+            }
+        }
+
+<span class="nc" id="L193">        buttonArea.items.forEach {</span>
+<span class="nc bnc" id="L194" title="All 4 branches missed.">            val button = (it as Group).children.first() as ToggleButton</span>
+<span class="nc" id="L195">            configureRotation(button)</span>
+<span class="nc" id="L196">        }</span>
+<span class="nc" id="L197">    }</span>
+
+    internal fun updateExpanded(item: DrawerItem) {
+<span class="nc bnc" id="L200" title="All 2 branches missed.">        if (item.expanded) {</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">            if (item !in contentArea.children) {</span>
+<span class="nc bnc" id="L202" title="All 2 branches missed.">                if (!multiselect) {</span>
+<span class="nc" id="L203">                    contentArea.children.toTypedArray().forEach {</span>
+<span class="nc bnc" id="L204" title="All 2 branches missed.">                        (it as DrawerItem).button.isSelected = false</span>
+<span class="nc" id="L205">                    }</span>
+                }
+                // Insert into content area in position according to item order
+<span class="nc" id="L208">                val itemIndex = items.indexOf(item)</span>
+<span class="nc" id="L209">                var inserted = false</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">                for (child in contentArea.children) {</span>
+<span class="nc" id="L211">                    val childIndex = items.indexOf(child)</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">                    if (childIndex &gt; itemIndex) {</span>
+<span class="nc" id="L213">                        val childIndexInContentArea = contentArea.children.indexOf(child)</span>
+<span class="nc" id="L214">                        contentArea.children.add(childIndexInContentArea, item)</span>
+<span class="nc" id="L215">                        inserted = true</span>
+<span class="nc" id="L216">                        break</span>
+                    }
+                }
+<span class="nc bnc" id="L219" title="All 2 branches missed.">                if (!inserted) {</span>
+<span class="nc" id="L220">                    contentArea.children.add(item)</span>
+                }
+            }
+<span class="nc bnc" id="L223" title="All 2 branches missed.">        } else if (item in contentArea.children) {</span>
+<span class="nc" id="L224">            contentArea.children.remove(item)</span>
+        }
+
+<span class="nc" id="L227">        updateContentArea()</span>
+<span class="nc" id="L228">    }</span>
+
+    // Dock is a child when there are expanded children
+    private fun updateContentArea() {
+<span class="nc bnc" id="L232" title="All 2 branches missed.">        if (contentArea.children.isEmpty()) {</span>
+<span class="nc" id="L233">            center = null</span>
+<span class="nc" id="L234">            children.remove(contentArea)</span>
+        } else {
+<span class="nc bnc" id="L236" title="All 2 branches missed.">            if (fixedContentSize != null) {</span>
+<span class="nc bnc" id="L237" title="All 5 branches missed.">                when (dockingSide) {</span>
+                    Side.LEFT, Side.RIGHT -&gt; {
+<span class="nc" id="L239">                        contentArea.maxWidth = fixedContentSize.toDouble()</span>
+<span class="nc" id="L240">                        contentArea.minWidth = fixedContentSize.toDouble()</span>
+                    }
+                    Side.TOP, Side.BOTTOM -&gt; {
+<span class="nc" id="L243">                        contentArea.maxHeight = fixedContentSize.toDouble()</span>
+<span class="nc" id="L244">                        contentArea.minHeight = fixedContentSize.toDouble()</span>
+                    }
+<span class="nc" id="L246">                }</span>
+            } else {
+<span class="nc" id="L248">                contentArea.maxWidth = USE_COMPUTED_SIZE</span>
+<span class="nc" id="L249">                contentArea.minWidth = USE_COMPUTED_SIZE</span>
+<span class="nc" id="L250">                contentArea.maxHeight = USE_COMPUTED_SIZE</span>
+<span class="nc" id="L251">                contentArea.minHeight = USE_COMPUTED_SIZE</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">                if (maxContentSize != null) {</span>
+<span class="nc bnc" id="L253" title="All 5 branches missed.">                    when (dockingSide) {</span>
+<span class="nc" id="L254">                        Side.LEFT, Side.RIGHT -&gt; contentArea.maxWidth = maxContentSize.toDouble()</span>
+<span class="nc" id="L255">                        Side.TOP, Side.BOTTOM -&gt; contentArea.maxHeight = maxContentSize.toDouble()</span>
+                    }
+                }
+            }
+
+<span class="nc bnc" id="L260" title="All 2 branches missed.">            if (floatingDrawers) {</span>
+<span class="nc" id="L261">                contentArea.isManaged = false</span>
+<span class="nc bnc" id="L262" title="All 2 branches missed.">                if (contentArea !in children) children.add(contentArea)</span>
+            } else {
+<span class="nc" id="L264">                contentArea.isManaged = true</span>
+<span class="nc bnc" id="L265" title="All 2 branches missed.">                if (contentArea in children) children.remove(contentArea)</span>
+<span class="nc" id="L266">                center = contentArea</span>
+            }
+        }
+<span class="nc" id="L269">    }</span>
+
+    override fun layoutChildren() {
+<span class="nc" id="L272">        super.layoutChildren()</span>
+<span class="nc bnc" id="L273" title="All 6 branches missed.">        if (floatingDrawers &amp;&amp; contentArea.children.isNotEmpty()) {</span>
+<span class="nc" id="L274">            val buttonBounds = buttonArea.layoutBounds</span>
+<span class="nc bnc" id="L275" title="All 4 branches missed.">            when (dockingSide) {</span>
+<span class="nc" id="L276">                Side.RIGHT -&gt; contentArea.resizeRelocate(buttonBounds.minX - contentArea.prefWidth(-1.0), buttonBounds.minY, contentArea.prefWidth(-1.0), buttonBounds.height)</span>
+<span class="nc" id="L277">                else -&gt; contentArea.resizeRelocate(buttonBounds.maxX, buttonBounds.minY, contentArea.prefWidth(-1.0), buttonBounds.height)</span>
+            }
+        }
+<span class="nc" id="L280">    }</span>
+}
+
+<span class="nc" id="L283">class ExpandedDrawerContentArea : VBox() {</span>
+<span class="nc" id="L284">    init {</span>
+<span class="nc" id="L285">        addClass(DrawerStyles.contentArea)</span>
+<span class="nc" id="L286">        children.onChange { change -&gt;</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">            while (change.next()) {</span>
+<span class="nc bnc" id="L288" title="All 2 branches missed.">                if (change.wasAdded()) {</span>
+<span class="nc" id="L289">                    change.addedSubList.asSequence()</span>
+<span class="nc bnc" id="L290" title="All 2 branches missed.">                            .filter { VBox.getVgrow(it) == null }</span>
+<span class="nc" id="L291">                            .forEach { VBox.setVgrow(it, Priority.ALWAYS) }</span>
+                }
+            }
+<span class="nc" id="L294">        }</span>
+<span class="nc" id="L295">    }</span>
+
+}
+
+<span class="nc" id="L299">class DrawerItem(val drawer: Drawer, title: ObservableValue&lt;String?&gt;? = null, icon: ObservableValue&lt;Node?&gt;? = null, showHeader: Boolean) : VBox() {</span>
+<span class="nc" id="L300">    internal val button = ToggleButton().apply {</span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">        if (title != null) textProperty().bind(title)</span>
+<span class="nc bnc" id="L302" title="All 2 branches missed.">        if (icon != null) graphicProperty().bind(icon)</span>
+<span class="nc" id="L303">    }</span>
+
+<span class="nc" id="L305">    val expandedProperty = button.selectedProperty()</span>
+<span class="nc" id="L306">    var expanded by expandedProperty</span>
+
+<span class="nc" id="L308">    init {</span>
+<span class="nc" id="L309">        addClass(DrawerStyles.drawerItem)</span>
+<span class="nc bnc" id="L310" title="All 2 branches missed.">        if (showHeader) {</span>
+<span class="nc" id="L311">            titledpane {</span>
+<span class="nc" id="L312">                textProperty().bind(title)</span>
+<span class="nc" id="L313">                isCollapsible = false</span>
+<span class="nc" id="L314">            }</span>
+        }
+<span class="nc" id="L316">        button.selectedProperty().onChange { drawer.updateExpanded(this) }</span>
+<span class="nc" id="L317">        drawer.updateExpanded(this)</span>
+
+<span class="nc" id="L319">        children.onChange { change -&gt;</span>
+<span class="nc bnc" id="L320" title="All 2 branches missed.">            while (change.next()) {</span>
+<span class="nc bnc" id="L321" title="All 2 branches missed.">                if (change.wasAdded()) {</span>
+<span class="nc" id="L322">                    change.addedSubList.asSequence()</span>
+<span class="nc bnc" id="L323" title="All 2 branches missed.">                            .filter { VBox.getVgrow(it) == null }</span>
+<span class="nc" id="L324">                            .forEach { VBox.setVgrow(it, Priority.ALWAYS) }</span>
+                }
+            }
+<span class="nc" id="L327">        }</span>
+<span class="nc" id="L328">    }</span>
+}
+
+<span class="nc" id="L331">class DrawerStyles : Stylesheet() {</span>
+    companion object {
+<span class="nc" id="L333">        val drawer by cssclass()</span>
+<span class="nc" id="L334">        val drawerItem by cssclass()</span>
+<span class="nc" id="L335">        val buttonArea by cssclass()</span>
+<span class="nc" id="L336">        val contentArea by cssclass()</span>
+    }
+
+<span class="nc" id="L339">    init {</span>
+<span class="nc" id="L340">        drawer {</span>
+<span class="nc" id="L341">            contentArea {</span>
+<span class="nc" id="L342">                borderColor += box(Color.DARKGRAY)</span>
+<span class="nc" id="L343">                borderWidth += box(0.5.px)</span>
+<span class="nc" id="L344">            }</span>
+<span class="nc" id="L345">            buttonArea {</span>
+<span class="nc" id="L346">                spacing = 0.px</span>
+<span class="nc" id="L347">                padding = box(0.px)</span>
+<span class="nc" id="L348">                toggleButton {</span>
+<span class="nc" id="L349">                    backgroundInsets += box(0.px)</span>
+<span class="nc" id="L350">                    backgroundRadius += box(0.px)</span>
+<span class="nc" id="L351">                    and(selected) {</span>
+<span class="nc" id="L352">                        backgroundColor += c(&quot;#818181&quot;)</span>
+<span class="nc" id="L353">                        textFill = Color.WHITE</span>
+<span class="nc" id="L354">                    }</span>
+<span class="nc" id="L355">                }</span>
+<span class="nc" id="L356">            }</span>
+<span class="nc" id="L357">        }</span>
+<span class="nc" id="L358">        drawerItem child titledPane {</span>
+<span class="nc" id="L359">            title {</span>
+<span class="nc" id="L360">                backgroundRadius += box(0.px)</span>
+<span class="nc" id="L361">                padding = box(2.px, 5.px)</span>
+<span class="nc" id="L362">            }</span>
+<span class="nc" id="L363">            content {</span>
+<span class="nc" id="L364">                borderColor += box(Color.TRANSPARENT)</span>
+<span class="nc" id="L365">            }</span>
+<span class="nc" id="L366">        }</span>
+<span class="nc" id="L367">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

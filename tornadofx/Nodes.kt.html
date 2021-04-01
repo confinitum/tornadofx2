@@ -1,0 +1,1331 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Nodes.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Nodes.kt</span></div><h1>Nodes.kt</h1><pre class="source lang-java linenums">@file:Suppress(&quot;UNCHECKED_CAST&quot;)
+
+package tornadofx
+
+import javafx.animation.Animation
+import javafx.animation.PauseTransition
+import javafx.application.Platform
+import javafx.beans.binding.BooleanBinding
+import javafx.beans.property.DoubleProperty
+import javafx.beans.property.ListProperty
+import javafx.beans.property.Property
+import javafx.beans.value.ObservableValue
+import javafx.collections.FXCollections.observableArrayList
+import javafx.collections.ListChangeListener
+import javafx.collections.ObservableList
+import javafx.event.EventHandler
+import javafx.event.EventTarget
+import javafx.geometry.*
+import javafx.scene.*
+import javafx.scene.control.*
+import javafx.scene.control.cell.TextFieldTableCell
+import javafx.scene.control.skin.TableColumnHeader
+import javafx.scene.input.InputEvent
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
+import javafx.scene.layout.*
+import javafx.scene.paint.Color
+import javafx.scene.paint.Paint
+import javafx.stage.Modality
+import javafx.stage.Stage
+import javafx.util.Callback
+import javafx.util.Duration
+import javafx.util.StringConverter
+import javafx.util.converter.*
+import tornadofx.osgi.OSGIConsole
+import java.math.BigDecimal
+import java.math.BigInteger
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.util.*
+import java.util.function.UnaryOperator
+import kotlin.reflect.KClass
+import kotlin.reflect.full.safeCast
+
+<span class="nc" id="L48">fun EventTarget.getToggleGroup(): ToggleGroup? = properties[&quot;tornadofx.togglegroup&quot;] as ToggleGroup?</span>
+
+<span class="nc" id="L50">fun Node.tooltip(text: String? = null, graphic: Node? = null, op: Tooltip.() -&gt; Unit = {}): Tooltip {</span>
+<span class="nc" id="L51">    val newToolTip = Tooltip(text)</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">    graphic?.apply { newToolTip.graphic = this }</span>
+<span class="nc" id="L53">    newToolTip.op()</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">    if (this is Control) tooltip = newToolTip else Tooltip.install(this, newToolTip)</span>
+<span class="nc" id="L55">    return newToolTip</span>
+}
+
+fun Scene.reloadStylesheets() {
+<span class="nc" id="L59">    val styles = stylesheets.toMutableList()</span>
+<span class="nc" id="L60">    stylesheets.clear()</span>
+<span class="nc" id="L61">    styles.forEachIndexed { i, s -&gt;</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">        if (s.startsWith(&quot;css://&quot;)) {</span>
+<span class="nc" id="L63">            val b = StringBuilder()</span>
+<span class="nc" id="L64">            val queryPairs = mutableListOf&lt;String&gt;()</span>
+
+<span class="nc bnc" id="L66" title="All 2 branches missed.">            if (s.contains(&quot;?&quot;)) {</span>
+<span class="nc" id="L67">                val urlAndQuery = s.split(Regex(&quot;\\?&quot;), 2)</span>
+<span class="nc" id="L68">                b.append(urlAndQuery[0])</span>
+<span class="nc" id="L69">                val query = urlAndQuery[1]</span>
+
+<span class="nc" id="L71">                val pairs = query.split(&quot;&amp;&quot;)</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">                pairs.filterNot { it.startsWith(&quot;squash=&quot;) }.forEach { queryPairs.add(it) }</span>
+            } else {
+<span class="nc" id="L74">                b.append(s)</span>
+            }
+
+<span class="nc" id="L77">            queryPairs.add(&quot;squash=${System.currentTimeMillis()}&quot;)</span>
+<span class="nc" id="L78">            b.append(&quot;?&quot;).append(queryPairs.joinToString(&quot;&amp;&quot;))</span>
+<span class="nc" id="L79">            styles[i] = b.toString()</span>
+        }
+<span class="nc" id="L81">    }</span>
+<span class="nc" id="L82">    stylesheets.addAll(styles)</span>
+<span class="nc" id="L83">}</span>
+
+internal fun Scene.reloadViews() {
+<span class="nc bnc" id="L86" title="All 2 branches missed.">    if (properties[&quot;tornadofx.layoutdebugger&quot;] == null) {</span>
+<span class="nc" id="L87">        findUIComponents().forEach {</span>
+<span class="nc" id="L88">            FX.replaceComponent(it)</span>
+<span class="nc" id="L89">        }</span>
+    }
+<span class="nc" id="L91">}</span>
+
+fun Scene.findUIComponents(): List&lt;UIComponent&gt; {
+<span class="nc" id="L94">    val list = ArrayList&lt;UIComponent&gt;()</span>
+<span class="nc" id="L95">    root.findUIComponents(list)</span>
+<span class="nc" id="L96">    return list</span>
+}
+
+/**
+ * Aggregate UIComponents under the given parent. Nested UIComponents
+ * are not aggregated, but they are removed from the FX.components map
+ * so that they would be reloaded when the parent is reloaded.
+ *
+ * This means that nested UIComponents would loose their state, because
+ * the pack/unpack functions will not be called for these views. This should
+ * be improved in a future version.
+ */
+private fun Parent.findUIComponents(list: MutableList&lt;UIComponent&gt;) {
+<span class="nc" id="L109">    val uicmp = uiComponent&lt;UIComponent&gt;()</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">    if (uicmp is UIComponent) {</span>
+<span class="nc" id="L111">        list += uicmp</span>
+<span class="nc" id="L112">        childrenUnmodifiable.asSequence().filterIsInstance&lt;Parent&gt;().withEach { clearViews() }</span>
+    } else {
+<span class="nc" id="L114">        childrenUnmodifiable.asSequence().filterIsInstance&lt;Parent&gt;().withEach { findUIComponents(list) }</span>
+    }
+<span class="nc" id="L116">}</span>
+
+private fun Parent.clearViews() {
+<span class="nc" id="L119">    val uicmp = uiComponent&lt;UIComponent&gt;()</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">    if (uicmp is View) {</span>
+<span class="nc" id="L121">        FX.getComponents(uicmp.scope).remove(uicmp.javaClass.kotlin)</span>
+    } else {
+<span class="nc" id="L123">        childrenUnmodifiable.asSequence().filterIsInstance&lt;Parent&gt;().forEach(Parent::clearViews)</span>
+    }
+<span class="nc" id="L125">}</span>
+
+fun Stage.reloadStylesheetsOnFocus() {
+<span class="nc bnc" id="L128" title="All 2 branches missed.">    if (properties[&quot;tornadofx.reloadStylesheetsListener&quot;] == null) {</span>
+<span class="nc" id="L129">        focusedProperty().onChange { focused -&gt;</span>
+<span class="nc bnc" id="L130" title="All 6 branches missed.">            if (focused &amp;&amp; FX.initialized.value) scene?.reloadStylesheets()</span>
+<span class="nc" id="L131">        }</span>
+<span class="nc" id="L132">        properties[&quot;tornadofx.reloadStylesheetsListener&quot;] = true</span>
+    }
+<span class="nc" id="L134">}</span>
+
+fun Stage.hookGlobalShortcuts() {
+<span class="fc" id="L137">    addEventFilter(KeyEvent.KEY_PRESSED, stageGlobalShortcuts)</span>
+<span class="fc" id="L138">}</span>
+
+fun Stage.unhookGlobalShortcuts() {
+<span class="fc" id="L141">    removeEventFilter(KeyEvent.KEY_PRESSED, stageGlobalShortcuts)</span>
+<span class="fc" id="L142">}</span>
+
+val Stage.stageGlobalShortcuts: EventHandler&lt;KeyEvent&gt;
+        get() {
+<span class="fc" id="L146">            val key = &quot;tornadofx.stageGlobalShortcuts&quot;</span>
+<span class="fc bfc" id="L147" title="All 2 branches covered.">            if (properties[key] == null) {</span>
+<span class="fc" id="L148">                properties[key] = EventHandler&lt;KeyEvent&gt; {</span>
+<span class="nc bnc" id="L149" title="All 4 branches missed.">                    if (FX.layoutDebuggerShortcut?.match(it) ?: false)</span>
+<span class="nc" id="L150">                        LayoutDebugger.debug(scene)</span>
+<span class="nc bnc" id="L151" title="All 6 branches missed.">                    else if (FX.osgiDebuggerShortcut?.match(it) ?: false &amp;&amp; FX.osgiAvailable)</span>
+<span class="nc" id="L152">                        find&lt;OSGIConsole&gt;().openModal(modality = Modality.NONE)</span>
+<span class="nc" id="L153">                }</span>
+            }
+<span class="pc bpc" id="L155" title="1 of 2 branches missed.">            return properties[key] as EventHandler&lt;KeyEvent&gt;</span>
+        }
+
+fun Stage.reloadViewsOnFocus() {
+<span class="nc bnc" id="L159" title="All 2 branches missed.">    if (properties[&quot;tornadofx.reloadViewsListener&quot;] == null) {</span>
+<span class="nc" id="L160">        focusedProperty().onChange { focused -&gt;</span>
+<span class="nc bnc" id="L161" title="All 6 branches missed.">            if (focused &amp;&amp; FX.initialized.value) scene?.reloadViews()</span>
+<span class="nc" id="L162">        }</span>
+<span class="nc" id="L163">        properties[&quot;tornadofx.reloadViewsListener&quot;] = true</span>
+    }
+<span class="nc" id="L165">}</span>
+
+fun Pane.reloadStylesheets() {
+<span class="nc" id="L168">    val styles = stylesheets.toMutableList()</span>
+<span class="nc" id="L169">    stylesheets.clear()</span>
+<span class="nc" id="L170">    stylesheets.addAll(styles)</span>
+<span class="nc" id="L171">}</span>
+
+<span class="nc" id="L173">infix fun Node.addTo(pane: EventTarget) = pane.addChildIfPossible(this)</span>
+
+fun Pane.replaceChildren(vararg uiComponents: UIComponent) =
+<span class="nc" id="L176">        this.replaceChildren(*(uiComponents.mapEach { root }.toTypedArray()))</span>
+
+fun EventTarget.replaceChildren(vararg node: Node) {
+<span class="nc bnc" id="L179" title="All 2 branches missed.">    val children = requireNotNull(getChildList()) { &quot;This node doesn't have a child list&quot; }</span>
+<span class="nc" id="L180">    children.clear()</span>
+<span class="nc" id="L181">    children.addAll(node)</span>
+<span class="nc" id="L182">}</span>
+
+operator fun EventTarget.plusAssign(node: Node) {
+<span class="fc" id="L185">    addChildIfPossible(node)</span>
+<span class="fc" id="L186">}</span>
+
+fun Pane.clear() {
+<span class="nc" id="L189">    children.clear()</span>
+<span class="nc" id="L190">}</span>
+
+fun &lt;T : EventTarget&gt; T.replaceChildren(op: T.() -&gt; Unit) {
+<span class="nc bnc" id="L193" title="All 2 branches missed.">    getChildList()?.clear()</span>
+<span class="nc" id="L194">    op(this)</span>
+<span class="nc" id="L195">}</span>
+
+fun Node.wrapIn(wrapper: Parent) {
+<span class="nc bnc" id="L198" title="All 2 branches missed.">    parent?.replaceWith(wrapper)</span>
+<span class="nc" id="L199">    wrapper.addChildIfPossible(this)</span>
+<span class="nc" id="L200">}</span>
+
+<span class="fc" id="L202">fun EventTarget.add(node: Node) = plusAssign(node)</span>
+
+operator fun EventTarget.plusAssign(view: UIComponent) {
+<span class="fc bfc" id="L205" title="All 2 branches covered.">    if (this is UIComponent) {</span>
+<span class="fc" id="L206">        root += view</span>
+    } else {
+<span class="fc" id="L208">        this += view.root</span>
+    }
+<span class="fc" id="L210">}</span>
+
+var Region.useMaxWidth: Boolean
+<span class="nc bnc" id="L213" title="All 2 branches missed.">    get() = maxWidth == Double.MAX_VALUE</span>
+<span class="nc bnc" id="L214" title="All 2 branches missed.">    set(value) = if (value) maxWidth = Double.MAX_VALUE else Unit</span>
+
+var Region.useMaxHeight: Boolean
+<span class="nc bnc" id="L217" title="All 2 branches missed.">    get() = maxHeight == Double.MAX_VALUE</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">    set(value) = if (value) maxHeight = Double.MAX_VALUE else Unit</span>
+
+var Region.useMaxSize: Boolean
+<span class="nc bnc" id="L221" title="All 4 branches missed.">    get() = maxWidth == Double.MAX_VALUE &amp;&amp; maxHeight == Double.MAX_VALUE</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">    set(value) = if (value) {</span>
+<span class="nc" id="L223">        useMaxWidth = true; useMaxHeight = true</span>
+<span class="nc" id="L224">    } else Unit</span>
+
+var Region.usePrefWidth: Boolean
+<span class="nc bnc" id="L227" title="All 2 branches missed.">    get() = width == prefWidth</span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">    set(value) = if (value) setMinWidth(Region.USE_PREF_SIZE) else Unit</span>
+
+var Region.usePrefHeight: Boolean
+<span class="nc bnc" id="L231" title="All 2 branches missed.">    get() = height == prefHeight</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">    set(value) = if (value) setMinHeight(Region.USE_PREF_SIZE) else Unit</span>
+
+var Region.usePrefSize: Boolean
+<span class="nc bnc" id="L235" title="All 4 branches missed.">    get() = maxWidth == Double.MAX_VALUE &amp;&amp; maxHeight == Double.MAX_VALUE</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">    set(value) = if (value) setMinSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE) else Unit</span>
+
+<span class="nc" id="L238">fun point(x: Number, y: Number) = Point2D(x.toDouble(), y.toDouble())</span>
+<span class="nc" id="L239">fun point(x: Number, y: Number, z: Number) = Point3D(x.toDouble(), y.toDouble(), z.toDouble())</span>
+<span class="nc" id="L240">infix fun Number.xy(y: Number) = Point2D(toDouble(), y.toDouble())</span>
+
+<span class="nc" id="L242">fun TableView&lt;out Any&gt;.resizeColumnsToFitContent(resizeColumns: List&lt;TableColumn&lt;*, *&gt;&gt; = contentColumns, maxRows: Int = 50, afterResize: () -&gt; Unit = {}) {</span>
+<span class="nc" id="L243">    val doResize = {</span>
+<span class="nc" id="L244">        try {</span>
+<span class="nc" id="L245">            val resizer = skin.javaClass.getDeclaredMethod(&quot;resizeColumnToFitContent&quot;, TableColumn::class.java, Int::class.java)</span>
+<span class="nc" id="L246">            resizer.isAccessible = true</span>
+<span class="nc" id="L247">            resizeColumns.forEach {</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">                if (it.isVisible)</span>
+<span class="nc" id="L249">                    try {</span>
+<span class="nc" id="L250">                        resizer(skin, it, maxRows)</span>
+<span class="nc" id="L251">                    } catch (ignored: Exception) {</span>
+                    }
+<span class="nc" id="L253">            }</span>
+<span class="nc" id="L254">            afterResize()</span>
+<span class="nc" id="L255">        } catch (ex: Throwable) {</span>
+            // Silent for now, it is usually run multiple times
+//            log.warning(&quot;Unable to resize columns to content: ${columns.joinToString{ it.text }}&quot;)
+        }
+<span class="nc" id="L259">    }</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">    if (skin == null) skinProperty().onChangeOnce { doResize() } else doResize()</span>
+<span class="nc" id="L261">}</span>
+
+<span class="nc" id="L263">fun &lt;T&gt; TreeTableView&lt;T&gt;.resizeColumnsToFitContent(resizeColumns: List&lt;TreeTableColumn&lt;*, *&gt;&gt; = contentColumns, maxRows: Int = 50, afterResize: () -&gt; Unit = {}) {</span>
+<span class="nc" id="L264">    val doResize = {</span>
+<span class="nc" id="L265">        try {</span>
+<span class="nc" id="L266">            val resizer = skin.javaClass.getDeclaredMethod(&quot;resizeColumnToFitContent&quot;, TreeTableColumn::class.java, Int::class.java)</span>
+<span class="nc" id="L267">            resizer.isAccessible = true</span>
+<span class="nc" id="L268">            resizeColumns.forEach {</span>
+<span class="nc bnc" id="L269" title="All 2 branches missed.">                if (it.isVisible)</span>
+<span class="nc" id="L270">                    try {</span>
+<span class="nc" id="L271">                        resizer.invoke(skin, it, maxRows)</span>
+<span class="nc" id="L272">                    } catch (ignored: Exception) {</span>
+                    }
+<span class="nc" id="L274">            }</span>
+<span class="nc" id="L275">            afterResize.invoke()</span>
+<span class="nc" id="L276">        } catch (ex: Throwable) {</span>
+//            ex.printStackTrace()
+            // Silent for now, it is usually run multiple times
+//            log.warning(&quot;Unable to resize columns to content: ${columns.joinToString{ it.text }}&quot;)
+        }
+<span class="nc" id="L281">    }</span>
+<span class="nc bnc" id="L282" title="All 2 branches missed.">    if (skin == null) skinProperty().onChangeOnce { doResize() } else doResize()</span>
+<span class="nc" id="L283">}</span>
+
+<span class="nc" id="L285">fun &lt;T&gt; TableView&lt;T&gt;.selectWhere(scrollTo: Boolean = true, condition: (T) -&gt; Boolean) {</span>
+<span class="nc" id="L286">    items.asSequence().filter(condition).forEach {</span>
+<span class="nc" id="L287">        selectionModel.select(it)</span>
+<span class="nc bnc" id="L288" title="All 2 branches missed.">        if (scrollTo) scrollTo(it)</span>
+<span class="nc" id="L289">    }</span>
+<span class="nc" id="L290">}</span>
+
+
+<span class="nc" id="L293">fun &lt;T&gt; ListView&lt;T&gt;.selectWhere(scrollTo: Boolean = true, condition: (T) -&gt; Boolean) {</span>
+<span class="nc" id="L294">    items.asSequence().filter(condition).forEach {</span>
+<span class="nc" id="L295">        selectionModel.select(it)</span>
+<span class="nc bnc" id="L296" title="All 2 branches missed.">        if (scrollTo) scrollTo(it)</span>
+<span class="nc" id="L297">    }</span>
+<span class="nc" id="L298">}</span>
+
+<span class="nc" id="L300">fun &lt;T&gt; TableView&lt;T&gt;.moveToTopWhere(backingList: ObservableList&lt;T&gt; = items, select: Boolean = true, predicate: (T) -&gt; Boolean) {</span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">    if (select) selectionModel.clearSelection()</span>
+<span class="nc" id="L302">    backingList.filter(predicate).forEach {</span>
+<span class="nc" id="L303">        backingList.remove(it)</span>
+<span class="nc" id="L304">        backingList.add(0, it)</span>
+<span class="nc bnc" id="L305" title="All 2 branches missed.">        if (select) selectionModel.select(it)</span>
+<span class="nc" id="L306">    }</span>
+<span class="nc" id="L307">}</span>
+
+<span class="nc" id="L309">fun &lt;T&gt; TableView&lt;T&gt;.moveToBottomWhere(backingList: ObservableList&lt;T&gt; = items, select: Boolean = true, predicate: (T) -&gt; Boolean) {</span>
+<span class="nc" id="L310">    val end = backingList.size - 1</span>
+<span class="nc bnc" id="L311" title="All 2 branches missed.">    if (select) selectionModel.clearSelection()</span>
+<span class="nc" id="L312">    backingList.filter(predicate).forEach {</span>
+<span class="nc" id="L313">        backingList.remove(it)</span>
+<span class="nc" id="L314">        backingList.add(end, it)</span>
+<span class="nc bnc" id="L315" title="All 2 branches missed.">        if (select) selectionModel.select(it)</span>
+
+<span class="nc" id="L317">    }</span>
+<span class="nc" id="L318">}</span>
+
+val &lt;T&gt; TableView&lt;T&gt;.selectedItem: T?
+<span class="nc" id="L321">    get() = this.selectionModel.selectedItem</span>
+
+val &lt;T&gt; TreeTableView&lt;T&gt;.selectedItem: T?
+<span class="nc bnc" id="L324" title="All 2 branches missed.">    get() = this.selectionModel.selectedItem?.value</span>
+
+<span class="nc" id="L326">fun &lt;T&gt; TableView&lt;T&gt;.selectFirst() = selectionModel.selectFirst()</span>
+
+<span class="nc" id="L328">fun &lt;T&gt; TreeTableView&lt;T&gt;.selectFirst() = selectionModel.selectFirst()</span>
+
+val &lt;T&gt; ComboBox&lt;T&gt;.selectedItem: T?
+<span class="nc" id="L331">    get() = selectionModel.selectedItem</span>
+
+fun &lt;S&gt; TableView&lt;S&gt;.onSelectionChange(func: (S?) -&gt; Unit) =
+<span class="nc" id="L334">        selectionModel.selectedItemProperty().addListener({ observable, oldValue, newValue -&gt; func(newValue) })</span>
+
+
+fun &lt;T&gt; TreeTableView&lt;T&gt;.bindSelected(property: Property&lt;T&gt;) {
+<span class="nc" id="L338">    selectionModel.selectedItemProperty().onChange {</span>
+<span class="nc bnc" id="L339" title="All 2 branches missed.">        property.value = it?.value</span>
+<span class="nc" id="L340">    }</span>
+<span class="nc" id="L341">}</span>
+
+<span class="nc" id="L343">fun &lt;T&gt; TreeTableView&lt;T&gt;.bindSelected(model: ItemViewModel&lt;T&gt;) = this.bindSelected(model.itemProperty)</span>
+
+<span class="nc" id="L345">class TableColumnCellCache&lt;T&gt;(private val cacheProvider: (T) -&gt; Node) {</span>
+<span class="nc" id="L346">    private val store = mutableMapOf&lt;T, Node&gt;()</span>
+<span class="nc" id="L347">    fun getOrCreateNode(value: T) = store.getOrPut(value) { cacheProvider(value) }</span>
+}
+
+fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.cellDecorator(decorator: TableCell&lt;S, T&gt;.(T) -&gt; Unit) {
+<span class="nc" id="L351">    val originalFactory = cellFactory</span>
+
+<span class="nc" id="L353">    cellFactory = Callback { column: TableColumn&lt;S, T&gt; -&gt;</span>
+<span class="nc" id="L354">        val cell = originalFactory.call(column)</span>
+<span class="nc" id="L355">        cell.itemProperty().addListener { _, _, newValue -&gt;</span>
+<span class="nc bnc" id="L356" title="All 2 branches missed.">            if (newValue != null) decorator(cell, newValue)</span>
+<span class="nc" id="L357">        }</span>
+<span class="nc" id="L358">        cell</span>
+    }
+<span class="nc" id="L360">}</span>
+
+fun &lt;S, T&gt; TreeTableColumn&lt;S, T&gt;.cellFormat(formatter: (TreeTableCell&lt;S, T&gt;.(T) -&gt; Unit)) {
+<span class="nc" id="L363">    cellFactory = Callback { column: TreeTableColumn&lt;S, T&gt; -&gt;</span>
+<span class="nc" id="L364">        object : TreeTableCell&lt;S, T&gt;() {</span>
+<span class="nc" id="L365">            private val defaultStyle = style</span>
+            // technically defined as TreeTableCell.DEFAULT_STYLE_CLASS = &quot;tree-table-cell&quot;, but this is private
+<span class="nc" id="L367">            private val defaultStyleClass = listOf(*styleClass.toTypedArray())</span>
+
+            override fun updateItem(item: T, empty: Boolean) {
+<span class="nc" id="L370">                super.updateItem(item, empty)</span>
+
+<span class="nc bnc" id="L372" title="All 4 branches missed.">                if (item == null || empty) {</span>
+<span class="nc" id="L373">                    text = null</span>
+<span class="nc" id="L374">                    graphic = null</span>
+<span class="nc" id="L375">                    style = defaultStyle</span>
+<span class="nc" id="L376">                    styleClass.setAll(defaultStyleClass)</span>
+                } else {
+<span class="nc" id="L378">                    formatter(this, item)</span>
+                }
+<span class="nc" id="L380">            }</span>
+        }
+    }
+<span class="nc" id="L383">}</span>
+
+<span class="nc" id="L385">enum class EditEventType(val editing: Boolean) {</span>
+<span class="nc" id="L386">    StartEdit(true), CommitEdit(false), CancelEdit(false)</span>
+}
+
+/**
+ * Execute action when the enter key is pressed or the mouse is clicked
+
+ * @param clickCount The number of mouse clicks to trigger the action
+ * *
+ * @param action The action to execute on select
+ */
+<span class="nc" id="L396">fun &lt;T&gt; TableView&lt;T&gt;.onUserSelect(clickCount: Int = 2, action: (T) -&gt; Unit) {</span>
+<span class="nc" id="L397">    val isSelected = { event: InputEvent -&gt;</span>
+<span class="nc bnc" id="L398" title="All 4 branches missed.">        event.target.isInsideRow() &amp;&amp; !selectionModel.isEmpty</span>
+    }
+
+<span class="nc" id="L401">    addEventFilter(MouseEvent.MOUSE_CLICKED) { event -&gt;</span>
+<span class="nc bnc" id="L402" title="All 4 branches missed.">        if (event.clickCount == clickCount &amp;&amp; isSelected(event))</span>
+<span class="nc" id="L403">            action(selectedItem!!)</span>
+<span class="nc" id="L404">    }</span>
+
+<span class="nc" id="L406">    addEventFilter(KeyEvent.KEY_PRESSED) { event -&gt;</span>
+<span class="nc bnc" id="L407" title="All 6 branches missed.">        if (event.code == KeyCode.ENTER &amp;&amp; !event.isMetaDown &amp;&amp; isSelected(event))</span>
+<span class="nc" id="L408">            action(selectedItem!!)</span>
+<span class="nc" id="L409">    }</span>
+<span class="nc" id="L410">}</span>
+
+fun Node.onDoubleClick(action: () -&gt; Unit) {
+<span class="nc" id="L413">    setOnMouseClicked {</span>
+<span class="nc bnc" id="L414" title="All 2 branches missed.">        if (it.clickCount == 2)</span>
+<span class="nc" id="L415">            action()</span>
+<span class="nc" id="L416">    }</span>
+<span class="nc" id="L417">}</span>
+
+<span class="nc" id="L419">fun Node.onLeftClick(clickCount: Int = 1, action: () -&gt; Unit) {</span>
+<span class="nc" id="L420">    setOnMouseClicked {</span>
+<span class="nc bnc" id="L421" title="All 4 branches missed.">        if (it.clickCount == clickCount &amp;&amp; it.button === MouseButton.PRIMARY)</span>
+<span class="nc" id="L422">            action()</span>
+<span class="nc" id="L423">    }</span>
+<span class="nc" id="L424">}</span>
+
+<span class="nc" id="L426">fun Node.onRightClick(clickCount: Int = 1, action: () -&gt; Unit) {</span>
+<span class="nc" id="L427">    setOnMouseClicked {</span>
+<span class="nc bnc" id="L428" title="All 4 branches missed.">        if (it.clickCount == clickCount &amp;&amp; it.button === MouseButton.SECONDARY)</span>
+<span class="nc" id="L429">            action()</span>
+<span class="nc" id="L430">    }</span>
+<span class="nc" id="L431">}</span>
+
+/**
+ * Execute action when the enter key is pressed or the mouse is clicked
+
+ * @param clickCount The number of mouse clicks to trigger the action
+ * *
+ * @param action The action to execute on select
+ */
+<span class="nc" id="L440">fun &lt;T&gt; TreeTableView&lt;T&gt;.onUserSelect(clickCount: Int = 2, action: (T) -&gt; Unit) {</span>
+<span class="nc" id="L441">    val isSelected = { event: InputEvent -&gt;</span>
+<span class="nc bnc" id="L442" title="All 4 branches missed.">        event.target.isInsideRow() &amp;&amp; !selectionModel.isEmpty</span>
+    }
+
+<span class="nc" id="L445">    addEventFilter(MouseEvent.MOUSE_CLICKED) { event -&gt;</span>
+<span class="nc bnc" id="L446" title="All 4 branches missed.">        if (event.clickCount == clickCount &amp;&amp; isSelected(event))</span>
+<span class="nc" id="L447">            action(selectedItem!!)</span>
+<span class="nc" id="L448">    }</span>
+
+<span class="nc" id="L450">    addEventFilter(KeyEvent.KEY_PRESSED) { event -&gt;</span>
+<span class="nc bnc" id="L451" title="All 6 branches missed.">        if (event.code == KeyCode.ENTER &amp;&amp; !event.isMetaDown &amp;&amp; isSelected(event))</span>
+<span class="nc" id="L452">            action(selectedItem!!)</span>
+<span class="nc" id="L453">    }</span>
+<span class="nc" id="L454">}</span>
+
+<span class="nc" id="L456">val &lt;S, T&gt; TableCell&lt;S, T&gt;.rowItem: S get() = tableView.items[index]</span>
+<span class="nc" id="L457">val &lt;S, T&gt; TreeTableCell&lt;S, T&gt;.rowItem: S get() = treeTableView.getTreeItem(index).value</span>
+
+fun &lt;T&gt; ListProperty&lt;T&gt;.asyncItems(func: FXTask&lt;*&gt;.() -&gt; Collection&lt;T&gt;) =
+<span class="nc bnc" id="L460" title="All 4 branches missed.">        task { func(this) } success { value = (it as? ObservableList&lt;T&gt;) ?: observableArrayList(it) }</span>
+
+fun &lt;T&gt; ObservableList&lt;T&gt;.asyncItems(func: FXTask&lt;*&gt;.() -&gt; Collection&lt;T&gt;) =
+<span class="nc" id="L463">        task { func(this) } success { setAll(it) }</span>
+
+fun &lt;T&gt; SortedFilteredList&lt;T&gt;.asyncItems(func: FXTask&lt;*&gt;.() -&gt; Collection&lt;T&gt;) =
+<span class="nc" id="L466">        task { func(this) } success { items.setAll(it) }</span>
+
+fun &lt;T&gt; TableView&lt;T&gt;.asyncItems(func: FXTask&lt;*&gt;.() -&gt; Collection&lt;T&gt;) =
+<span class="nc bnc" id="L469" title="All 2 branches missed.">        task(func = func).success { if (items == null) items = observableArrayList(it) else items.setAll(it) }</span>
+
+fun &lt;T&gt; ComboBox&lt;T&gt;.asyncItems(func: FXTask&lt;*&gt;.() -&gt; Collection&lt;T&gt;) =
+<span class="nc bnc" id="L472" title="All 2 branches missed.">        task(func = func).success { if (items == null) items = observableArrayList(it) else items.setAll(it) }</span>
+
+fun &lt;T&gt; TableView&lt;T&gt;.onUserDelete(action: (T) -&gt; Unit) {
+<span class="nc" id="L475">    addEventFilter(KeyEvent.KEY_PRESSED) { event -&gt;</span>
+<span class="nc bnc" id="L476" title="All 4 branches missed.">        if (event.code == KeyCode.BACK_SPACE &amp;&amp; selectedItem != null)</span>
+<span class="nc" id="L477">            action(selectedItem!!)</span>
+<span class="nc" id="L478">    }</span>
+<span class="nc" id="L479">}</span>
+
+/**
+ * Did the event occur inside a TableRow, TreeTableRow or ListCell?
+ */
+fun EventTarget.isInsideRow(): Boolean {
+<span class="nc bnc" id="L485" title="All 2 branches missed.">    if (this !is Node)</span>
+<span class="nc" id="L486">        return false</span>
+
+<span class="nc bnc" id="L488" title="All 2 branches missed.">    if (this is TableColumnHeader)</span>
+<span class="nc" id="L489">        return false</span>
+
+<span class="nc bnc" id="L491" title="All 10 branches missed.">    if (this is TableRow&lt;*&gt; || this is TableView&lt;*&gt; || this is TreeTableRow&lt;*&gt; || this is TreeTableView&lt;*&gt; || this is ListCell&lt;*&gt;)</span>
+<span class="nc" id="L492">        return true</span>
+
+<span class="nc bnc" id="L494" title="All 2 branches missed.">    if (this.parent != null)</span>
+<span class="nc" id="L495">        return this.parent.isInsideRow()</span>
+
+<span class="nc" id="L497">    return false</span>
+}
+
+/**
+ * Access BorderPane constraints to manipulate and apply on this control
+ */
+inline fun &lt;T : Node&gt; T.borderpaneConstraints(op: (BorderPaneConstraint.() -&gt; Unit)): T {
+<span class="nc" id="L504">    val bpc = BorderPaneConstraint(this)</span>
+<span class="nc" id="L505">    bpc.op()</span>
+<span class="nc" id="L506">    return bpc.applyToNode(this)</span>
+}
+
+<span class="nc" id="L509">class BorderPaneConstraint(node: Node,</span>
+<span class="nc" id="L510">                           override var margin: Insets? = BorderPane.getMargin(node),</span>
+<span class="nc" id="L511">                           var alignment: Pos? = null</span>
+<span class="nc" id="L512">) : MarginableConstraints() {</span>
+    fun &lt;T : Node&gt; applyToNode(node: T): T {
+<span class="nc" id="L514">        margin.let { BorderPane.setMargin(node, it) }</span>
+<span class="nc bnc" id="L515" title="All 2 branches missed.">        alignment?.let { BorderPane.setAlignment(node, it) }</span>
+<span class="nc" id="L516">        return node</span>
+    }
+}
+
+/**
+ * Access GridPane constraints to manipulate and apply on this control
+ */
+inline fun &lt;T : Node&gt; T.gridpaneConstraints(op: (GridPaneConstraint.() -&gt; Unit)): T {
+<span class="nc" id="L524">    val gpc = GridPaneConstraint(this)</span>
+<span class="nc" id="L525">    gpc.op()</span>
+<span class="nc" id="L526">    return gpc.applyToNode(this)</span>
+}
+
+<span class="nc" id="L529">class GridPaneConstraint(node: Node,</span>
+<span class="nc" id="L530">                         var columnIndex: Int? = null,</span>
+<span class="nc" id="L531">                         var rowIndex: Int? = null,</span>
+<span class="nc" id="L532">                         var hGrow: Priority? = null,</span>
+<span class="nc" id="L533">                         var vGrow: Priority? = null,</span>
+<span class="nc" id="L534">                         override var margin: Insets? = GridPane.getMargin(node),</span>
+<span class="nc" id="L535">                         var fillHeight: Boolean? = null,</span>
+<span class="nc" id="L536">                         var fillWidth: Boolean? = null,</span>
+<span class="nc" id="L537">                         var hAlignment: HPos? = null,</span>
+<span class="nc" id="L538">                         var vAlignment: VPos? = null,</span>
+<span class="nc" id="L539">                         var columnSpan: Int? = null,</span>
+<span class="nc" id="L540">                         var rowSpan: Int? = null</span>
+
+<span class="nc" id="L542">) : MarginableConstraints() {</span>
+<span class="nc" id="L543">    var vhGrow: Priority? = null</span>
+        set(value) {
+<span class="nc" id="L545">            vGrow = value</span>
+<span class="nc" id="L546">            hGrow = value</span>
+<span class="nc" id="L547">            field = value</span>
+<span class="nc" id="L548">        }</span>
+
+<span class="nc" id="L550">    var fillHeightWidth: Boolean? = null</span>
+        set(value) {
+<span class="nc" id="L552">            fillHeight = value</span>
+<span class="nc" id="L553">            fillWidth = value</span>
+<span class="nc" id="L554">            field = value</span>
+<span class="nc" id="L555">        }</span>
+
+    fun columnRowIndex(columnIndex: Int, rowIndex: Int) {
+<span class="nc" id="L558">        this.columnIndex = columnIndex</span>
+<span class="nc" id="L559">        this.rowIndex = rowIndex</span>
+<span class="nc" id="L560">    }</span>
+
+    fun fillHeightWidth(fill: Boolean) {
+<span class="nc" id="L563">        fillHeight = fill</span>
+<span class="nc" id="L564">        fillWidth = fill</span>
+<span class="nc" id="L565">    }</span>
+
+    fun &lt;T : Node&gt; applyToNode(node: T): T {
+<span class="nc bnc" id="L568" title="All 2 branches missed.">        columnIndex?.let { GridPane.setColumnIndex(node, it) }</span>
+<span class="nc bnc" id="L569" title="All 2 branches missed.">        rowIndex?.let { GridPane.setRowIndex(node, it) }</span>
+<span class="nc bnc" id="L570" title="All 2 branches missed.">        hGrow?.let { GridPane.setHgrow(node, it) }</span>
+<span class="nc bnc" id="L571" title="All 2 branches missed.">        vGrow?.let { GridPane.setVgrow(node, it) }</span>
+<span class="nc" id="L572">        margin.let { GridPane.setMargin(node, it) }</span>
+<span class="nc bnc" id="L573" title="All 2 branches missed.">        fillHeight?.let { GridPane.setFillHeight(node, it) }</span>
+<span class="nc bnc" id="L574" title="All 2 branches missed.">        fillWidth?.let { GridPane.setFillWidth(node, it) }</span>
+<span class="nc bnc" id="L575" title="All 2 branches missed.">        hAlignment?.let { GridPane.setHalignment(node, it) }</span>
+<span class="nc bnc" id="L576" title="All 2 branches missed.">        vAlignment?.let { GridPane.setValignment(node, it) }</span>
+<span class="nc bnc" id="L577" title="All 2 branches missed.">        columnSpan?.let { GridPane.setColumnSpan(node, it) }</span>
+<span class="nc bnc" id="L578" title="All 2 branches missed.">        rowSpan?.let { GridPane.setRowSpan(node, it) }</span>
+<span class="nc" id="L579">        return node</span>
+    }
+}
+
+inline fun &lt;T : Node&gt; T.vboxConstraints(op: (VBoxConstraint.() -&gt; Unit)): T {
+<span class="nc" id="L584">    val c = VBoxConstraint(this)</span>
+<span class="nc" id="L585">    c.op()</span>
+<span class="nc" id="L586">    return c.applyToNode(this)</span>
+}
+
+inline fun &lt;T : Node&gt; T.stackpaneConstraints(op: (StackpaneConstraint.() -&gt; Unit)): T {
+<span class="nc" id="L590">    val c = StackpaneConstraint(this)</span>
+<span class="nc" id="L591">    c.op()</span>
+<span class="nc" id="L592">    return c.applyToNode(this)</span>
+}
+
+<span class="nc" id="L595">class VBoxConstraint(node: Node,</span>
+<span class="nc" id="L596">                     override var margin: Insets? = VBox.getMargin(node),</span>
+<span class="nc" id="L597">                     var vGrow: Priority? = null</span>
+
+<span class="nc" id="L599">) : MarginableConstraints() {</span>
+    fun &lt;T : Node&gt; applyToNode(node: T): T {
+<span class="nc bnc" id="L601" title="All 2 branches missed.">        margin?.let { VBox.setMargin(node, it) }</span>
+<span class="nc bnc" id="L602" title="All 2 branches missed.">        vGrow?.let { VBox.setVgrow(node, it) }</span>
+<span class="nc" id="L603">        return node</span>
+    }
+}
+
+<span class="nc" id="L607">class StackpaneConstraint(node: Node,</span>
+<span class="nc" id="L608">                          override var margin: Insets? = StackPane.getMargin(node),</span>
+<span class="nc" id="L609">                          var alignment: Pos? = null</span>
+
+<span class="nc" id="L611">) : MarginableConstraints() {</span>
+    fun &lt;T : Node&gt; applyToNode(node: T): T {
+<span class="nc bnc" id="L613" title="All 2 branches missed.">        margin?.let { StackPane.setMargin(node, it) }</span>
+<span class="nc bnc" id="L614" title="All 2 branches missed.">        alignment?.let { StackPane.setAlignment(node, it) }</span>
+<span class="nc" id="L615">        return node</span>
+    }
+}
+
+inline fun &lt;T : Node&gt; T.hboxConstraints(op: (HBoxConstraint.() -&gt; Unit)): T {
+<span class="nc" id="L620">    val c = HBoxConstraint(this)</span>
+<span class="nc" id="L621">    c.op()</span>
+<span class="nc" id="L622">    return c.applyToNode(this)</span>
+}
+
+<span class="nc" id="L625">class HBoxConstraint(node: Node,</span>
+<span class="nc" id="L626">                     override var margin: Insets? = HBox.getMargin(node),</span>
+<span class="nc" id="L627">                     var hGrow: Priority? = null</span>
+<span class="nc" id="L628">) : MarginableConstraints() {</span>
+
+    fun &lt;T : Node&gt; applyToNode(node: T): T {
+<span class="nc bnc" id="L631" title="All 2 branches missed.">        margin?.let { HBox.setMargin(node, it) }</span>
+<span class="nc bnc" id="L632" title="All 2 branches missed.">        hGrow?.let { HBox.setHgrow(node, it) }</span>
+<span class="nc" id="L633">        return node</span>
+    }
+}
+
+var Node.hgrow: Priority?
+<span class="nc" id="L638">    get() = HBox.getHgrow(this)</span>
+    set(value) {
+<span class="nc" id="L640">        HBox.setHgrow(this, value)</span>
+<span class="nc" id="L641">    }</span>
+var Node.vgrow: Priority?
+<span class="nc" id="L643">    get() = VBox.getVgrow(this)</span>
+    set(value) {
+<span class="nc" id="L645">        VBox.setVgrow(this, value)</span>
+        // Input Container vgrow must propagate to Field and Fieldset
+<span class="nc bnc" id="L647" title="All 4 branches missed.">        if (parent?.parent is Field) {</span>
+<span class="nc" id="L648">            VBox.setVgrow(parent.parent, value)</span>
+<span class="nc bnc" id="L649" title="All 4 branches missed.">            if (parent.parent?.parent is Fieldset)</span>
+<span class="nc" id="L650">                VBox.setVgrow(parent.parent.parent, value)</span>
+        }
+<span class="nc" id="L652">    }</span>
+
+inline fun &lt;T : Node&gt; T.anchorpaneConstraints(op: AnchorPaneConstraint.() -&gt; Unit): T {
+<span class="nc" id="L655">    val c = AnchorPaneConstraint()</span>
+<span class="nc" id="L656">    c.op()</span>
+<span class="nc" id="L657">    return c.applyToNode(this)</span>
+}
+
+<span class="nc" id="L660">class AnchorPaneConstraint(</span>
+<span class="nc" id="L661">        var topAnchor: Number? = null,</span>
+<span class="nc" id="L662">        var rightAnchor: Number? = null,</span>
+<span class="nc" id="L663">        var bottomAnchor: Number? = null,</span>
+<span class="nc" id="L664">        var leftAnchor: Number? = null</span>
+) {
+    fun &lt;T : Node&gt; applyToNode(node: T): T {
+<span class="nc bnc" id="L667" title="All 2 branches missed.">        topAnchor?.let { AnchorPane.setTopAnchor(node, it.toDouble()) }</span>
+<span class="nc bnc" id="L668" title="All 2 branches missed.">        rightAnchor?.let { AnchorPane.setRightAnchor(node, it.toDouble()) }</span>
+<span class="nc bnc" id="L669" title="All 2 branches missed.">        bottomAnchor?.let { AnchorPane.setBottomAnchor(node, it.toDouble()) }</span>
+<span class="nc bnc" id="L670" title="All 2 branches missed.">        leftAnchor?.let { AnchorPane.setLeftAnchor(node, it.toDouble()) }</span>
+<span class="nc" id="L671">        return node</span>
+    }
+}
+
+inline fun &lt;T : Node&gt; T.splitpaneConstraints(op: SplitPaneConstraint.() -&gt; Unit): T {
+<span class="nc" id="L676">    val c = SplitPaneConstraint()</span>
+<span class="nc" id="L677">    c.op()</span>
+<span class="nc" id="L678">    return c.applyToNode(this)</span>
+}
+
+<span class="nc" id="L681">class SplitPaneConstraint(</span>
+<span class="nc" id="L682">        var isResizableWithParent: Boolean? = null</span>
+) {
+    fun &lt;T : Node&gt; applyToNode(node: T): T {
+<span class="nc bnc" id="L685" title="All 2 branches missed.">        isResizableWithParent?.let { SplitPane.setResizableWithParent(node, it) }</span>
+<span class="nc" id="L686">        return node</span>
+    }
+}
+
+<span class="nc" id="L690">abstract class MarginableConstraints {</span>
+    abstract var margin: Insets?
+    var marginTop: Double
+<span class="nc bnc" id="L693" title="All 2 branches missed.">        get() = margin?.top ?: 0.0</span>
+        set(value) {
+<span class="nc bnc" id="L695" title="All 6 branches missed.">            margin = Insets(value, margin?.right ?: 0.0, margin?.bottom ?: 0.0, margin?.left ?: 0.0)</span>
+<span class="nc" id="L696">        }</span>
+
+    var marginRight: Double
+<span class="nc bnc" id="L699" title="All 2 branches missed.">        get() = margin?.right ?: 0.0</span>
+        set(value) {
+<span class="nc bnc" id="L701" title="All 6 branches missed.">            margin = Insets(margin?.top ?: 0.0, value, margin?.bottom ?: 0.0, margin?.left ?: 0.0)</span>
+<span class="nc" id="L702">        }</span>
+
+    var marginBottom: Double
+<span class="nc bnc" id="L705" title="All 2 branches missed.">        get() = margin?.bottom ?: 0.0</span>
+        set(value) {
+<span class="nc bnc" id="L707" title="All 6 branches missed.">            margin = Insets(margin?.top ?: 0.0, margin?.right ?: 0.0, value, margin?.left ?: 0.0)</span>
+<span class="nc" id="L708">        }</span>
+
+    var marginLeft: Double
+<span class="nc bnc" id="L711" title="All 2 branches missed.">        get() = margin?.left ?: 0.0</span>
+        set(value) {
+<span class="nc bnc" id="L713" title="All 6 branches missed.">            margin = Insets(margin?.top ?: 0.0, margin?.right ?: 0.0, margin?.bottom ?: 0.0, value)</span>
+<span class="nc" id="L714">        }</span>
+
+    fun marginTopBottom(value: Double) {
+<span class="nc" id="L717">        marginTop = value</span>
+<span class="nc" id="L718">        marginBottom = value</span>
+<span class="nc" id="L719">    }</span>
+
+    fun marginLeftRight(value: Double) {
+<span class="nc" id="L722">        marginLeft = value</span>
+<span class="nc" id="L723">        marginRight = value</span>
+<span class="nc" id="L724">    }</span>
+}
+
+@Suppress(&quot;CAST_NEVER_SUCCEEDS&quot;, &quot;UNCHECKED_CAST&quot;)
+inline fun &lt;T, reified S : Any&gt; TableColumn&lt;T, S&gt;.makeEditable() = apply {
+    tableView?.isEditable = true
+    isEditable = true
+    when (S::class.javaPrimitiveType ?: S::class) {
+        Int::class -&gt; cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(IntegerStringConverter() as StringConverter&lt;S&gt;)
+        Integer::class -&gt; cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(IntegerStringConverter() as StringConverter&lt;S&gt;)
+        Integer::class.javaPrimitiveType -&gt; cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(IntegerStringConverter() as StringConverter&lt;S&gt;)
+        Double::class -&gt; cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(DoubleStringConverter() as StringConverter&lt;S&gt;)
+        Double::class.javaPrimitiveType -&gt; cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(DoubleStringConverter() as StringConverter&lt;S&gt;)
+        Float::class -&gt; cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(FloatStringConverter() as StringConverter&lt;S&gt;)
+        Float::class.javaPrimitiveType -&gt; cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(FloatStringConverter() as StringConverter&lt;S&gt;)
+        Long::class -&gt; cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(LongStringConverter() as StringConverter&lt;S&gt;)
+        Long::class.javaPrimitiveType -&gt; cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(LongStringConverter() as StringConverter&lt;S&gt;)
+        Number::class -&gt; cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(NumberStringConverter() as StringConverter&lt;S&gt;)
+        BigDecimal::class -&gt; cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(BigDecimalStringConverter() as StringConverter&lt;S&gt;)
+        BigInteger::class -&gt; cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(BigIntegerStringConverter() as StringConverter&lt;S&gt;)
+        String::class -&gt; cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(DefaultStringConverter() as StringConverter&lt;S&gt;)
+        LocalDate::class -&gt; cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(LocalDateStringConverter() as StringConverter&lt;S&gt;)
+        LocalTime::class -&gt; cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(LocalTimeStringConverter() as StringConverter&lt;S&gt;)
+        LocalDateTime::class -&gt; cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(LocalDateTimeStringConverter() as StringConverter&lt;S&gt;)
+        Boolean::class.javaPrimitiveType -&gt; {
+            (this as TableColumn&lt;T, Boolean?&gt;).useCheckbox(true)
+        }
+        else -&gt; throw RuntimeException(&quot;makeEditable() is not implemented for specified class type:&quot; + S::class.qualifiedName)
+    }
+}
+
+<span class="nc" id="L755">fun &lt;T&gt; TableView&lt;T&gt;.regainFocusAfterEdit() = apply {</span>
+<span class="nc" id="L756">    editingCellProperty().onChange {</span>
+<span class="nc bnc" id="L757" title="All 2 branches missed.">        if (it == null)</span>
+<span class="nc" id="L758">            requestFocus()</span>
+<span class="nc" id="L759">    }</span>
+<span class="nc" id="L760">}</span>
+
+<span class="nc" id="L762">fun &lt;T, S : Any&gt; TableColumn&lt;T, S&gt;.makeEditable(converter: StringConverter&lt;S&gt;): TableColumn&lt;T, S&gt; = apply {</span>
+<span class="nc bnc" id="L763" title="All 2 branches missed.">    tableView?.isEditable = true</span>
+<span class="nc" id="L764">    cellFactory = TextFieldTableCell.forTableColumn&lt;T, S&gt;(converter)</span>
+<span class="nc" id="L765">}</span>
+
+<span class="nc" id="L767">fun &lt;T&gt; TreeTableView&lt;T&gt;.populate(itemFactory: (T) -&gt; TreeItem&lt;T&gt; = { TreeItem(it) }, childFactory: (TreeItem&lt;T&gt;) -&gt; Iterable&lt;T&gt;?) =</span>
+<span class="nc" id="L768">        populateTree(root, itemFactory, childFactory)</span>
+
+/**
+ * Add children to the given item by invoking the supplied childFactory function, which converts
+ * a TreeItem&amp;lt;T&gt; to a List&amp;lt;T&gt;?.
+ *
+ * If the childFactory returns a non-empty list, each entry in the list is converted to a TreeItem&amp;lt;T&gt;
+ * via the supplied itemProcessor function. The default itemProcessor from TreeTableView.populate and TreeTable.populate
+ * simply wraps the given T in a TreeItem, but you can override it to add icons etc. Lastly, the populateTree
+ * function is called for each of the generated child items.
+ */
+fun &lt;T&gt; populateTree(item: TreeItem&lt;T&gt;, itemFactory: (T) -&gt; TreeItem&lt;T&gt;, childFactory: (TreeItem&lt;T&gt;) -&gt; Iterable&lt;T&gt;?) {
+<span class="fc" id="L780">    val children = childFactory.invoke(item)</span>
+
+<span class="pc bpc" id="L782" title="1 of 2 branches missed.">    children?.map { itemFactory(it) }?.apply {</span>
+<span class="fc" id="L783">        item.children.setAll(this)</span>
+<span class="pc" id="L784">        forEach { populateTree(it, itemFactory, childFactory) }</span>
+<span class="fc" id="L785">    }</span>
+
+<span class="pc bpc" id="L787" title="2 of 4 branches missed.">    (children as? ObservableList&lt;T&gt;)?.addListener(ListChangeListener { change -&gt;</span>
+<span class="fc bfc" id="L788" title="All 2 branches covered.">        while (change.next()) {</span>
+<span class="pc bpc" id="L789" title="1 of 2 branches missed.">            if (change.wasPermutated()) {</span>
+<span class="nc" id="L790">                item.children.subList(change.from, change.to).clear()</span>
+<span class="nc" id="L791">                val permutated = change.list.subList(change.from, change.to).map { itemFactory(it) }</span>
+<span class="nc" id="L792">                item.children.addAll(change.from, permutated)</span>
+<span class="nc" id="L793">                permutated.forEach { populateTree(it, itemFactory, childFactory) }</span>
+            } else {
+<span class="pc bpc" id="L795" title="1 of 2 branches missed.">                if (change.wasRemoved()) {</span>
+<span class="nc bnc" id="L796" title="All 2 branches missed.">                    val removed = change.removed.flatMap { removed -&gt; item.children.filter { it.value == removed } }</span>
+<span class="nc" id="L797">                    item.children.removeAll(removed)</span>
+                }
+<span class="pc bpc" id="L799" title="1 of 2 branches missed.">                if (change.wasAdded()) {</span>
+<span class="fc" id="L800">                    val added = change.addedSubList.map { itemFactory(it) }</span>
+<span class="fc" id="L801">                    item.children.addAll(change.from, added)</span>
+<span class="fc" id="L802">                    added.forEach { populateTree(it, itemFactory, childFactory) }</span>
+                }
+            }
+        }
+<span class="fc" id="L806">    })</span>
+<span class="fc" id="L807">}</span>
+
+/**
+ * Return the UIComponent (View or Fragment) that owns this Parent
+ */
+inline fun &lt;reified T : UIComponent&gt; Node.uiComponent(): T? = properties[UI_COMPONENT_PROPERTY] as? T
+
+/**
+ * Return the UIComponent (View or Fragment) that represents the root of the current Scene within this Stage
+ */
+inline fun &lt;reified T : UIComponent&gt; Stage.uiComponent(): T? = scene.root.uiComponent()
+
+/**
+ * Find all UIComponents of the specified type that owns any of this node's children
+ */
+inline fun &lt;reified T : UIComponent&gt; Parent.findAll(): List&lt;T&gt; = childrenUnmodifiable
+        .filterIsInstance&lt;Parent&gt;()
+        .map { it.uiComponent&lt;UIComponent&gt;() }
+        .filterIsInstance&lt;T&gt;()
+
+
+/**
+ * Find all UIComponents of the specified type that owns any of this UIComponent's root node's children
+ */
+inline fun &lt;reified T : UIComponent&gt; UIComponent.findAll(): List&lt;T&gt; = root.findAll()
+
+/**
+ * Find the first UIComponent of the specified type that owns any of this node's children
+ */
+<span class="nc bnc" id="L836" title="All 2 branches missed.">inline fun &lt;reified T : UIComponent&gt; Parent.lookup(noinline op: T.() -&gt; Unit = {}): T? = findAll&lt;T&gt;().getOrNull(0)?.also(op)</span>
+
+/**
+ * Find the first UIComponent of the specified type that owns any of this UIComponent's root node's children
+ */
+<span class="nc bnc" id="L841" title="All 2 branches missed.">inline fun &lt;reified T : UIComponent&gt; UIComponent.lookup(noinline op: T.() -&gt; Unit = {}): T? = findAll&lt;T&gt;().getOrNull(0)?.also(op)</span>
+
+fun EventTarget.removeFromParent() {
+<span class="fc" id="L844">    when (this) {</span>
+<span class="fc bfc" id="L845" title="All 2 branches covered.">        is UIComponent -&gt; root.removeFromParent()</span>
+<span class="pc bpc" id="L846" title="1 of 2 branches missed.">        is DrawerItem -&gt; drawer.items.remove(this)</span>
+<span class="pc bpc" id="L847" title="5 of 6 branches missed.">        is Tab -&gt; tabPane?.tabs?.remove(this)</span>
+<span class="pc bpc" id="L848" title="1 of 2 branches missed.">        is Node -&gt; {</span>
+<span class="pc bpc" id="L849" title="5 of 12 branches missed.">            (parent?.parent as? ToolBar)?.items?.remove(this) ?: parent?.getChildList()?.remove(this)</span>
+        }
+<span class="nc bnc" id="L851" title="All 4 branches missed.">        is TreeItem&lt;*&gt; -&gt; this.parent.children.remove(this)</span>
+    }
+<span class="fc" id="L853">}</span>
+
+/**
+ * Listen for changes to an observable value and replace all content in this Node with the
+ * new content created by the onChangeBuilder. The builder operates on the node and receives
+ * the new value of the observable as it's only parameter.
+ *
+ * The onChangeBuilder is run immediately with the current value of the property.
+ */
+fun &lt;S : EventTarget, T&gt; S.dynamicContent(property: ObservableValue&lt;T&gt;, onChangeBuilder: S.(T?) -&gt; Unit) {
+<span class="nc" id="L863">    val onChange: (T?) -&gt; Unit = {</span>
+<span class="nc bnc" id="L864" title="All 2 branches missed.">        getChildList()?.clear()</span>
+<span class="nc" id="L865">        onChangeBuilder(this@dynamicContent, it)</span>
+<span class="nc" id="L866">    }</span>
+<span class="nc" id="L867">    property.onChange(onChange)</span>
+<span class="nc" id="L868">    onChange(property.value)</span>
+<span class="nc" id="L869">}</span>
+
+const val TRANSITIONING_PROPERTY = &quot;tornadofx.transitioning&quot;
+/**
+ * Whether this node is currently being used in a [ViewTransition]. Used to determine whether it can be used in a
+ * transition. (Nodes can only exist once in the scenegraph, so it cannot be in two transitions at once.)
+ */
+internal var Node.isTransitioning: Boolean
+    get() {
+<span class="fc" id="L878">        val x = properties[TRANSITIONING_PROPERTY]</span>
+<span class="pc bpc" id="L879" title="5 of 6 branches missed.">        return x != null &amp;&amp; (x !is Boolean || x != false)</span>
+    }
+    set(value) {
+<span class="nc" id="L882">        properties[TRANSITIONING_PROPERTY] = value</span>
+<span class="nc" id="L883">    }</span>
+
+/**
+ * Replace this [Node] with another, optionally using a transition animation.
+ *
+ * @param replacement The node that will replace this one
+ * @param transition The [ViewTransition] used to animate the transition
+ * @return Whether or not the transition will run
+ */
+fun Node.replaceWith(
+    replacement: Node,
+<span class="fc" id="L894">    transition: ViewTransition? = null,</span>
+<span class="fc" id="L895">    sizeToScene: Boolean = false,</span>
+<span class="fc" id="L896">    centerOnScreen: Boolean = false,</span>
+<span class="fc" id="L897">    clip: Boolean = true,</span>
+<span class="fc" id="L898">    onTransit: () -&gt; Unit = {}</span>
+): Boolean {
+<span class="pc bpc" id="L900" title="2 of 4 branches missed.">    if (isTransitioning || replacement.isTransitioning) {</span>
+<span class="nc" id="L901">        return false</span>
+    }
+<span class="fc" id="L903">    onTransit()</span>
+<span class="pc bpc" id="L904" title="2 of 4 branches missed.">    if (this == scene?.root) {</span>
+<span class="nc" id="L905">        val scene = scene!!</span>
+
+<span class="nc bnc" id="L907" title="All 2 branches missed.">        require(replacement is Parent) { &quot;Replacement scene root must be a Parent&quot; }</span>
+
+        // Update scene property to support Live Views
+<span class="nc" id="L910">        replacement.uiComponent&lt;UIComponent&gt;()?.properties?.put(&quot;tornadofx.scene&quot;, scene)</span>
+
+<span class="nc bnc" id="L912" title="All 2 branches missed.">        if (transition != null) {</span>
+<span class="nc" id="L913">            transition.call(this, replacement, clip) {</span>
+<span class="nc" id="L914">                scene.root = it as Parent</span>
+<span class="nc bnc" id="L915" title="All 2 branches missed.">                if (sizeToScene) scene.window.sizeToScene()</span>
+<span class="nc bnc" id="L916" title="All 2 branches missed.">                if (centerOnScreen) scene.window.centerOnScreen()</span>
+<span class="nc" id="L917">            }</span>
+        } else {
+<span class="nc" id="L919">            removeFromParent()</span>
+<span class="nc" id="L920">            replacement.removeFromParent()</span>
+<span class="nc" id="L921">            scene.root = replacement</span>
+<span class="nc bnc" id="L922" title="All 2 branches missed.">            if (sizeToScene) scene.window.sizeToScene()</span>
+<span class="nc bnc" id="L923" title="All 2 branches missed.">            if (centerOnScreen) scene.window.centerOnScreen()</span>
+        }
+<span class="nc" id="L925">        return true</span>
+<span class="pc bpc" id="L926" title="1 of 2 branches missed.">    } else if (parent is Pane) {</span>
+<span class="pc bpc" id="L927" title="1 of 2 branches missed.">        val parent = parent as Pane</span>
+<span class="pc bpc" id="L928" title="1 of 2 branches missed.">        val attach = if (parent is BorderPane) {</span>
+<span class="pc" id="L929">            when (this) {</span>
+<span class="pc bpc" id="L930" title="1 of 2 branches missed.">                parent.top -&gt; {</span>
+<span class="nc" id="L931">                    { it: Node -&gt; parent.top = it }</span>
+                }
+<span class="pc bpc" id="L933" title="1 of 2 branches missed.">                parent.right -&gt; {</span>
+<span class="nc" id="L934">                    { parent.right = it }</span>
+                }
+<span class="pc bpc" id="L936" title="1 of 2 branches missed.">                parent.bottom -&gt; {</span>
+<span class="nc" id="L937">                    { parent.bottom = it }</span>
+                }
+<span class="pc bpc" id="L939" title="1 of 2 branches missed.">                parent.left -&gt; {</span>
+<span class="nc" id="L940">                    { parent.left = it }</span>
+                }
+<span class="pc bpc" id="L942" title="1 of 2 branches missed.">                parent.center -&gt; {</span>
+<span class="fc" id="L943">                    { parent.center = it }</span>
+                }
+                else -&gt; {
+<span class="nc" id="L946">                    { throw IllegalStateException(&quot;Child of BorderPane not found in BorderPane&quot;) }</span>
+                }
+            }
+        } else {
+<span class="nc" id="L950">            val children = parent.children</span>
+<span class="nc" id="L951">            val index = children.indexOf(this);</span>
+<span class="nc" id="L952">            { children.add(index, it) }</span>
+        }
+
+<span class="pc bpc" id="L955" title="1 of 2 branches missed.">        if (transition != null) {</span>
+<span class="nc" id="L956">            transition.call(this, replacement, clip, attach)</span>
+        } else {
+<span class="fc" id="L958">            removeFromParent()</span>
+<span class="fc" id="L959">            replacement.removeFromParent()</span>
+<span class="fc" id="L960">            attach(replacement)</span>
+        }
+<span class="fc" id="L962">        return true</span>
+    } else {
+<span class="nc" id="L964">        return false</span>
+    }
+}
+
+@Deprecated(&quot;This will go away in the future. Use the version with centerOnScreen parameter&quot;, ReplaceWith(&quot;replaceWith(replacement, transition, sizeToScene, false)&quot;))
+<span class="nc" id="L969">fun Node.replaceWith(replacement: Node, transition: ViewTransition? = null, sizeToScene: Boolean, onTransit: () -&gt; Unit = {}) =</span>
+<span class="nc" id="L970">        replaceWith(replacement, transition, sizeToScene, false)</span>
+
+fun Node.hide() {
+<span class="nc" id="L973">    isVisible = false</span>
+<span class="nc" id="L974">    isManaged = false</span>
+<span class="nc" id="L975">}</span>
+
+fun Node.show() {
+<span class="nc" id="L978">    isVisible = true</span>
+<span class="nc" id="L979">    isManaged = true</span>
+<span class="nc" id="L980">}</span>
+
+<span class="nc" id="L982">fun Node.whenVisible(runLater: Boolean = true, op: () -&gt; Unit) {</span>
+<span class="nc" id="L983">    visibleProperty().onChange {</span>
+<span class="nc bnc" id="L984" title="All 2 branches missed.">        if (it) {</span>
+<span class="nc bnc" id="L985" title="All 4 branches missed.">            if (runLater) Platform.runLater(op) else op()</span>
+        }
+<span class="nc" id="L987">    }</span>
+<span class="nc" id="L988">}</span>
+
+inline fun &lt;reified T : Any&gt; Node.findParent(): T? = findParentOfType(T::class)
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+fun &lt;T : Any&gt; Node.findParentOfType(parentType: KClass&lt;T&gt;): T? {
+<span class="pc bpc" id="L994" title="1 of 2 branches missed.">    if (parent == null) return null</span>
+<span class="pc bpc" id="L995" title="1 of 2 branches missed.">    parentType.safeCast(parent)?.also { return it }</span>
+<span class="nc" id="L996">    val uicmp = parent.uiComponent&lt;UIComponent&gt;()</span>
+<span class="nc bnc" id="L997" title="All 2 branches missed.">    parentType.safeCast(uicmp)?.also { return it }</span>
+<span class="nc bnc" id="L998" title="All 2 branches missed.">    return parent?.findParentOfType(parentType)</span>
+}
+
+val Region.paddingTopProperty: DoubleProperty
+<span class="nc" id="L1002">    get() = properties.getOrPut(&quot;paddingTopProperty&quot;) {</span>
+<span class="nc" id="L1003">        proxypropDouble(paddingProperty(), { value.top }) {</span>
+<span class="nc" id="L1004">            Insets(it, value.right, value.bottom, value.left)</span>
+        }
+<span class="nc" id="L1006">    } as DoubleProperty</span>
+
+val Region.paddingBottomProperty: DoubleProperty
+<span class="nc" id="L1009">    get() = properties.getOrPut(&quot;paddingBottomProperty&quot;) {</span>
+<span class="nc" id="L1010">        proxypropDouble(paddingProperty(), { value.bottom }) {</span>
+<span class="nc" id="L1011">            Insets(value.top, value.right, it, value.left)</span>
+        }
+<span class="nc" id="L1013">    } as DoubleProperty</span>
+
+val Region.paddingLeftProperty: DoubleProperty
+<span class="nc" id="L1016">    get() = properties.getOrPut(&quot;paddingLeftProperty&quot;) {</span>
+<span class="nc" id="L1017">        proxypropDouble(paddingProperty(), { value.left }) {</span>
+<span class="nc" id="L1018">            Insets(value.top, value.right, value.bottom, it)</span>
+        }
+<span class="nc" id="L1020">    } as DoubleProperty</span>
+
+val Region.paddingRightProperty: DoubleProperty
+<span class="nc" id="L1023">    get() = properties.getOrPut(&quot;paddingRightProperty&quot;) {</span>
+<span class="nc" id="L1024">        proxypropDouble(paddingProperty(), { value.right }) {</span>
+<span class="nc" id="L1025">            Insets(value.top, it, value.bottom, value.left)</span>
+        }
+<span class="nc" id="L1027">    } as DoubleProperty</span>
+
+val Region.paddingVerticalProperty: DoubleProperty
+<span class="nc" id="L1030">    get() = properties.getOrPut(&quot;paddingVerticalProperty&quot;) {</span>
+<span class="nc" id="L1031">        proxypropDouble(paddingProperty(), { paddingVertical.toDouble() }) {</span>
+<span class="nc" id="L1032">            val half = it / 2.0</span>
+<span class="nc" id="L1033">            Insets(half, value.right, half, value.left)</span>
+        }
+<span class="nc" id="L1035">    } as DoubleProperty</span>
+
+val Region.paddingHorizontalProperty: DoubleProperty
+<span class="nc" id="L1038">    get() = properties.getOrPut(&quot;paddingHorizontalProperty&quot;) {</span>
+<span class="nc" id="L1039">        proxypropDouble(paddingProperty(), { paddingHorizontal.toDouble() }) {</span>
+<span class="nc" id="L1040">            val half = it / 2.0</span>
+<span class="nc" id="L1041">            Insets(value.top, half, value.bottom, half)</span>
+        }
+<span class="nc" id="L1043">    } as DoubleProperty</span>
+
+val Region.paddingAllProperty: DoubleProperty
+<span class="nc" id="L1046">    get() = properties.getOrPut(&quot;paddingAllProperty&quot;) {</span>
+<span class="nc" id="L1047">        proxypropDouble(paddingProperty(), { paddingAll.toDouble() }) {</span>
+<span class="nc" id="L1048">            Insets(it, it, it, it)</span>
+        }
+<span class="nc" id="L1050">    } as DoubleProperty</span>
+
+// -- Node helpers
+/**
+ * This extension function will automatically bind to the managedProperty of the given node
+ * and will make sure that it is managed, if the given [expr] returning an observable boolean value equals true.
+ *
+ * @see https://docs.oracle.com/javase/8/javafx/api/javafx/scene/Node.html#managedProperty
+ */
+<span class="nc" id="L1059">fun &lt;T : Node&gt; T.managedWhen(expr: () -&gt; ObservableValue&lt;Boolean&gt;): T = managedWhen(expr())</span>
+
+/**
+ * This extension function will automatically bind to the managedProperty of the given node
+ * and will make sure that it is managed, if the given [predicate] an observable boolean value equals true.
+ *
+ * @see https://docs.oracle.com/javase/8/javafx/api/javafx/scene/Node.html#managedProperty)
+ */
+<span class="nc" id="L1067">fun &lt;T : Node&gt; T.managedWhen(predicate: ObservableValue&lt;Boolean&gt;) = apply {</span>
+<span class="nc" id="L1068">    managedProperty().cleanBind(predicate)</span>
+<span class="nc" id="L1069">}</span>
+
+/**
+ * This extension function will automatically bind to the visibleProperty of the given node
+ * and will make sure that it is visible, if the given [predicate] an observable boolean value equals true.
+ *
+ * @see https://docs.oracle.com/javase/8/javafx/api/javafx/scene/Node.html#visibleProperty
+ */
+<span class="nc" id="L1077">fun &lt;T : Node&gt; T.visibleWhen(predicate: ObservableValue&lt;Boolean&gt;) = apply {</span>
+<span class="nc" id="L1078">    visibleProperty().cleanBind(predicate)</span>
+<span class="nc" id="L1079">}</span>
+
+/**
+ * This extension function will automatically bind to the visibleProperty of the given node
+ * and will make sure that it is visible, if the given [expr] returning an observable boolean value equals true.
+ *
+ * @see https://docs.oracle.com/javase/8/javafx/api/javafx/scene/Node.html#visibleProperty
+ */
+<span class="nc" id="L1087">fun &lt;T : Node&gt; T.visibleWhen(expr: () -&gt; ObservableValue&lt;Boolean&gt;): T = visibleWhen(expr())</span>
+
+/**
+ * This extension function will make sure to hide the given node,
+ * if the given [expr] returning an observable boolean value equals true.
+ */
+<span class="nc" id="L1093">fun &lt;T : Node&gt; T.hiddenWhen(expr: () -&gt; ObservableValue&lt;Boolean&gt;): T = hiddenWhen(expr())</span>
+
+/**
+ * This extension function will make sure to hide the given node,
+ * if the given [predicate] an observable boolean value equals true.
+ */
+<span class="nc" id="L1099">fun &lt;T : Node&gt; T.hiddenWhen(predicate: ObservableValue&lt;Boolean&gt;) = apply {</span>
+<span class="nc bnc" id="L1100" title="All 2 branches missed.">    val binding = if (predicate is BooleanBinding) predicate.not() else predicate.toBinding().not()</span>
+<span class="nc" id="L1101">    visibleProperty().cleanBind(binding)</span>
+<span class="nc" id="L1102">}</span>
+
+/**
+ * This extension function will automatically bind to the disableProperty of the given node
+ * and will disable it, if the given [expr] returning an observable boolean value equals true.
+ *
+ * @see https://docs.oracle.com/javase/8/javafx/api/javafx/scene/Node.html#disable
+ */
+<span class="nc" id="L1110">fun &lt;T : Node&gt; T.disableWhen(expr: () -&gt; ObservableValue&lt;Boolean&gt;): T = disableWhen(expr())</span>
+
+/**
+ * This extension function will automatically bind to the disableProperty of the given node
+ * and will disable it, if the given [predicate] observable boolean value equals true.
+ *
+ * @see https://docs.oracle.com/javase/8/javafx/api/javafx/scene/Node.html#disableProperty
+ */
+<span class="fc" id="L1118">fun &lt;T : Node&gt; T.disableWhen(predicate: ObservableValue&lt;Boolean&gt;) = apply {</span>
+<span class="fc" id="L1119">    disableProperty().cleanBind(predicate)</span>
+<span class="fc" id="L1120">}</span>
+
+/**
+ * This extension function will make sure that the given node is enabled when ever,
+ * the given [expr] returning an observable boolean value equals true.
+ */
+<span class="nc" id="L1126">fun &lt;T : Node&gt; T.enableWhen(expr: () -&gt; ObservableValue&lt;Boolean&gt;): T = enableWhen(expr())</span>
+
+/**
+ * This extension function will make sure that the given node is enabled when ever,
+ * the given [predicate] observable boolean value equals true.
+ */
+<span class="nc" id="L1132">fun &lt;T : Node&gt; T.enableWhen(predicate: ObservableValue&lt;Boolean&gt;) = apply {</span>
+<span class="nc bnc" id="L1133" title="All 2 branches missed.">    val binding = if (predicate is BooleanBinding) predicate.not() else predicate.toBinding().not()</span>
+<span class="nc" id="L1134">    disableProperty().cleanBind(binding)</span>
+<span class="nc" id="L1135">}</span>
+
+/**
+ * This extension function will make sure that the given node will only be visible in the scene graph,
+ * if the given [expr] returning an observable boolean value equals true.
+ */
+<span class="nc" id="L1141">fun &lt;T : Node&gt; T.removeWhen(expr: () -&gt; ObservableValue&lt;Boolean&gt;): T = removeWhen(expr())</span>
+
+/**
+ * This extension function will make sure that the given node will only be visible in the scene graph,
+ * if the given [predicate] observable boolean value equals true.
+ */
+<span class="nc" id="L1147">fun &lt;T : Node&gt; T.removeWhen(predicate: ObservableValue&lt;Boolean&gt;) = apply {</span>
+<span class="nc bnc" id="L1148" title="All 2 branches missed.">    val remove = booleanBinding(predicate) { predicate.value.not() }</span>
+<span class="nc" id="L1149">    visibleProperty().cleanBind(remove)</span>
+<span class="nc" id="L1150">    managedProperty().cleanBind(remove)</span>
+<span class="nc" id="L1151">}</span>
+
+<span class="nc" id="L1153">fun TextInputControl.editableWhen(predicate: ObservableValue&lt;Boolean&gt;) = apply {</span>
+<span class="nc" id="L1154">    editableProperty().bind(predicate)</span>
+<span class="nc" id="L1155">}</span>
+
+<span class="nc" id="L1157">fun ComboBoxBase&lt;*&gt;.editableWhen(predicate: ObservableValue&lt;Boolean&gt;) = apply {</span>
+<span class="nc" id="L1158">    editableProperty().bind(predicate)</span>
+<span class="nc" id="L1159">}</span>
+
+<span class="nc" id="L1161">fun TableView&lt;*&gt;.editableWhen(predicate: ObservableValue&lt;Boolean&gt;) = apply {</span>
+<span class="nc" id="L1162">    editableProperty().bind(predicate)</span>
+<span class="nc" id="L1163">}</span>
+
+<span class="nc" id="L1165">fun TreeTableView&lt;*&gt;.editableWhen(predicate: ObservableValue&lt;Boolean&gt;) = apply {</span>
+<span class="nc" id="L1166">    editableProperty().bind(predicate)</span>
+<span class="nc" id="L1167">}</span>
+
+<span class="nc" id="L1169">fun ListView&lt;*&gt;.editableWhen(predicate: ObservableValue&lt;Boolean&gt;) = apply {</span>
+<span class="nc" id="L1170">    editableProperty().bind(predicate)</span>
+<span class="nc" id="L1171">}</span>
+
+/**
+ * This extension function will make sure that the given [onHover] function will always be calles
+ * when ever the hoverProperty of the given node changes.
+ */
+<span class="nc" id="L1177">fun &lt;T : Node&gt; T.onHover(onHover: (Boolean) -&gt; Unit) = apply {</span>
+<span class="nc" id="L1178">    hoverProperty().onChange { onHover(isHover) }</span>
+<span class="nc" id="L1179">}</span>
+
+// -- MenuItem helpers
+<span class="nc" id="L1182">fun MenuItem.visibleWhen(expr: () -&gt; ObservableValue&lt;Boolean&gt;) = visibleWhen(expr())</span>
+
+<span class="nc" id="L1184">fun MenuItem.visibleWhen(predicate: ObservableValue&lt;Boolean&gt;) = visibleProperty().cleanBind(predicate)</span>
+<span class="nc" id="L1185">fun MenuItem.disableWhen(expr: () -&gt; ObservableValue&lt;Boolean&gt;) = disableWhen(expr())</span>
+<span class="nc" id="L1186">fun MenuItem.disableWhen(predicate: ObservableValue&lt;Boolean&gt;) = disableProperty().cleanBind(predicate)</span>
+<span class="nc" id="L1187">fun MenuItem.enableWhen(expr: () -&gt; ObservableValue&lt;Boolean&gt;) = enableWhen(expr())</span>
+fun MenuItem.enableWhen(obs: ObservableValue&lt;Boolean&gt;) {
+<span class="nc bnc" id="L1189" title="All 2 branches missed.">    val binding = if (obs is BooleanBinding) obs.not() else obs.toBinding().not()</span>
+<span class="nc" id="L1190">    disableProperty().cleanBind(binding)</span>
+<span class="nc" id="L1191">}</span>
+
+<span class="nc" id="L1193">fun EventTarget.svgicon(shape: String, size: Number = 16, color: Paint = Color.BLACK, op: SVGIcon.() -&gt; Unit = {}) = SVGIcon(shape, size, color).attachTo(this, op)</span>
+
+<span class="nc" id="L1195">class SVGIcon(svgShape: String, size: Number = 16, color: Paint = Color.BLACK) : Pane() {</span>
+<span class="nc" id="L1196">    init {</span>
+<span class="nc" id="L1197">        addClass(&quot;icon&quot;, &quot;svg-icon&quot;)</span>
+<span class="nc" id="L1198">        style {</span>
+<span class="nc" id="L1199">            shape = svgShape</span>
+<span class="nc" id="L1200">            backgroundColor += color</span>
+<span class="nc" id="L1201">            minWidth = size.px</span>
+<span class="nc" id="L1202">            minHeight = size.px</span>
+<span class="nc" id="L1203">            maxWidth = size.px</span>
+<span class="nc" id="L1204">            maxHeight = size.px</span>
+<span class="nc" id="L1205">        }</span>
+<span class="nc" id="L1206">    }</span>
+}
+
+<span class="nc" id="L1209">internal class ShortLongPressHandler(node: Node) {</span>
+<span class="nc" id="L1210">    var holdTimer = PauseTransition(700.millis)</span>
+<span class="nc" id="L1211">    var consume: Boolean = false</span>
+<span class="nc" id="L1212">    lateinit var originatingEvent: MouseEvent</span>
+
+<span class="nc" id="L1214">    var shortAction: ((MouseEvent) -&gt; Unit)? = null</span>
+<span class="nc" id="L1215">    var longAction: ((MouseEvent) -&gt; Unit)? = null</span>
+
+<span class="nc" id="L1217">    init {</span>
+<span class="nc bnc" id="L1218" title="All 2 branches missed.">        holdTimer.setOnFinished { longAction?.invoke(originatingEvent) }</span>
+
+<span class="nc" id="L1220">        node.addEventHandler(MouseEvent.MOUSE_PRESSED) {</span>
+<span class="nc" id="L1221">            originatingEvent = it</span>
+<span class="nc" id="L1222">            holdTimer.playFromStart()</span>
+<span class="nc bnc" id="L1223" title="All 2 branches missed.">            if (consume) it.consume()</span>
+<span class="nc" id="L1224">        }</span>
+
+<span class="nc" id="L1226">        node.addEventHandler(MouseEvent.MOUSE_RELEASED) {</span>
+<span class="nc bnc" id="L1227" title="All 2 branches missed.">            if (holdTimer.status == Animation.Status.RUNNING) {</span>
+<span class="nc" id="L1228">                holdTimer.stop()</span>
+<span class="nc bnc" id="L1229" title="All 2 branches missed.">                shortAction?.invoke(originatingEvent)</span>
+<span class="nc bnc" id="L1230" title="All 2 branches missed.">                if (consume) it.consume()</span>
+            }
+<span class="nc" id="L1232">        }</span>
+<span class="nc" id="L1233">    }</span>
+}
+
+internal val Node.shortLongPressHandler: ShortLongPressHandler
+<span class="nc" id="L1237">    get() = properties.getOrPut(&quot;tornadofx.shortLongPressHandler&quot;) {</span>
+<span class="nc" id="L1238">        ShortLongPressHandler(this)</span>
+<span class="nc" id="L1239">    } as ShortLongPressHandler</span>
+
+<span class="nc" id="L1241">fun &lt;T : Node&gt; T.shortpress(consume: Boolean = false, action: (InputEvent) -&gt; Unit) = apply {</span>
+<span class="nc" id="L1242">    shortLongPressHandler.apply {</span>
+<span class="nc" id="L1243">        this.consume = consume</span>
+<span class="nc" id="L1244">        this.shortAction = action</span>
+<span class="nc" id="L1245">    }</span>
+<span class="nc" id="L1246">}</span>
+
+<span class="nc" id="L1248">fun &lt;T : Node&gt; T.longpress(threshold: Duration = 700.millis, consume: Boolean = false, action: (MouseEvent) -&gt; Unit) = apply {</span>
+<span class="nc" id="L1249">    shortLongPressHandler.apply {</span>
+<span class="nc" id="L1250">        this.consume = consume</span>
+<span class="nc" id="L1251">        this.holdTimer.duration = threshold</span>
+<span class="nc" id="L1252">        this.longAction = action</span>
+<span class="nc" id="L1253">    }</span>
+<span class="nc" id="L1254">}</span>
+
+/**
+ * Create, cache and return a Node and store it within the owning node. Typical usage:
+ *
+ *
+ * ```
+ * listview(people) {
+ *     cellFormat {
+ *         graphic = cache {
+ *             hbox {
+ *                 label(&quot;Some large Node graph here&quot;)
+ *             }
+ *         }
+ *     }
+ * }
+ * ```
+ *
+ * Used within a Cell, the cache statement makes sure that the node is only created once per cell during the cell's life time.
+ * This greatly reduces memory and performance overhead and should be used in every situation where
+ * a node graph is created and assigned to the graphic property of a cell.
+ *
+ * Note that if you call this function without a a unique key parameter, you will only ever create a single
+ * cached node for this parent. The use case for this function is mostly to cache the graphic node of a cell,
+ * so for these use cases you don't need to supply a cache key.
+ *
+ * Remember that you can still update whatever you assign to graphic below it on each `cellFormat` update item callback.
+ *
+ * Important: Make sure to not cache hard coded data from the current item this cell represents, as this will change
+ * when the cell is reused to display another item. Either bind to the itemProperty with select, or use `cellCache` instead.
+ */
+<span class="nc" id="L1285">fun &lt;T : Node&gt; Node.cache(key: Any = &quot;tornadofx.cachedNode&quot;, op: EventTarget.() -&gt; T) = properties.getOrPut(key) {</span>
+<span class="nc" id="L1286">    op(this)</span>
+<span class="nc" id="L1287">} as T</span>
+
+
+/**
+ * Filter the input of the text field by passing each change to the discriminator
+ * function and only applying the change if the discriminator returns true
+ *
+ * To only allow digits for example, do:
+ *
+ * filterInput { it.controlNewText.isInt() }
+ *
+ * You can also access just the changed text in `it.text` to validate just the new input.
+ *
+ */
+fun TextInputControl.filterInput(discriminator: (TextFormatter.Change) -&gt; Boolean) {
+<span class="nc" id="L1302">    textFormatter = TextFormatter&lt;Any&gt;(CustomTextFilter(discriminator))</span>
+<span class="nc" id="L1303">}</span>
+
+/**
+ * Custom text filter used to supress input values, for example to
+ * only allow numbers in a textfield. Used via the filterInput {} builder
+ */
+<span class="nc" id="L1309">class CustomTextFilter(private val discriminator: (TextFormatter.Change) -&gt; Boolean) : UnaryOperator&lt;TextFormatter.Change&gt; {</span>
+    override fun apply(c: TextFormatter.Change): TextFormatter.Change =
+<span class="nc bnc" id="L1311" title="All 2 branches missed.">            if (discriminator(c)) c else c.clone().apply { text = &quot;&quot; }</span>
+}
+
+<span class="nc bnc" id="L1314" title="All 4 branches missed.">val Node.indexInParent: Int get() = parent?.childrenUnmodifiable?.indexOf(this) ?: -1</span>
+
+/**
+ * Create a subscene and attach it to the current container as a child. The root node of the SubScene will be whatever is built inside the `op` builder parameter.
+ * If no height or width is given, the size property will be bound to it's parent size.
+ */
+<span class="nc" id="L1320">fun EventTarget.subscene(depthBuffer: Boolean = false, antiAlias: SceneAntialiasing = SceneAntialiasing.DISABLED, width: Number? = null, height: Number? = null, op: SubScene.() -&gt; Unit = {}) =</span>
+<span class="nc bnc" id="L1321" title="All 4 branches missed.">        SubScene(StackPane(), width?.toDouble() ?: 0.0, height?.toDouble() ?: 0.0, depthBuffer, antiAlias).apply {</span>
+<span class="nc bnc" id="L1322" title="All 2 branches missed.">            val builderParent = this@subscene as? Region</span>
+<span class="nc bnc" id="L1323" title="All 2 branches missed.">            if (builderParent != null) {</span>
+<span class="nc bnc" id="L1324" title="All 2 branches missed.">                if (width == null)</span>
+<span class="nc" id="L1325">                    widthProperty().bind(builderParent.widthProperty())</span>
+
+<span class="nc bnc" id="L1327" title="All 2 branches missed.">                if (height == null)</span>
+<span class="nc" id="L1328">                    heightProperty().bind(builderParent.heightProperty())</span>
+            }
+<span class="nc" id="L1330">        }.attachTo(this, op)</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

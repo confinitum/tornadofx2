@@ -1,0 +1,755 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DataGrid.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">DataGrid.kt</span></div><h1>DataGrid.kt</h1><pre class="source lang-java linenums">@file:Suppress(&quot;UNCHECKED_CAST&quot;)
+
+package tornadofx
+
+import javafx.beans.InvalidationListener
+import javafx.beans.property.*
+import javafx.beans.value.ChangeListener
+import javafx.beans.value.ObservableValue
+import javafx.collections.FXCollections
+import javafx.collections.ListChangeListener
+import javafx.collections.ObservableList
+import javafx.collections.WeakListChangeListener
+import javafx.css.*
+import javafx.event.EventTarget
+import javafx.geometry.Pos
+import javafx.scene.Node
+import javafx.scene.control.*
+import javafx.scene.control.SelectionMode.MULTIPLE
+import javafx.scene.control.SelectionMode.SINGLE
+import javafx.scene.control.skin.CellSkinBase
+import javafx.scene.control.skin.VirtualContainerBase
+import javafx.scene.input.*
+import javafx.scene.layout.HBox
+import javafx.scene.layout.StackPane
+import java.util.*
+import kotlin.reflect.KClass
+
+fun &lt;T&gt; EventTarget.datagrid(
+<span class="nc" id="L29">        items: List&lt;T&gt;? = null,</span>
+<span class="nc" id="L30">        scope: Scope = FX.defaultScope,</span>
+<span class="nc" id="L31">        op: DataGrid&lt;T&gt;.() -&gt; Unit = {}</span>
+<span class="nc" id="L32">) = DataGrid&lt;T&gt;().attachTo(this, op){</span>
+<span class="nc" id="L33">    it.scope = scope</span>
+<span class="nc bnc" id="L34" title="All 2 branches missed.">    if (items is ObservableList&lt;T&gt;) it.items = items</span>
+<span class="nc bnc" id="L35" title="All 2 branches missed.">    else if (items is List&lt;T&gt;) it.items.setAll(items)</span>
+<span class="nc" id="L36">}</span>
+
+<span class="nc" id="L38">class DataGridPaginator&lt;T&gt;(private val sourceItems: ObservableList&lt;T&gt;, itemsPerPage: Int = 20): HBox() {</span>
+<span class="nc" id="L39">    val itemsPerPageProperty = SimpleIntegerProperty(itemsPerPage)</span>
+<span class="nc" id="L40">    var itemsPerPage by  itemsPerPageProperty</span>
+
+<span class="nc" id="L42">    val items = FXCollections.observableArrayList&lt;T&gt;()</span>
+
+<span class="nc" id="L44">    private val listChangeTrigger = SimpleObjectProperty(UUID.randomUUID())</span>
+
+<span class="nc" id="L46">    val pageCountProperty = integerBinding(itemsPerPageProperty, sourceItems) {</span>
+<span class="nc" id="L47">        Math.max(1, Math.ceil(sourceItems.size.toDouble() / itemsPerPageProperty.value.toDouble()).toInt())</span>
+    }
+<span class="nc" id="L49">    val pageCount by pageCountProperty</span>
+
+<span class="nc" id="L51">    val currentPageProperty = SimpleIntegerProperty(1)</span>
+<span class="nc" id="L52">    var currentPage by currentPageProperty</span>
+
+<span class="nc" id="L54">    private val listChangeListener = ListChangeListener&lt;T&gt; {</span>
+<span class="nc" id="L55">        listChangeTrigger.value = UUID.randomUUID()</span>
+<span class="nc" id="L56">        setItemsForPage()</span>
+
+        // Check that the current page is still valid, or regenerate buttons
+<span class="nc bnc" id="L59" title="All 2 branches missed.">        while (currentPage &gt; pageCount)</span>
+<span class="nc" id="L60">            currentPage -= 1</span>
+<span class="nc" id="L61">    }</span>
+
+<span class="nc" id="L63">    private val currentFromIndex: Int get() = itemsPerPage * (currentPage - 1)</span>
+<span class="nc" id="L64">    private val currentToIndex: Int get() = Math.min(currentFromIndex + itemsPerPage, sourceItems.size)</span>
+
+<span class="nc" id="L66">    init {</span>
+<span class="nc" id="L67">        spacing = 5.0</span>
+<span class="nc" id="L68">        alignment = Pos.CENTER</span>
+<span class="nc" id="L69">        currentPageProperty.onChange { setItemsForPage() }</span>
+<span class="nc" id="L70">        pageCountProperty.onChange { generatePageButtons() }</span>
+<span class="nc" id="L71">        sourceItems.addListener(listChangeListener)</span>
+<span class="nc" id="L72">        generatePageButtons()</span>
+<span class="nc" id="L73">        setItemsForPage()</span>
+<span class="nc" id="L74">    }</span>
+
+    private fun setItemsForPage() {
+<span class="nc" id="L77">        items.setAll(sourceItems.subList(currentFromIndex, currentToIndex))</span>
+<span class="nc" id="L78">    }</span>
+
+    private fun generatePageButtons() {
+<span class="nc" id="L81">        children.clear()</span>
+<span class="nc" id="L82">        togglegroup {</span>
+            // TODO: Support pagination for pages
+<span class="nc" id="L84">            IntRange(1, pageCount).forEach { pageNo -&gt;</span>
+                // TODO: Allow customization of togglebutton graphic/text
+<span class="nc" id="L86">                togglebutton(pageNo.toString()) {</span>
+<span class="nc" id="L87">                    whenSelected { currentPage = pageNo }</span>
+<span class="nc" id="L88">                }</span>
+<span class="nc" id="L89">            }</span>
+<span class="nc" id="L90">        }</span>
+<span class="nc" id="L91">    }</span>
+}
+
+@Suppress(&quot;unused&quot;)
+<span class="nc" id="L95">class DataGrid&lt;T&gt;(items: ObservableList&lt;T&gt;) : Control() {</span>
+<span class="nc" id="L96">    constructor() : this(FXCollections.observableArrayList())</span>
+<span class="nc" id="L97">    constructor(items: List&lt;T&gt;) : this(FXCollections.observableArrayList(items))</span>
+
+<span class="nc" id="L99">    private val FACTORY = StyleablePropertyFactory&lt;DataGrid&lt;T&gt;&gt;(Control.getClassCssMetaData())</span>
+
+<span class="nc" id="L101">    internal var graphicCache = mutableMapOf&lt;T, Node&gt;()</span>
+
+<span class="nc" id="L103">    val itemsProperty = SimpleListProperty&lt;T&gt;(this, &quot;items&quot;, items)</span>
+<span class="nc" id="L104">    var items: ObservableList&lt;T&gt; get() = itemsProperty.get(); set(value) = itemsProperty.set(value)</span>
+
+<span class="nc" id="L106">    val cellFactoryProperty = SimpleObjectProperty&lt;(DataGrid&lt;T&gt;) -&gt; DataGridCell&lt;T&gt;&gt;(this, &quot;cellFactory&quot;)</span>
+<span class="nc" id="L107">    var cellFactory: ((DataGrid&lt;T&gt;) -&gt; DataGridCell&lt;T&gt;)? get() = cellFactoryProperty.get(); set(value) = cellFactoryProperty.set(value)</span>
+
+<span class="nc" id="L109">    val cellFormatProperty by lazy { SimpleObjectProperty&lt;(DataGridCell&lt;T&gt;.(T) -&gt; Unit)&gt;() }</span>
+<span class="nc" id="L110">    var cellFormat: ((DataGridCell&lt;T&gt;).(T) -&gt; Unit)? get() = cellFormatProperty.get(); set(value) = cellFormatProperty.set(value)</span>
+    fun cellFormat(cellFormat: (DataGridCell&lt;T&gt;).(T) -&gt; Unit) {
+<span class="nc" id="L112">        this.cellFormat = cellFormat</span>
+<span class="nc" id="L113">    }</span>
+
+<span class="nc" id="L115">    val scopeProperty = SimpleObjectProperty&lt;Scope&gt;()</span>
+<span class="nc" id="L116">    var scope: Scope? by scopeProperty</span>
+
+<span class="nc" id="L118">    val cellCacheProperty by lazy { SimpleObjectProperty&lt;((T) -&gt; Node)&gt;() }</span>
+<span class="nc" id="L119">    var cellCache: ((T) -&gt; Node)? get() = cellCacheProperty.get(); set(value) = cellCacheProperty.set(value)</span>
+
+    /**
+     * Assign a Node to the graphic property of this cell. The graphic is cached and will be reused
+     * for whatever cell is currently displaying the current item. Cells will in their life cycle be
+     * used to display serveral different items, but using this function will make sure that there is
+     * never a mismatch between the cached graphic node and the item it was created for.
+     */
+    fun cellCache(cachedGraphic: (T) -&gt; Node) {
+<span class="nc" id="L128">        this.cellCache = cachedGraphic</span>
+<span class="nc" id="L129">    }</span>
+
+<span class="nc" id="L131">    val cellFragmentProperty by lazy { SimpleObjectProperty&lt;KClass&lt;DataGridCellFragment&lt;T&gt;&gt;&gt;() }</span>
+<span class="nc" id="L132">    var cellFragment by cellFragmentProperty</span>
+    fun cellFragment(fragment: KClass&lt;DataGridCellFragment&lt;T&gt;&gt;) {
+<span class="nc" id="L134">        properties[&quot;tornadofx.cellFragment&quot;] = fragment</span>
+<span class="nc" id="L135">    }</span>
+    inline fun &lt;reified C : DataGridCellFragment&lt;T&gt;&gt; cellFragment() {
+        properties[&quot;tornadofx.cellFragment&quot;] = C::class
+    }
+
+<span class="nc bnc" id="L140" title="All 2 branches missed.">    val cellWidthProperty: StyleableObjectProperty&lt;Number&gt; = FACTORY.createStyleableNumberProperty(this, &quot;cellWidth&quot;, &quot;-fx-cell-width&quot;, { it.cellWidthProperty }, 150.0) as StyleableObjectProperty&lt;Number&gt;</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">    var cellWidth: Double get() = cellWidthProperty.value as Double; set(value) {</span>
+<span class="nc" id="L142">        cellWidthProperty.value = value</span>
+<span class="nc" id="L143">    }</span>
+
+<span class="nc bnc" id="L145" title="All 2 branches missed.">    val maxCellsInRowProperty: StyleableObjectProperty&lt;Number&gt; = FACTORY.createStyleableNumberProperty(this, &quot;maxCellsInRow&quot;, &quot;-fx-max-cells-in-row&quot;, { it.maxCellsInRowProperty }, Int.MAX_VALUE) as StyleableObjectProperty&lt;Number&gt;</span>
+<span class="nc" id="L146">    var maxCellsInRow: Int get() = maxCellsInRowProperty.value.toInt(); set(value) {</span>
+<span class="nc" id="L147">        maxCellsInRowProperty.value = value</span>
+<span class="nc" id="L148">    }</span>
+
+<span class="nc bnc" id="L150" title="All 2 branches missed.">    val maxRowsProperty: StyleableObjectProperty&lt;Number&gt; = FACTORY.createStyleableNumberProperty(this, &quot;maxRows&quot;, &quot;-fx-max-rows&quot;, { it.maxRowsProperty }, Int.MAX_VALUE) as StyleableObjectProperty&lt;Number&gt;</span>
+<span class="nc" id="L151">    var maxRows: Int get() = maxRowsProperty.value.toInt(); set(value) {</span>
+<span class="nc" id="L152">        maxRowsProperty.value = value</span>
+<span class="nc" id="L153">    }</span>
+
+<span class="nc bnc" id="L155" title="All 2 branches missed.">    val cellHeightProperty: StyleableObjectProperty&lt;Number&gt; = FACTORY.createStyleableNumberProperty(this, &quot;cellHeight&quot;, &quot;-fx-cell-height&quot;, { it.cellHeightProperty }, 150.0) as StyleableObjectProperty&lt;Number&gt;</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">    var cellHeight: Double get() = cellHeightProperty.value as Double; set(value) {</span>
+<span class="nc" id="L157">        cellHeightProperty.value = value</span>
+<span class="nc" id="L158">    }</span>
+
+<span class="nc" id="L160">    val horizontalCellSpacingProperty: StyleableProperty&lt;Number&gt; = FACTORY.createStyleableNumberProperty(this, &quot;horizontalCellSpacing&quot;, &quot;-fx-horizontal-cell-spacing&quot;, { it.horizontalCellSpacingProperty }, 8.0)</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">    var horizontalCellSpacing: Double get() = horizontalCellSpacingProperty.value as Double; set(value) {</span>
+<span class="nc" id="L162">        horizontalCellSpacingProperty.value = value</span>
+<span class="nc" id="L163">    }</span>
+
+<span class="nc" id="L165">    val verticalCellSpacingProperty: StyleableProperty&lt;Number&gt; = FACTORY.createStyleableNumberProperty(this, &quot;verticalCellSpacing&quot;, &quot;-fx-vertical-cell-spacing&quot;, { it.verticalCellSpacingProperty }, 8.0)</span>
+<span class="nc bnc" id="L166" title="All 2 branches missed.">    var verticalCellSpacing: Double get() = verticalCellSpacingProperty.value as Double; set(value) {</span>
+<span class="nc" id="L167">        verticalCellSpacingProperty.value = value</span>
+<span class="nc" id="L168">    }</span>
+
+<span class="nc" id="L170">    val selectionModel = DataGridSelectionModel(this)</span>
+<span class="nc" id="L171">    val focusModel = DataGridFocusModel(this)</span>
+
+<span class="nc bnc" id="L173" title="All 2 branches missed.">    var singleSelect: Boolean get() = selectionModel.selectionMode == SINGLE; set(value) {</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">        selectionModel.selectionMode = if (value) SINGLE else MULTIPLE</span>
+<span class="nc" id="L175">    }</span>
+<span class="nc bnc" id="L176" title="All 2 branches missed.">    var multiSelect: Boolean get() = selectionModel.selectionMode == MULTIPLE; set(value) {</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">        selectionModel.selectionMode = if (value) MULTIPLE else SINGLE</span>
+<span class="nc" id="L178">    }</span>
+
+<span class="nc" id="L180">    override fun createDefaultSkin() = DataGridSkin(this)</span>
+
+<span class="nc" id="L182">    override fun getUserAgentStylesheet(): String = DataGrid::class.java.getResource(&quot;datagrid.css&quot;).toExternalForm()</span>
+
+<span class="nc" id="L184">    override fun getControlCssMetaData(): MutableList&lt;CssMetaData&lt;out Styleable, *&gt;&gt;? = FACTORY.cssMetaData</span>
+
+    // Called when the items list changes structurally
+<span class="nc" id="L187">    private val itemsChangeListener = InvalidationListener {</span>
+<span class="nc" id="L188">        selectionModel.clearSelectionAndReapply()</span>
+<span class="nc bnc" id="L189" title="All 4 branches missed.">        (skin as? DataGridSkin&lt;T&gt;)?.updateItems()</span>
+<span class="nc" id="L190">    }</span>
+
+    // Called when the items list is swapped for a new
+<span class="nc" id="L193">    private val itemPropertyChangeListener = ChangeListener&lt;ObservableList&lt;T&gt;&gt; { _, oldList, newList -&gt;</span>
+<span class="nc" id="L194">        selectionModel.clearSelectionAndReapply()</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">        if (oldList != null) {</span>
+<span class="nc" id="L196">            oldList.removeListener(itemsChangeListener)</span>
+            // Keep cache for elements in present in the new list
+<span class="nc bnc" id="L198" title="All 2 branches missed.">            oldList.filterNot { it in newList }.forEach { graphicCache.remove(it) }</span>
+        } else {
+<span class="nc" id="L200">            graphicCache.clear()</span>
+        }
+<span class="nc" id="L202">        newList.addListener(itemsChangeListener)</span>
+<span class="nc bnc" id="L203" title="All 4 branches missed.">        (skin as? DataGridSkin&lt;T&gt;)?.updateItems()</span>
+<span class="nc" id="L204">    }</span>
+
+<span class="nc" id="L206">    val selectedItem: T? get() = this.selectionModel.selectedItem</span>
+
+<span class="nc" id="L208">    fun onUserSelect(clickCount: Int = 2, action: (T) -&gt; Unit) {</span>
+<span class="nc" id="L209">        val isSelected = { event: InputEvent -&gt;</span>
+<span class="nc bnc" id="L210" title="All 2 branches missed.">            !selectionModel.isEmpty</span>
+        }
+
+<span class="nc" id="L213">        addEventFilter(MouseEvent.MOUSE_CLICKED) { event -&gt;</span>
+<span class="nc bnc" id="L214" title="All 4 branches missed.">            if (event.clickCount == clickCount &amp;&amp; isSelected(event))</span>
+<span class="nc" id="L215">                action(selectedItem!!)</span>
+<span class="nc" id="L216">        }</span>
+
+<span class="nc" id="L218">        addEventFilter(KeyEvent.KEY_PRESSED) { event -&gt;</span>
+<span class="nc bnc" id="L219" title="All 6 branches missed.">            if (event.code == KeyCode.ENTER &amp;&amp; !event.isMetaDown &amp;&amp; isSelected(event))</span>
+<span class="nc" id="L220">                action(selectedItem!!)</span>
+<span class="nc" id="L221">        }</span>
+<span class="nc" id="L222">    }</span>
+
+<span class="nc" id="L224">    init {</span>
+<span class="nc" id="L225">        addClass(Stylesheet.datagrid)</span>
+<span class="nc" id="L226">        itemsProperty.addListener(itemPropertyChangeListener)</span>
+<span class="nc" id="L227">        items.addListener(itemsChangeListener)</span>
+<span class="nc" id="L228">    }</span>
+}
+
+<span class="nc" id="L231">open class DataGridCell&lt;T&gt;(val dataGrid: DataGrid&lt;T&gt;) : IndexedCell&lt;T&gt;() {</span>
+<span class="nc" id="L232">    var cache: Node? = null</span>
+<span class="nc" id="L233">    var updating = false</span>
+<span class="nc" id="L234">    private var fresh = true</span>
+    private var cellFragment: DataGridCellFragment&lt;T&gt;? = null
+
+<span class="nc" id="L237">    init {</span>
+<span class="nc" id="L238">        addClass(Stylesheet.datagridCell)</span>
+
+        // Update cell content when index changes
+<span class="nc" id="L241">        indexProperty().onChange {</span>
+<span class="nc bnc" id="L242" title="All 2 branches missed.">            if (it == -1) clearCellFragment()</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">            if (!updating) doUpdateItem()</span>
+<span class="nc" id="L244">        }</span>
+<span class="nc" id="L245">    }</span>
+
+    internal fun doUpdateItem() {
+<span class="nc" id="L248">        val totalCount = dataGrid.items.size</span>
+<span class="nc bnc" id="L249" title="All 4 branches missed.">        val item = if (index !in 0 until totalCount) null else dataGrid.items[index]</span>
+<span class="nc" id="L250">        val cacheProvider = dataGrid.cellCache</span>
+<span class="nc bnc" id="L251" title="All 2 branches missed.">        if (item != null) {</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">            if (cacheProvider != null)</span>
+<span class="nc" id="L253">                cache = dataGrid.graphicCache.getOrPut(item, { cacheProvider(item) })</span>
+
+<span class="nc" id="L255">            updateItem(item, false)</span>
+        } else {
+<span class="nc" id="L257">            cache = null</span>
+<span class="nc" id="L258">            updateItem(null, true)</span>
+        }
+
+        // Preemptive update of selected state
+<span class="nc" id="L262">        val isActuallySelected = index in dataGrid.selectionModel.selectedIndices</span>
+<span class="nc bnc" id="L263" title="All 4 branches missed.">        if (!isSelected &amp;&amp; isActuallySelected) updateSelected(true)</span>
+<span class="nc bnc" id="L264" title="All 4 branches missed.">        else if (isSelected &amp;&amp; !isActuallySelected) updateSelected(false)</span>
+<span class="nc" id="L265">    }</span>
+
+    override fun updateItem(item: T?, empty: Boolean) {
+<span class="nc" id="L268">        super.updateItem(item, empty)</span>
+<span class="nc bnc" id="L269" title="All 4 branches missed.">        if (item == null || empty) {</span>
+<span class="nc" id="L270">            graphic = null</span>
+<span class="nc" id="L271">            text = null</span>
+<span class="nc" id="L272">            clearCellFragment()</span>
+        } else {
+<span class="nc" id="L274">            val formatter = dataGrid.cellFormat</span>
+<span class="nc bnc" id="L275" title="All 2 branches missed.">            if (fresh) {</span>
+<span class="nc" id="L276">                val cellFragmentType = dataGrid.properties[&quot;tornadofx.cellFragment&quot;] as KClass&lt;DataGridCellFragment&lt;T&gt;&gt;?</span>
+<span class="nc bnc" id="L277" title="All 4 branches missed.">                cellFragment = if (cellFragmentType != null) find(cellFragmentType, dataGrid.scope ?: FX.defaultScope) else null</span>
+<span class="nc" id="L278">                fresh = false</span>
+            }
+<span class="nc bnc" id="L280" title="All 2 branches missed.">            cellFragment?.apply {</span>
+<span class="nc" id="L281">                editingProperty.cleanBind(editingProperty())</span>
+<span class="nc" id="L282">                itemProperty.value = item</span>
+<span class="nc" id="L283">                cellProperty.value = this@DataGridCell</span>
+<span class="nc" id="L284">                graphic = root</span>
+<span class="nc" id="L285">            }</span>
+<span class="nc bnc" id="L286" title="All 2 branches missed.">            if (cache != null) {</span>
+<span class="nc" id="L287">                graphic = StackPane(cache)</span>
+<span class="nc bnc" id="L288" title="All 2 branches missed.">                formatter?.invoke(this, item)</span>
+            } else {
+<span class="nc bnc" id="L290" title="All 2 branches missed.">                if (formatter != null) formatter.invoke(this, item)</span>
+<span class="nc bnc" id="L291" title="All 2 branches missed.">                else if (graphic == null) graphic = StackPane(Label(item.toString()))</span>
+            }
+        }
+<span class="nc" id="L294">    }</span>
+
+    private fun clearCellFragment() {
+<span class="nc bnc" id="L297" title="All 2 branches missed.">        cellFragment?.apply {</span>
+<span class="nc" id="L298">            cellProperty.value = null</span>
+<span class="nc" id="L299">            itemProperty.value = null</span>
+<span class="nc" id="L300">            editingProperty.unbind()</span>
+<span class="nc" id="L301">            editingProperty.value = false</span>
+<span class="nc" id="L302">        }</span>
+<span class="nc" id="L303">    }</span>
+
+<span class="nc" id="L305">    override fun createDefaultSkin() = DataGridCellSkin(this)</span>
+}
+
+<span class="nc" id="L308">abstract class DataGridCellFragment&lt;T&gt; : ItemFragment&lt;T&gt;() {</span>
+<span class="nc" id="L309">    val cellProperty: ObjectProperty&lt;DataGridCell&lt;T&gt;?&gt; = SimpleObjectProperty()</span>
+<span class="nc" id="L310">    var cell by cellProperty</span>
+<span class="nc" id="L311">    val editingProperty = SimpleBooleanProperty(false)</span>
+<span class="nc" id="L312">    val editing by editingProperty</span>
+
+    open fun startEdit() {
+<span class="nc bnc" id="L315" title="All 2 branches missed.">        cell?.startEdit()</span>
+<span class="nc" id="L316">    }</span>
+
+    open fun commitEdit(newValue: T) {
+<span class="nc bnc" id="L319" title="All 2 branches missed.">        cell?.commitEdit(newValue)</span>
+<span class="nc" id="L320">    }</span>
+
+    open fun cancelEdit() {
+<span class="nc bnc" id="L323" title="All 2 branches missed.">        cell?.cancelEdit()</span>
+<span class="nc" id="L324">    }</span>
+
+    open fun onEdit(op: () -&gt; Unit) {
+<span class="nc bnc" id="L327" title="All 2 branches missed.">        editingProperty.onChange { if (it) op() }</span>
+<span class="nc" id="L328">    }</span>
+}
+
+// TODO: JDK10: Do we need this?
+/*class DataGridCellBehavior&lt;T&gt;(control: DataGridCell&lt;T&gt;) : CellBehaviorBase&lt;DataGridCell&lt;T&gt;&gt;(control, emptyList()) {
+    override fun getFocusModel() = control.dataGrid.focusModel
+
+    override fun getCellContainer() = control
+
+    override fun edit(cell: DataGridCell&lt;T&gt;?) {
+        // No editing support for now
+    }
+
+    override fun getSelectionModel() = control.dataGrid.selectionModel
+
+    override fun doSelect(x: Double, y: Double, button: MouseButton?, clickCount: Int, shiftDown: Boolean, shortcutDown: Boolean) {
+        // I don't understand what the anchor is for yet, so to keep `focusedIndex = getAnchor(cellContainer, fm.getFocusedIndex())`
+        // from returning something else than the currently focused index, I make sure &quot;isDefaultAnchor&quot; is set to true.
+        // Must understand anchor and revisit this
+        control.properties[&quot;isDefaultAnchor&quot;] = true
+        super.doSelect(x, y, button, clickCount, shiftDown, shortcutDown)
+    }
+}*/
+
+<span class="nc" id="L352">class DataGridCellSkin&lt;T&gt;(control: DataGridCell&lt;T&gt;) : CellSkinBase&lt;DataGridCell&lt;T&gt;&gt;(control)</span>
+
+<span class="nc" id="L354">class DataGridFocusModel&lt;T&gt;(val dataGrid: DataGrid&lt;T&gt;) : FocusModel&lt;T&gt;() {</span>
+<span class="nc bnc" id="L355" title="All 4 branches missed.">    override fun getModelItem(index: Int) = if (index in 0 until itemCount) dataGrid.items[index] else null</span>
+<span class="nc" id="L356">    override fun getItemCount() = dataGrid.items.size</span>
+}
+
+
+<span class="nc" id="L360">open class DataGridRow&lt;T&gt;(val dataGrid: DataGrid&lt;T&gt;, val dataGridSkin: DataGridSkin&lt;T&gt;) : IndexedCell&lt;T&gt;() {</span>
+<span class="nc" id="L361">    init {</span>
+<span class="nc" id="L362">        addClass(Stylesheet.datagridRow)</span>
+
+        // Report row as not empty when it's populated
+<span class="nc bnc" id="L365" title="All 2 branches missed.">        indexProperty().addListener(InvalidationListener { updateItem(null, index == -1) })</span>
+<span class="nc" id="L366">    }</span>
+
+<span class="nc" id="L368">    override fun createDefaultSkin() = DataGridRowSkin(this)</span>
+}
+
+<span class="nc" id="L371">class DataGridRowSkin&lt;T&gt;(control: DataGridRow&lt;T&gt;) : CellSkinBase&lt;DataGridRow&lt;T&gt;&gt;(control) {</span>
+<span class="nc" id="L372">    private var lastUpdatedCells = -1..-1</span>
+<span class="nc" id="L373">    init {</span>
+        // Remove default label from CellSkinBase
+<span class="nc" id="L375">        children.clear()</span>
+
+<span class="nc" id="L377">        updateCells()</span>
+
+<span class="nc" id="L379">        registerChangeListener(skinnable.indexProperty()) { updateCells() }</span>
+<span class="nc" id="L380">        registerChangeListener(skinnable.widthProperty()) { updateCells() }</span>
+<span class="nc" id="L381">        registerChangeListener(skinnable.heightProperty()) { updateCells() }</span>
+
+<span class="nc" id="L383">    }</span>
+
+    /**
+     * This routine is copied from the GridView in ControlsFX.
+     */
+    private fun updateCells() {
+<span class="nc" id="L389">        val rowIndex = skinnable.index</span>
+
+<span class="nc bnc" id="L391" title="All 2 branches missed.">        if (rowIndex &gt; -1) {</span>
+<span class="nc" id="L392">            val dataGrid = skinnable.dataGrid</span>
+<span class="nc bnc" id="L393" title="All 2 branches missed.">            val maxCellsInRow = (dataGrid.skin as DataGridSkin&lt;*&gt;).computeMaxCellsInRow()</span>
+<span class="nc" id="L394">            val totalCellsInGrid = dataGrid.items.size</span>
+<span class="nc" id="L395">            val startCellIndex = rowIndex * maxCellsInRow</span>
+<span class="nc" id="L396">            val endCellIndex = startCellIndex + maxCellsInRow - 1</span>
+<span class="nc" id="L397">            var cacheIndex = 0</span>
+
+<span class="nc bnc" id="L399" title="All 2 branches missed.">            lastUpdatedCells = (startCellIndex..endCellIndex).also { if (it == lastUpdatedCells) return }</span>
+
+<span class="nc" id="L401">            var cellIndex = startCellIndex</span>
+<span class="nc bnc" id="L402" title="All 2 branches missed.">            while (cellIndex &lt;= endCellIndex) {</span>
+<span class="nc bnc" id="L403" title="All 2 branches missed.">                if (cellIndex &lt; totalCellsInGrid) {</span>
+<span class="nc" id="L404">                    var cell = getCellAtIndex(cacheIndex)</span>
+<span class="nc bnc" id="L405" title="All 2 branches missed.">                    if (cell == null) {</span>
+<span class="nc" id="L406">                        cell = createCell()</span>
+<span class="nc" id="L407">                        children.add(cell)</span>
+                    }
+<span class="nc" id="L409">                    cell.updating = true</span>
+<span class="nc" id="L410">                    cell.updateIndex(-1)</span>
+<span class="nc" id="L411">                    cell.updating = false</span>
+<span class="nc" id="L412">                    cell.updateIndex(cellIndex)</span>
+                } else {
+<span class="nc" id="L414">                    break</span>
+                }// we are going out of bounds -&gt; exist the loop
+<span class="nc" id="L416">                cellIndex++</span>
+<span class="nc" id="L417">                cacheIndex++</span>
+            }
+
+            // In case we are re-using a row that previously had more cells than
+            // this one, we need to remove the extra cells that remain
+<span class="nc" id="L422">            children.remove(cacheIndex, children.size)</span>
+        }
+<span class="nc" id="L424">    }</span>
+
+<span class="nc bnc" id="L426" title="All 4 branches missed.">    private fun createCell() = skinnable.dataGrid.cellFactory?.invoke(skinnable.dataGrid) ?: DataGridCell&lt;T&gt;(skinnable.dataGrid)</span>
+
+
+    @Suppress(&quot;UNCHECKED_CAST&quot;)
+    fun getCellAtIndex(index: Int): DataGridCell&lt;T&gt;? {
+<span class="nc bnc" id="L431" title="All 2 branches missed.">        if (index &lt; children.size)</span>
+<span class="nc" id="L432">            return children[index] as DataGridCell&lt;T&gt;?</span>
+<span class="nc" id="L433">        return null</span>
+    }
+
+    override fun computeMaxHeight(width: Double, topInset: Double, rightInset: Double, bottomInset: Double, leftInset: Double): Double {
+<span class="nc" id="L437">        val dataGrid = skinnable.dataGrid</span>
+<span class="nc bnc" id="L438" title="All 2 branches missed.">        return dataGrid.cellHeight * (dataGrid.skin as DataGridSkin&lt;*&gt;)._getItemCount()</span>
+    }
+
+    override fun computePrefHeight(width: Double, topInset: Double, rightInset: Double, bottomInset: Double, leftInset: Double): Double {
+<span class="nc" id="L442">        val dataGrid = skinnable.dataGrid</span>
+<span class="nc" id="L443">        return dataGrid.cellHeight + (dataGrid.verticalCellSpacing * 2)</span>
+    }
+
+    override fun computePrefWidth(height: Double, topInset: Double, rightInset: Double, bottomInset: Double, leftInset: Double): Double {
+<span class="nc" id="L447">        val dataGrid = skinnable.dataGrid</span>
+<span class="nc" id="L448">        return (dataGrid.cellWidth + dataGrid.horizontalCellSpacing * 2) * skinnable.dataGridSkin.computeMaxCellsInRow()</span>
+    }
+
+    override fun layoutChildren(x: Double, y: Double, w: Double, h: Double) {
+<span class="nc" id="L452">        val dataGrid = skinnable.dataGrid</span>
+
+<span class="nc" id="L454">        val cellWidth = dataGrid.cellWidth</span>
+<span class="nc" id="L455">        val cellHeight = dataGrid.cellHeight</span>
+<span class="nc" id="L456">        val horizontalCellSpacing = dataGrid.horizontalCellSpacing</span>
+<span class="nc" id="L457">        val verticalCellSpacing = dataGrid.verticalCellSpacing</span>
+
+<span class="nc" id="L459">        var xPos = 0.0</span>
+
+<span class="nc bnc" id="L461" title="All 2 branches missed.">        for (child in children) {</span>
+<span class="nc" id="L462">            child.resizeRelocate(xPos + horizontalCellSpacing, y + verticalCellSpacing, cellWidth, cellHeight)</span>
+<span class="nc" id="L463">            xPos += cellWidth + (horizontalCellSpacing * 2)</span>
+        }
+<span class="nc" id="L465">    }</span>
+}
+
+<span class="nc" id="L468">class DataGridSelectionModel&lt;T&gt;(val dataGrid: DataGrid&lt;T&gt;) : MultipleSelectionModel&lt;T&gt;() {</span>
+<span class="nc" id="L469">    private val selectedIndicies: ObservableList&lt;Int&gt; = FXCollections.observableArrayList()</span>
+<span class="nc" id="L470">    private val selectedItems: ObservableList&lt;T&gt; = FXCollections.observableArrayList()</span>
+
+    fun getCellAt(index: Int): DataGridCell&lt;T&gt;? {
+<span class="nc bnc" id="L473" title="All 2 branches missed.">        val skin = dataGrid.skin as DataGridSkin&lt;T&gt;</span>
+<span class="nc" id="L474">        val cellsPerRow = skin.computeMaxCellsInRow()</span>
+<span class="nc" id="L475">        val rowIndex = index / cellsPerRow</span>
+<span class="nc bnc" id="L476" title="All 2 branches missed.">        val row = skin.getRow(rowIndex) ?: return null</span>
+<span class="nc" id="L477">        val indexInRow = index - (rowIndex * cellsPerRow)</span>
+<span class="nc" id="L478">        val children = row.childrenUnmodifiable</span>
+<span class="nc bnc" id="L479" title="All 2 branches missed.">        return if (children.size &gt; indexInRow) children[indexInRow] as DataGridCell&lt;T&gt;? else null</span>
+    }
+
+<span class="nc" id="L482">    init {</span>
+        // Instead of attaching listeners to all cells, distribute selected status directly
+<span class="nc" id="L484">        val selectedIndicesListener = ListChangeListener&lt;Int&gt; { c -&gt;</span>
+<span class="nc bnc" id="L485" title="All 2 branches missed.">            while (c.next()) {</span>
+<span class="nc bnc" id="L486" title="All 2 branches missed.">                if (c.wasAdded()) c.addedSubList.forEach { index -&gt;</span>
+<span class="nc" id="L487">                    val cell = getCellAt(index)</span>
+<span class="nc bnc" id="L488" title="All 4 branches missed.">                    if (cell != null &amp;&amp; !cell.isSelected) {</span>
+<span class="nc" id="L489">                        cell.updating = true</span>
+<span class="nc" id="L490">                        cell.updateSelected(true)</span>
+<span class="nc" id="L491">                        cell.doUpdateItem()</span>
+<span class="nc" id="L492">                        cell.updating = false</span>
+                    }
+<span class="nc" id="L494">                }</span>
+<span class="nc bnc" id="L495" title="All 2 branches missed.">                if (c.wasRemoved()) c.removed.forEach { index -&gt;</span>
+<span class="nc" id="L496">                    val cell = getCellAt(index)</span>
+<span class="nc bnc" id="L497" title="All 4 branches missed.">                    if (cell != null &amp;&amp; cell.isSelected) {</span>
+<span class="nc" id="L498">                        cell.updating = true</span>
+<span class="nc" id="L499">                        cell.updateSelected(false)</span>
+<span class="nc" id="L500">                        cell.doUpdateItem()</span>
+<span class="nc" id="L501">                        cell.updating = false</span>
+                    }
+<span class="nc" id="L503">                }</span>
+            }
+<span class="nc" id="L505">        }</span>
+
+<span class="nc" id="L507">        selectedIndices.addListener(selectedIndicesListener)</span>
+<span class="nc" id="L508">    }</span>
+
+    override fun selectPrevious() {
+<span class="nc" id="L511">        select(selectedIndex - 1)</span>
+<span class="nc" id="L512">    }</span>
+
+    override fun selectFirst() {
+<span class="nc" id="L515">        select(0)</span>
+<span class="nc" id="L516">    }</span>
+
+    override fun selectLast() {
+<span class="nc" id="L519">        select(dataGrid.items.lastIndex)</span>
+<span class="nc" id="L520">    }</span>
+
+<span class="nc" id="L522">    override fun getSelectedIndices() = selectedIndicies</span>
+
+    override fun clearAndSelect(index: Int) {
+<span class="nc" id="L525">        selectedIndicies.clear()</span>
+<span class="nc" id="L526">        selectedItems.clear()</span>
+<span class="nc" id="L527">        select(index)</span>
+<span class="nc" id="L528">    }</span>
+
+<span class="nc" id="L530">    override fun getSelectedItems() = selectedItems</span>
+
+    override fun selectNext() {
+<span class="nc" id="L533">        select(selectedIndex + 1)</span>
+<span class="nc" id="L534">    }</span>
+
+    override fun selectAll() {
+<span class="nc" id="L537">        selectedIndicies.clear()</span>
+<span class="nc" id="L538">        selectedItems.clear()</span>
+<span class="nc" id="L539">        dataGrid.items.forEachIndexed { index, item -&gt;</span>
+<span class="nc" id="L540">            selectedIndicies.add(index)</span>
+<span class="nc" id="L541">            selectedItems.add(item)</span>
+<span class="nc" id="L542">        }</span>
+<span class="nc" id="L543">        select(dataGrid.items.lastIndex)</span>
+<span class="nc" id="L544">    }</span>
+
+    override fun clearSelection(index: Int) {
+<span class="nc bnc" id="L547" title="All 2 branches missed.">        if (index in selectedIndicies) {</span>
+<span class="nc" id="L548">            selectedIndicies.remove(index)</span>
+<span class="nc" id="L549">            selectedItems.remove(dataGrid.items[index])</span>
+        }
+<span class="nc bnc" id="L551" title="All 2 branches missed.">        if (selectedIndex == index) {</span>
+<span class="nc" id="L552">            selectedIndex = -1</span>
+<span class="nc" id="L553">            selectedItem = null</span>
+        }
+<span class="nc" id="L555">    }</span>
+
+    override fun clearSelection() {
+<span class="nc" id="L558">        selectedIndicies.clear()</span>
+<span class="nc" id="L559">        selectedItems.clear()</span>
+<span class="nc" id="L560">        selectedItem = null</span>
+<span class="nc" id="L561">        selectedIndex = -1</span>
+<span class="nc" id="L562">    }</span>
+
+<span class="nc" id="L564">    override fun isEmpty() = selectedIndicies.isEmpty()</span>
+
+    override fun selectIndices(index: Int, vararg indices: Int) {
+<span class="nc" id="L567">        select(index)</span>
+<span class="nc" id="L568">        indices.forEach { select(it) }</span>
+<span class="nc" id="L569">    }</span>
+
+<span class="nc" id="L571">    override fun isSelected(index: Int) = index in selectedIndicies</span>
+
+    override fun select(obj: T) {
+<span class="nc" id="L574">        val index = dataGrid.items.indexOf(obj)</span>
+<span class="nc" id="L575">        select(index)</span>
+<span class="nc" id="L576">    }</span>
+
+    override fun select(index: Int) {
+<span class="nc bnc" id="L579" title="All 4 branches missed.">        if (index !in dataGrid.items.indices) return</span>
+<span class="nc" id="L580">        selectedIndex = index</span>
+<span class="nc" id="L581">        selectedItem = dataGrid.items[index]</span>
+
+<span class="nc bnc" id="L583" title="All 2 branches missed.">        if (selectionMode == SINGLE) {</span>
+<span class="nc bnc" id="L584" title="All 4 branches missed.">            selectedIndicies.removeAll { it != index }</span>
+<span class="nc" id="L585">            selectedItems.removeAll { it != selectedItem }</span>
+        }
+
+<span class="nc bnc" id="L588" title="All 2 branches missed.">        if (index !in selectedIndicies) {</span>
+<span class="nc" id="L589">            selectedIndicies.add(index)</span>
+<span class="nc" id="L590">            selectedItems.add(selectedItem)</span>
+<span class="nc" id="L591">            dataGrid.focusModel.focus(index)</span>
+        }
+<span class="nc" id="L593">    }</span>
+
+    /**
+     * Clear selection and reapply for the items that are still in the list
+     */
+    fun clearSelectionAndReapply() {
+<span class="nc" id="L599">        val currentItems = selectedItems.toList()</span>
+<span class="nc" id="L600">        val currentIndexes = selectedIndicies.toList()</span>
+<span class="nc" id="L601">        val selectedItemsToIndex = (currentItems zip currentIndexes).toMap()</span>
+
+<span class="nc" id="L603">        clearSelection()</span>
+
+<span class="nc bnc" id="L605" title="All 2 branches missed.">        for (item in currentItems) {</span>
+<span class="nc" id="L606">            val index = dataGrid.items.indexOf(item)</span>
+<span class="nc bnc" id="L607" title="All 2 branches missed.">            if (index &gt; -1) {</span>
+<span class="nc" id="L608">                select(index)</span>
+            } else {
+                // If item is gone, select the item at the same index position
+<span class="nc" id="L611">                select(selectedItemsToIndex[item]!!)</span>
+            }
+        }
+<span class="nc" id="L614">    }</span>
+
+}
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc" id="L619">class DataGridSkin&lt;T&gt;(control: DataGrid&lt;T&gt;) : VirtualContainerBase&lt;DataGrid&lt;T&gt;, DataGridRow&lt;T&gt;&gt;(control) {</span>
+<span class="nc" id="L620">    private val gridViewItemsListener = ListChangeListener&lt;T&gt; {</span>
+<span class="nc" id="L621">        updateItemCount()</span>
+<span class="nc" id="L622">        skinnable.requestLayout()</span>
+<span class="nc" id="L623">    }</span>
+
+<span class="nc" id="L625">    private val weakGridViewItemsListener = WeakListChangeListener(gridViewItemsListener)</span>
+
+<span class="nc" id="L627">    init {</span>
+<span class="nc" id="L628">        updateItems()</span>
+
+<span class="nc" id="L630">        virtualFlow.id = &quot;virtual-flow&quot;</span>
+<span class="nc" id="L631">        virtualFlow.isPannable = false</span>
+<span class="nc" id="L632">        virtualFlow.isFocusTraversable = false</span>
+<span class="nc" id="L633">        virtualFlow.setCellFactory { createCell() }</span>
+<span class="nc" id="L634">        children.add(virtualFlow)</span>
+
+<span class="nc" id="L636">        updateItemCount()</span>
+
+<span class="nc" id="L638">        registerChangeListener(control.itemsProperty) { updateItems() }</span>
+<span class="nc" id="L639">        registerChangeListener(control.cellFactoryProperty) { recreateCells() }</span>
+<span class="nc" id="L640">        registerChangeListener(control.parentProperty()) { _ -&gt;</span>
+<span class="nc" id="L641">                run {</span>
+<span class="nc bnc" id="L642" title="All 4 branches missed.">                        if (skinnable.parent != null &amp;&amp; skinnable.isVisible)</span>
+<span class="nc" id="L643">                                skinnable.requestLayout()</span>
+<span class="nc" id="L644">                    }</span>
+<span class="nc" id="L645">            }</span>
+<span class="nc bnc" id="L646" title="All 2 branches missed.">        registerChangeListener(control.cellHeightProperty as ObservableValue&lt;Number&gt;) { recreateCells() }</span>
+<span class="nc bnc" id="L647" title="All 2 branches missed.">        registerChangeListener(control.cellWidthProperty as ObservableValue&lt;Number&gt;) { recreateCells() }</span>
+<span class="nc bnc" id="L648" title="All 2 branches missed.">        registerChangeListener(control.horizontalCellSpacingProperty as ObservableValue&lt;Number&gt;) { _ -&gt;</span>
+<span class="nc" id="L649">                updateItemCount()</span>
+<span class="nc" id="L650">                recreateCells()</span>
+<span class="nc" id="L651">            }</span>
+<span class="nc bnc" id="L652" title="All 2 branches missed.">        registerChangeListener(control.verticalCellSpacingProperty as ObservableValue&lt;Number&gt;) { recreateCells() }</span>
+<span class="nc" id="L653">        registerChangeListener(control.widthProperty()) { updateItemCount() }</span>
+<span class="nc" id="L654">        registerChangeListener(control.heightProperty()) { updateItemCount() }</span>
+
+
+<span class="nc" id="L657">        focusOnClick()</span>
+<span class="nc" id="L658">    }</span>
+
+    private fun focusOnClick() {
+<span class="nc" id="L661">        skinnable.addEventFilter(MouseEvent.MOUSE_PRESSED) {</span>
+<span class="nc bnc" id="L662" title="All 4 branches missed.">            if (!skinnable.isFocused &amp;&amp; skinnable.isFocusTraversable) skinnable.requestFocus()</span>
+<span class="nc" id="L663">        }</span>
+<span class="nc" id="L664">    }</span>
+
+<span class="nc" id="L666">    fun _getItemCount() = itemCount</span>
+<span class="nc" id="L667">    override fun getItemCount() = Math.ceil(skinnable.items.size.toDouble() / computeMaxCellsInRow()).toInt()</span>
+
+    /**
+     * Compute the maximum number of cells per row. If the calculated number of cells would result in
+     * more than the configured maxRow rows, the maxRow setting takes presedence and overrides the maxCellsInRow
+     */
+    fun computeMaxCellsInRow(): Int {
+<span class="nc" id="L674">        val maxCellsInRow = Math.min(Math.max(Math.floor(computeRowWidth() / computeCellWidth()).toInt(), 1), skinnable.maxCellsInRow)</span>
+<span class="nc" id="L675">        val neededRows = Math.ceil(skinnable.items.size.toDouble() / maxCellsInRow)</span>
+<span class="nc bnc" id="L676" title="All 2 branches missed.">        return if (neededRows &gt; skinnable.maxRows) (skinnable.items.size.toDouble() / skinnable.maxRows).toInt() else maxCellsInRow</span>
+    }
+
+<span class="nc" id="L679">    fun computeRowWidth() = skinnable.width - 14 // Account for scrollbar</span>
+
+<span class="nc" id="L681">    private fun computeCellWidth() = skinnable.cellWidth + skinnable.horizontalCellSpacing * 2</span>
+
+<span class="nc" id="L683">    override fun computePrefHeight(width: Double, topInset: Double, rightInset: Double, bottomInset: Double, leftInset: Double) = 500.0</span>
+
+<span class="nc" id="L685">    override fun computePrefWidth(height: Double, topInset: Double, rightInset: Double, bottomInset: Double, leftInset: Double) = 500.0</span>
+
+    override fun updateItemCount() {
+<span class="nc bnc" id="L688" title="All 2 branches missed.">        if (virtualFlow == null) return</span>
+
+<span class="nc" id="L690">        val oldCount = virtualFlow.cellCount</span>
+<span class="nc" id="L691">        val newCount = itemCount</span>
+
+<span class="nc bnc" id="L693" title="All 2 branches missed.">        if (newCount != oldCount) {</span>
+<span class="nc" id="L694">            virtualFlow.cellCount = newCount</span>
+<span class="nc" id="L695">            rebuildCells()</span>
+        } else {
+<span class="nc" id="L697">            reconfigureCells()</span>
+        }
+<span class="nc" id="L699">        updateRows(newCount)</span>
+<span class="nc" id="L700">    }</span>
+
+<span class="nc" id="L702">    fun createCell() = DataGridRow(skinnable, this)</span>
+
+    fun updateItems() {
+<span class="nc" id="L705">        skinnable.items.removeListener(weakGridViewItemsListener)</span>
+<span class="nc" id="L706">        skinnable.items.addListener(weakGridViewItemsListener)</span>
+<span class="nc" id="L707">        updateItemCount()</span>
+<span class="nc" id="L708">        recreateCells()</span>
+<span class="nc" id="L709">        skinnable.requestLayout()</span>
+<span class="nc" id="L710">    }</span>
+
+    private fun updateRows(rowCount: Int) {
+<span class="nc bnc" id="L713" title="All 4 branches missed.">        for (i in 0..rowCount - 1)</span>
+<span class="nc bnc" id="L714" title="All 2 branches missed.">            getRow(i)?.updateIndex(i)</span>
+<span class="nc" id="L715">    }</span>
+
+<span class="nc" id="L717">    fun getRow(index: Int) = virtualFlow.getVisibleCell(index)</span>
+
+    override fun layoutChildren(x: Double, y: Double, w: Double, h: Double) {
+<span class="nc" id="L720">        val x1 = skinnable.insets.left</span>
+<span class="nc" id="L721">        val y1 = skinnable.insets.top</span>
+<span class="nc" id="L722">        val w1 = skinnable.width - (skinnable.insets.left + skinnable.insets.right)</span>
+<span class="nc" id="L723">        val h1 = skinnable.height - (skinnable.insets.top + skinnable.insets.bottom)</span>
+
+<span class="nc" id="L725">        virtualFlow.resizeRelocate(x1, y1, w1, h1)</span>
+<span class="nc" id="L726">    }</span>
+
+    // TODO: Remove once https://github.com/javafxports/openjdk-jfx/pull/163 is merged
+    private fun recreateCells() {
+<span class="nc" id="L730">        ReflectionUtils.callMethod(virtualFlow, &quot;recreateCells&quot;)</span>
+<span class="nc" id="L731">    }</span>
+
+    private fun rebuildCells() {
+<span class="nc" id="L734">        ReflectionUtils.callMethod(virtualFlow, &quot;rebuildCells&quot;)</span>
+<span class="nc" id="L735">    }</span>
+
+    private fun reconfigureCells() {
+<span class="nc" id="L738">        ReflectionUtils.callMethod(virtualFlow, &quot;reconfigureCells&quot;)</span>
+<span class="nc" id="L739">    }</span>
+
+
+}
+
+fun &lt;T&gt; DataGrid&lt;T&gt;.bindSelected(property: Property&lt;T&gt;) {
+<span class="nc" id="L745">    selectionModel.selectedItemProperty().onChange {</span>
+<span class="nc" id="L746">        property.value = it</span>
+<span class="nc" id="L747">    }</span>
+<span class="nc" id="L748">}</span>
+
+<span class="nc" id="L750">fun &lt;T&gt; DataGrid&lt;T&gt;.bindSelected(model: ItemViewModel&lt;T&gt;) = this.bindSelected(model.itemProperty)</span>
+
+fun &lt;T&gt; DataGrid&lt;T&gt;.asyncItems(func: () -&gt; Collection&lt;T&gt;) =
+<span class="nc" id="L753">        task { func() } success { items.setAll(it) }</span>
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

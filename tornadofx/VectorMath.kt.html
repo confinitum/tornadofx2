@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VectorMath.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">VectorMath.kt</span></div><h1>VectorMath.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.geometry.Point2D
+import javafx.geometry.Point3D
+
+typealias Vector2D = Point2D
+
+<span class="nc" id="L8">fun Point2D(value: Double): Point2D = Point2D(value, value)</span>
+<span class="nc" id="L9">fun Vector2D(value: Double): Vector2D = Vector2D(value, value)</span>
+
+<span class="fc" id="L11">operator fun Point2D.plus(other: Point2D): Point2D = this.add(other)</span>
+<span class="fc" id="L12">operator fun Point2D.plus(value: Double): Point2D = this.add(value, value)</span>
+<span class="fc" id="L13">operator fun Double.plus(point: Point2D): Point2D = point.add(this, this)</span>
+
+<span class="fc" id="L15">operator fun Point2D.minus(other: Point2D): Point2D = this.subtract(other)</span>
+<span class="fc" id="L16">operator fun Point2D.minus(value: Double): Point2D = this.subtract(value, value)</span>
+
+<span class="fc" id="L18">operator fun Point2D.times(factor: Double): Point2D = this.multiply(factor)</span>
+<span class="fc" id="L19">operator fun Double.times(point: Point2D): Point2D = point.multiply(this)</span>
+
+<span class="fc" id="L21">operator fun Point2D.div(divisor: Double): Point2D = this.multiply(1.0 / divisor)</span>
+
+<span class="fc" id="L23">operator fun Point2D.unaryMinus(): Point2D = this.multiply(-1.0)</span>
+
+<span class="fc" id="L25">infix fun Point2D.dot(other: Point2D): Double = this.dotProduct(other)</span>
+<span class="fc" id="L26">infix fun Point2D.cross(other: Point2D): Point3D = this.crossProduct(other)</span>
+<span class="fc" id="L27">infix fun Point2D.angle(other: Point2D): Double = this.angle(other)</span>
+<span class="fc" id="L28">infix fun Point2D.distance(other: Point2D): Double = this.distance(other)</span>
+<span class="fc" id="L29">infix fun Point2D.midPoint(other: Point2D): Point2D = this.midpoint(other)</span>
+
+/**
+ * Returns the squared length of the vector/point.
+ */
+<span class="fc" id="L34">fun Point2D.magnitude2(): Double = this.x * this.x + this.y * this.y</span>
+
+
+typealias Vector3D = Point3D
+
+<span class="nc" id="L39">fun Point3D(value: Double): Point3D = Point3D(value, value, value)</span>
+<span class="nc" id="L40">fun Point3D(point: Point2D, z: Double): Point3D = Point3D(point.x, point.y, z)</span>
+<span class="nc" id="L41">fun Point3D(x: Double, point: Point2D): Point3D = Point3D(x, point.x, point.y)</span>
+
+<span class="nc" id="L43">fun Vector3D(value: Double): Vector3D = Vector3D(value, value, value)</span>
+<span class="nc" id="L44">fun Vector3D(point: Point2D, z: Double): Vector3D = Vector3D(point.x, point.y, z)</span>
+<span class="nc" id="L45">fun Vector3D(x: Double, point: Point2D): Vector3D = Vector3D(x, point.x, point.y)</span>
+
+<span class="fc" id="L47">operator fun Point3D.plus(other: Point3D): Point3D = this.add(other)</span>
+<span class="fc" id="L48">operator fun Point3D.plus(value: Double): Point3D = this.add(value, value, value)</span>
+<span class="fc" id="L49">operator fun Double.plus(point: Point3D): Point3D = point.add(this, this, this)</span>
+
+<span class="fc" id="L51">operator fun Point3D.minus(other: Point3D): Point3D = this.subtract(other)</span>
+<span class="fc" id="L52">operator fun Point3D.minus(value: Double): Point3D = this.subtract(value, value, value)</span>
+
+<span class="fc" id="L54">operator fun Point3D.times(factor: Double): Point3D = this.multiply(factor)</span>
+<span class="fc" id="L55">operator fun Double.times(point: Point3D): Point3D = point.multiply(this)</span>
+
+<span class="fc" id="L57">operator fun Point3D.div(divisor: Double): Point3D = this.multiply(1.0 / divisor)</span>
+
+<span class="fc" id="L59">operator fun Point3D.unaryMinus(): Point3D = this.multiply(-1.0)</span>
+
+<span class="fc" id="L61">infix fun Point3D.dot(other: Point3D): Double = this.dotProduct(other)</span>
+<span class="fc" id="L62">infix fun Point3D.cross(other: Point3D): Point3D = this.crossProduct(other)</span>
+<span class="fc" id="L63">infix fun Point3D.angle(other: Point3D): Double = this.angle(other)</span>
+<span class="fc" id="L64">infix fun Point3D.distance(other: Point3D): Double = this.distance(other)</span>
+<span class="fc" id="L65">infix fun Point3D.midPoint(other: Point3D): Point3D = this.midpoint(other)</span>
+
+/**
+ * Returns the squared length of the vector/point.
+ */
+<span class="fc" id="L70">fun Point3D.magnitude2(): Double = this.x * this.x + this.y * this.y + this.z * this.z</span>
+
+
+// All them swizzles... :P
+
+val Point2D.xx: Point2D
+<span class="nc" id="L76">	get() = Point2D(this.x, this.x)</span>
+
+val Point2D.xy: Point2D
+<span class="nc" id="L79">	get() = Point2D(this.x, this.y)</span>
+
+val Point2D.yx: Point2D
+<span class="nc" id="L82">	get() = Point2D(this.y, this.x)</span>
+
+val Point2D.yy: Point2D
+<span class="nc" id="L85">	get() = Point2D(this.y, this.y)</span>
+
+val Point2D.xxx: Point3D
+<span class="nc" id="L88">	get() = Point3D(this.x, this.x, this.x)</span>
+
+val Point2D.xxy: Point3D
+<span class="nc" id="L91">	get() = Point3D(this.x, this.x, this.y)</span>
+
+val Point2D.xyx: Point3D
+<span class="nc" id="L94">	get() = Point3D(this.x, this.y, this.x)</span>
+
+val Point2D.xyy: Point3D
+<span class="nc" id="L97">	get() = Point3D(this.x, this.y, this.y)</span>
+
+val Point2D.yxx: Point3D
+<span class="nc" id="L100">	get() = Point3D(this.y, this.x, this.x)</span>
+
+val Point2D.yxy: Point3D
+<span class="nc" id="L103">	get() = Point3D(this.y, this.x, this.y)</span>
+
+val Point2D.yyx: Point3D
+<span class="nc" id="L106">	get() = Point3D(this.y, this.y, this.x)</span>
+
+val Point2D.yyy: Point3D
+<span class="nc" id="L109">	get() = Point3D(this.y, this.y, this.y)</span>
+
+
+val Point3D.xx: Point2D
+<span class="nc" id="L113">	get() = Point2D(this.x, this.x)</span>
+
+val Point3D.yx: Point2D
+<span class="nc" id="L116">	get() = Point2D(this.y, this.x)</span>
+
+val Point3D.zx: Point2D
+<span class="nc" id="L119">	get() = Point2D(this.z, this.x)</span>
+
+val Point3D.xy: Point2D
+<span class="nc" id="L122">	get() = Point2D(this.x, this.y)</span>
+
+val Point3D.yy: Point2D
+<span class="nc" id="L125">	get() = Point2D(this.y, this.y)</span>
+
+val Point3D.zy: Point2D
+<span class="nc" id="L128">	get() = Point2D(this.z, this.y)</span>
+
+val Point3D.xz: Point2D
+<span class="nc" id="L131">	get() = Point2D(this.x, this.z)</span>
+
+val Point3D.yz: Point2D
+<span class="nc" id="L134">	get() = Point2D(this.y, this.z)</span>
+
+val Point3D.zz: Point2D
+<span class="nc" id="L137">	get() = Point2D(this.z, this.z)</span>
+
+
+val Point3D.xxx: Point3D
+<span class="nc" id="L141">	get() = Point3D(this.x, this.x, this.x)</span>
+
+val Point3D.yxx: Point3D
+<span class="nc" id="L144">	get() = Point3D(this.y, this.x, this.x)</span>
+
+val Point3D.zxx: Point3D
+<span class="nc" id="L147">	get() = Point3D(this.z, this.x, this.x)</span>
+
+val Point3D.xyx: Point3D
+<span class="nc" id="L150">	get() = Point3D(this.x, this.y, this.x)</span>
+
+val Point3D.yyx: Point3D
+<span class="nc" id="L153">	get() = Point3D(this.y, this.y, this.x)</span>
+
+val Point3D.zyx: Point3D
+<span class="nc" id="L156">	get() = Point3D(this.z, this.y, this.x)</span>
+val Point3D.xzx: Point3D
+<span class="nc" id="L158">	get() = Point3D(this.x, this.z, this.x)</span>
+
+val Point3D.yzx: Point3D
+<span class="nc" id="L161">	get() = Point3D(this.y, this.z, this.x)</span>
+
+val Point3D.zzx: Point3D
+<span class="nc" id="L164">	get() = Point3D(this.z, this.z, this.x)</span>
+
+val Point3D.xxy: Point3D
+<span class="nc" id="L167">	get() = Point3D(this.x, this.x, this.y)</span>
+
+val Point3D.yxy: Point3D
+<span class="nc" id="L170">	get() = Point3D(this.y, this.x, this.y)</span>
+
+val Point3D.zxy: Point3D
+<span class="nc" id="L173">	get() = Point3D(this.z, this.x, this.y)</span>
+
+val Point3D.xyy: Point3D
+<span class="nc" id="L176">	get() = Point3D(this.x, this.y, this.y)</span>
+
+val Point3D.yyy: Point3D
+<span class="nc" id="L179">	get() = Point3D(this.y, this.y, this.y)</span>
+
+val Point3D.zyy: Point3D
+<span class="nc" id="L182">	get() = Point3D(this.z, this.y, this.y)</span>
+
+val Point3D.xzy: Point3D
+<span class="nc" id="L185">	get() = Point3D(this.x, this.z, this.y)</span>
+
+val Point3D.yzy: Point3D
+<span class="nc" id="L188">	get() = Point3D(this.y, this.z, this.y)</span>
+
+val Point3D.zzy: Point3D
+<span class="nc" id="L191">	get() = Point3D(this.z, this.z, this.y)</span>
+
+val Point3D.xxz: Point3D
+<span class="nc" id="L194">	get() = Point3D(this.x, this.x, this.z)</span>
+
+val Point3D.yxz: Point3D
+<span class="nc" id="L197">	get() = Point3D(this.y, this.x, this.z)</span>
+
+val Point3D.zxz: Point3D
+<span class="nc" id="L200">	get() = Point3D(this.z, this.x, this.z)</span>
+
+val Point3D.xyz: Point3D
+<span class="nc" id="L203">	get() = Point3D(this.x, this.y, this.z)</span>
+
+val Point3D.yyz: Point3D
+<span class="nc" id="L206">	get() = Point3D(this.y, this.y, this.z)</span>
+
+val Point3D.zyz: Point3D
+<span class="nc" id="L209">	get() = Point3D(this.z, this.y, this.z)</span>
+
+val Point3D.xzz: Point3D
+<span class="nc" id="L212">	get() = Point3D(this.x, this.z, this.z)</span>
+
+val Point3D.yzz: Point3D
+<span class="nc" id="L215">	get() = Point3D(this.y, this.z, this.z)</span>
+
+val Point3D.zzz: Point3D
+<span class="nc" id="L218">	get() = Point3D(this.z, this.z, this.z)</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

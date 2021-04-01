@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ErrorHandler.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">ErrorHandler.kt</span></div><h1>ErrorHandler.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.application.Platform.runLater
+import javafx.scene.control.Alert
+import javafx.scene.control.Alert.AlertType.ERROR
+import javafx.scene.control.Label
+import javafx.scene.control.TextArea
+import javafx.scene.layout.VBox
+import javafx.scene.paint.Color
+import java.io.ByteArrayOutputStream
+import java.io.PrintWriter
+import java.util.logging.Level
+import java.util.logging.Logger
+
+<span class="nc" id="L15">class DefaultErrorHandler : Thread.UncaughtExceptionHandler {</span>
+<span class="nc" id="L16">    val log = Logger.getLogger(&quot;ErrorHandler&quot;)</span>
+
+<span class="nc" id="L18">    class ErrorEvent(val thread: Thread, val error: Throwable) {</span>
+<span class="nc" id="L19">        internal var consumed = false</span>
+        fun consume() {
+<span class="nc" id="L21">            consumed = true</span>
+<span class="nc" id="L22">        }</span>
+    }
+
+    companion object {
+        // By default, all error messages are shown. Override to decide if certain errors should be handled another way.
+        // Call consume to avoid error dialog.
+<span class="nc" id="L28">        var filter: (ErrorEvent) -&gt; Unit = { }</span>
+    }
+
+    override fun uncaughtException(t: Thread, error: Throwable) {
+<span class="nc" id="L32">        log.log(Level.SEVERE, &quot;Uncaught error&quot;, error)</span>
+
+<span class="nc bnc" id="L34" title="All 2 branches missed.">        if (isCycle(error)) {</span>
+<span class="nc" id="L35">            log.log(Level.INFO, &quot;Detected cycle handling error, aborting.&quot;, error)</span>
+        } else {
+<span class="nc" id="L37">            val event = ErrorEvent(t, error)</span>
+<span class="nc" id="L38">            filter(event)</span>
+
+<span class="nc bnc" id="L40" title="All 2 branches missed.">            if (!event.consumed) {</span>
+<span class="nc" id="L41">                event.consume()</span>
+<span class="nc" id="L42">                runLater {</span>
+<span class="nc" id="L43">                    showErrorDialog(error)</span>
+<span class="nc" id="L44">                }</span>
+            }
+        }
+
+<span class="nc" id="L48">    }</span>
+
+<span class="nc" id="L50">    private fun isCycle(error: Throwable) = error.stackTrace.any {</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">        it.className.startsWith(&quot;${javaClass.name}\$uncaughtException$&quot;)</span>
+<span class="nc" id="L52">    }</span>
+
+    private fun showErrorDialog(error: Throwable) {
+<span class="nc bnc" id="L55" title="All 4 branches missed.">        val cause = Label(if (error.cause != null) error.cause?.message else &quot;&quot;).apply {</span>
+<span class="nc" id="L56">            style = &quot;-fx-font-weight: bold&quot;</span>
+<span class="nc" id="L57">        }</span>
+
+<span class="nc" id="L59">        val textarea = TextArea().apply {</span>
+<span class="nc" id="L60">            prefRowCount = 20</span>
+<span class="nc" id="L61">            prefColumnCount = 50</span>
+<span class="nc" id="L62">            text = stringFromError(error)</span>
+<span class="nc" id="L63">        }</span>
+
+<span class="nc" id="L65">        Alert(ERROR).apply {</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">            title = error.message ?: &quot;An error occured&quot;</span>
+<span class="nc" id="L67">            isResizable = true</span>
+<span class="nc bnc" id="L68" title="All 8 branches missed.">            headerText = if (error.stackTrace.isNullOrEmpty()) &quot;Error&quot; else &quot;Error in &quot; + error.stackTrace[0].toString()</span>
+<span class="nc" id="L69">            dialogPane.content = VBox().apply {</span>
+<span class="nc" id="L70">                add(cause)</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">                if (error is RestException) {</span>
+<span class="nc" id="L72">                    try {</span>
+
+<span class="nc" id="L74">                        title = &quot;HTTP Request Error: $title&quot;</span>
+<span class="nc" id="L75">                        form {</span>
+<span class="nc" id="L76">                            fieldset(error.message) {</span>
+<span class="nc" id="L77">                                val response = error.response</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">                                if (response != null) {</span>
+<span class="nc" id="L79">                                    field(&quot;Status&quot;) {</span>
+<span class="nc" id="L80">                                        label(&quot;${response.statusCode} ${response.reason}&quot;)</span>
+<span class="nc" id="L81">                                    }</span>
+
+<span class="nc" id="L83">                                    val c = response.text()</span>
+
+<span class="nc bnc" id="L85" title="All 2 branches missed.">                                    if (c != null) {</span>
+<span class="nc" id="L86">                                        tabpane {</span>
+<span class="nc" id="L87">                                            background = Color.TRANSPARENT.asBackground()</span>
+
+<span class="nc" id="L89">                                            tab(&quot;Plain text&quot;) {</span>
+<span class="nc" id="L90">                                                textarea(c)</span>
+<span class="nc" id="L91">                                            }</span>
+<span class="nc" id="L92">                                            tab(&quot;HTML&quot;) {</span>
+<span class="nc bnc" id="L93" title="All 4 branches missed.">                                                if (response.header(&quot;Content-Type&quot;)?.contains(&quot;html&quot;, true) == true)</span>
+<span class="nc" id="L94">                                                    select()</span>
+
+<span class="nc" id="L96">                                                webview {</span>
+<span class="nc" id="L97">                                                    engine.loadContent(c)</span>
+<span class="nc" id="L98">                                                }</span>
+<span class="nc" id="L99">                                            }</span>
+<span class="nc" id="L100">                                            tab(&quot;Stacktrace&quot;) {</span>
+<span class="nc" id="L101">                                                add(textarea)</span>
+<span class="nc" id="L102">                                            }</span>
+<span class="nc" id="L103">                                            tabs.withEach { isClosable = false }</span>
+<span class="nc" id="L104">                                        }</span>
+                                    } else {
+<span class="nc" id="L106">                                        add(textarea)</span>
+<span class="nc" id="L107">                                    }</span>
+                                } else {
+<span class="nc" id="L109">                                    add(textarea)</span>
+                                }
+<span class="nc" id="L111">                            }</span>
+<span class="nc" id="L112">                        }</span>
+
+<span class="nc" id="L114">                    } catch (e: Exception) {</span>
+<span class="nc" id="L115">                        add(textarea)</span>
+<span class="nc" id="L116">                    }</span>
+                } else {
+<span class="nc" id="L118">                    add(textarea)</span>
+                }
+<span class="nc" id="L120">            }</span>
+
+<span class="nc" id="L122">            showAndWait()</span>
+<span class="nc" id="L123">        }</span>
+<span class="nc" id="L124">    }</span>
+
+}
+
+private fun stringFromError(e: Throwable): String {
+<span class="nc" id="L129">    val out = ByteArrayOutputStream()</span>
+<span class="nc" id="L130">    val writer = PrintWriter(out)</span>
+    //e.printStackTrace(writer)
+<span class="nc" id="L132">    writer.close()</span>
+<span class="nc" id="L133">    return out.toString()</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

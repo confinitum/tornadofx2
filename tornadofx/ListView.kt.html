@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ListView.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">ListView.kt</span></div><h1>ListView.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.property.ObjectProperty
+import javafx.beans.property.Property
+import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.property.SimpleObjectProperty
+import javafx.collections.FXCollections
+import javafx.collections.ObservableMap
+import javafx.scene.Node
+import javafx.scene.control.ListCell
+import javafx.scene.control.ListView
+import javafx.scene.control.SelectionMode
+import javafx.scene.control.TableView
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
+import javafx.scene.input.MouseEvent
+import javafx.util.Callback
+import tornadofx.FX.IgnoreParentBuilder.No
+import tornadofx.FX.IgnoreParentBuilder.Once
+import kotlin.reflect.KClass
+
+
+/**
+ * Execute action when the enter key is pressed or the mouse is clicked
+ * @param clickCount The number of mouse clicks to trigger the action
+ * @param action The runnable to execute on select
+ */
+<span class="nc" id="L28">fun &lt;T&gt; ListView&lt;T&gt;.onUserSelect(clickCount: Int = 2, action: (T) -&gt; Unit) {</span>
+<span class="nc" id="L29">    addEventFilter(MouseEvent.MOUSE_CLICKED) { event -&gt;</span>
+<span class="nc" id="L30">        val selectedItem = this.selectedItem</span>
+<span class="nc bnc" id="L31" title="All 6 branches missed.">        if (event.clickCount == clickCount &amp;&amp; selectedItem != null &amp;&amp; event.target.isInsideRow())</span>
+<span class="nc" id="L32">            action(selectedItem)</span>
+<span class="nc" id="L33">    }</span>
+
+<span class="nc" id="L35">    addEventFilter(KeyEvent.KEY_PRESSED) { event -&gt;</span>
+<span class="nc" id="L36">        val selectedItem = this.selectedItem</span>
+<span class="nc bnc" id="L37" title="All 6 branches missed.">        if (event.code == KeyCode.ENTER &amp;&amp; !event.isMetaDown &amp;&amp; selectedItem != null)</span>
+<span class="nc" id="L38">            action(selectedItem)</span>
+<span class="nc" id="L39">    }</span>
+<span class="nc" id="L40">}</span>
+
+val &lt;T&gt; ListView&lt;T&gt;.selectedItem: T?
+<span class="nc" id="L43">    get() = selectionModel.selectedItem</span>
+
+fun &lt;T&gt; ListView&lt;T&gt;.asyncItems(func: () -&gt; Collection&lt;T&gt;) =
+<span class="nc bnc" id="L46" title="All 2 branches missed.">        task { func() } success { if (items == null) items = FXCollections.observableArrayList(it) else items.setAll(it) }</span>
+
+fun &lt;T&gt; ListView&lt;T&gt;.onUserDelete(action: (T) -&gt; Unit) {
+<span class="nc" id="L49">    addEventFilter(KeyEvent.KEY_PRESSED) { event -&gt;</span>
+<span class="nc" id="L50">        val selectedItem = this.selectedItem</span>
+<span class="nc bnc" id="L51" title="All 4 branches missed.">        if (event.code == KeyCode.BACK_SPACE &amp;&amp; selectedItem != null)</span>
+<span class="nc" id="L52">            action(selectedItem)</span>
+<span class="nc" id="L53">    }</span>
+<span class="nc" id="L54">}</span>
+
+<span class="nc" id="L56">class ListCellCache&lt;T&gt;(private val cacheProvider: (T) -&gt; Node) {</span>
+<span class="nc" id="L57">    private val store = mutableMapOf&lt;T, Node&gt;()</span>
+<span class="nc" id="L58">    fun getOrCreateNode(value: T) = store.getOrPut(value, { cacheProvider(value) })</span>
+}
+
+<span class="nc" id="L61">abstract class ItemFragment&lt;T&gt; : Fragment() {</span>
+<span class="nc" id="L62">    val itemProperty: ObjectProperty&lt;T&gt; = SimpleObjectProperty(this, &quot;item&quot;)</span>
+<span class="nc" id="L63">    val item by itemProperty</span>
+}
+
+<span class="nc" id="L66">abstract class RowItemFragment&lt;S, T&gt; : ItemFragment&lt;T&gt;() {</span>
+<span class="nc" id="L67">    val rowItemProperty: ObjectProperty&lt;S&gt; = SimpleObjectProperty(this, &quot;rowItem&quot;)</span>
+<span class="nc" id="L68">    val rowItem by rowItemProperty</span>
+}
+
+<span class="nc" id="L71">abstract class ListCellFragment&lt;T&gt; : ItemFragment&lt;T&gt;() {</span>
+<span class="nc" id="L72">    val cellProperty: ObjectProperty&lt;ListCell&lt;T&gt;?&gt; = SimpleObjectProperty()</span>
+<span class="nc" id="L73">    var cell by cellProperty</span>
+<span class="nc" id="L74">    val editingProperty = SimpleBooleanProperty(false)</span>
+<span class="nc" id="L75">    val editing by editingProperty</span>
+
+    open fun startEdit() {
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        cell?.startEdit()</span>
+<span class="nc" id="L79">    }</span>
+
+    open fun commitEdit(newValue: T) {
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        cell?.commitEdit(newValue)</span>
+<span class="nc" id="L83">    }</span>
+
+    open fun cancelEdit() {
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        cell?.cancelEdit()</span>
+<span class="nc" id="L87">    }</span>
+
+    open fun onEdit(op: () -&gt; Unit) {
+<span class="nc bnc" id="L90" title="All 2 branches missed.">        editingProperty.onChange { if (it) op() }</span>
+<span class="nc" id="L91">    }</span>
+}
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc" id="L95">open class SmartListCell&lt;T&gt;(val scope: Scope = FX.defaultScope, listView: ListView&lt;T&gt;?, properties: Map&lt;Any,Any&gt;? = null) : ListCell&lt;T&gt;() {</span>
+    /**
+     * A convenience constructor allowing to omit `listView` completely, if needed.
+     */
+<span class="nc" id="L99">    constructor(scope: Scope = FX.defaultScope, properties : Map&lt;Any,Any&gt;? = null) : this(scope, null, properties)</span>
+
+<span class="nc bnc" id="L101" title="All 6 branches missed.">    private val smartProperties: ObservableMap&lt;Any,Any&gt; = listView?.properties ?: HashMap(properties.orEmpty()).asObservable()</span>
+<span class="nc" id="L102">    private val editSupport: (ListCell&lt;T&gt;.(EditEventType, T?) -&gt; Unit)? get() = smartProperties[&quot;tornadofx.editSupport&quot;] as (ListCell&lt;T&gt;.(EditEventType, T?) -&gt; Unit)?</span>
+<span class="nc" id="L103">    private val cellFormat: (ListCell&lt;T&gt;.(T) -&gt; Unit)? get() = smartProperties[&quot;tornadofx.cellFormat&quot;] as (ListCell&lt;T&gt;.(T) -&gt; Unit)?</span>
+<span class="nc" id="L104">    private val cellCache: ListCellCache&lt;T&gt;? get() = smartProperties[&quot;tornadofx.cellCache&quot;] as ListCellCache&lt;T&gt;?</span>
+    private var cellFragment: ListCellFragment&lt;T&gt;? = null
+<span class="nc" id="L106">    private var fresh = true</span>
+
+<span class="nc" id="L108">    init {</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">        if (listView != null) {</span>
+<span class="nc bnc" id="L110" title="All 4 branches missed.">            properties?.let { listView.properties?.putAll(it) }</span>
+<span class="nc" id="L111">            setCapabilities(listView)</span>
+        }
+<span class="nc" id="L113">        indexProperty().onChange {</span>
+<span class="nc bnc" id="L114" title="All 2 branches missed.">            if (it == -1) clearCellFragment()</span>
+<span class="nc" id="L115">        }</span>
+<span class="nc" id="L116">    }</span>
+
+    companion object {
+        internal fun setCapabilities(listView: ListView&lt;*&gt;) {
+<span class="nc" id="L120">            listView.properties[&quot;tornadofx.cellFormatCapable&quot;] = true</span>
+<span class="nc" id="L121">            listView.properties[&quot;tornadofx.cellCacheCapable&quot;] = true</span>
+<span class="nc" id="L122">            listView.properties[&quot;tornadofx.editCapable&quot;] = true</span>
+<span class="nc" id="L123">        }</span>
+    }
+
+    override fun startEdit() {
+<span class="nc" id="L127">        super.startEdit()</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        editSupport?.invoke(this, EditEventType.StartEdit, null)</span>
+<span class="nc" id="L129">    }</span>
+
+    override fun commitEdit(newValue: T) {
+<span class="nc" id="L132">        super.commitEdit(newValue)</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        editSupport?.invoke(this, EditEventType.CommitEdit, newValue)</span>
+<span class="nc" id="L134">    }</span>
+
+    override fun cancelEdit() {
+<span class="nc" id="L137">        super.cancelEdit()</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">        editSupport?.invoke(this, EditEventType.CancelEdit, null)</span>
+<span class="nc" id="L139">    }</span>
+
+    override fun updateItem(item: T, empty: Boolean) {
+<span class="nc" id="L142">        super.updateItem(item, empty)</span>
+
+<span class="nc bnc" id="L144" title="All 4 branches missed.">        if (item == null || empty) {</span>
+<span class="nc" id="L145">            textProperty().unbind()</span>
+<span class="nc" id="L146">            graphicProperty().unbind()</span>
+<span class="nc" id="L147">            text = null</span>
+<span class="nc" id="L148">            graphic = null</span>
+<span class="nc" id="L149">            style = null</span>
+<span class="nc" id="L150">            clearCellFragment()</span>
+        } else {
+<span class="nc" id="L152">            FX.ignoreParentBuilder = Once</span>
+<span class="nc" id="L153">            try {</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">                cellCache?.apply { graphic = getOrCreateNode(item) }</span>
+            } finally {
+<span class="nc" id="L156">                FX.ignoreParentBuilder = No</span>
+            }
+<span class="nc bnc" id="L158" title="All 2 branches missed.">            if (fresh) {</span>
+<span class="nc" id="L159">                val cellFragmentType = smartProperties[&quot;tornadofx.cellFragment&quot;] as KClass&lt;ListCellFragment&lt;T&gt;&gt;?</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">                cellFragment = if (cellFragmentType != null) find(cellFragmentType, scope) else null</span>
+<span class="nc" id="L161">                fresh = false</span>
+            }
+<span class="nc bnc" id="L163" title="All 2 branches missed.">            cellFragment?.apply {</span>
+<span class="nc" id="L164">                editingProperty.cleanBind(editingProperty())</span>
+<span class="nc" id="L165">                itemProperty.value = item</span>
+<span class="nc" id="L166">                cellProperty.value = this@SmartListCell</span>
+<span class="nc" id="L167">                graphic = root</span>
+<span class="nc" id="L168">            }</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">            cellFormat?.invoke(this, item)</span>
+        }
+<span class="nc" id="L171">    }</span>
+
+    private fun clearCellFragment() {
+<span class="nc bnc" id="L174" title="All 2 branches missed.">        cellFragment?.apply {</span>
+<span class="nc" id="L175">            cellProperty.value = null</span>
+<span class="nc" id="L176">            itemProperty.value = null</span>
+<span class="nc" id="L177">            editingProperty.unbind()</span>
+<span class="nc" id="L178">            editingProperty.value = false</span>
+<span class="nc" id="L179">        }</span>
+<span class="nc" id="L180">    }</span>
+
+}
+
+fun &lt;T&gt; ListView&lt;T&gt;.bindSelected(property: Property&lt;T&gt;) {
+<span class="nc" id="L185">    selectionModel.selectedItemProperty().onChange {</span>
+<span class="nc" id="L186">        property.value = it</span>
+<span class="nc" id="L187">    }</span>
+<span class="nc" id="L188">}</span>
+
+<span class="nc" id="L190">fun &lt;T&gt; ListView&lt;T&gt;.bindSelected(model: ItemViewModel&lt;T&gt;) = this.bindSelected(model.itemProperty)</span>
+
+<span class="nc" id="L192">fun &lt;T, F : ListCellFragment&lt;T&gt;&gt; ListView&lt;T&gt;.cellFragment(scope: Scope = FX.defaultScope, fragment: KClass&lt;F&gt;) {</span>
+<span class="nc" id="L193">    properties[&quot;tornadofx.cellFragment&quot;] = fragment</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">    if (properties[&quot;tornadofx.cellFormatCapable&quot;] != true) {</span>
+<span class="nc" id="L195">        SmartListCell.setCapabilities(this)</span>
+<span class="nc" id="L196">        cellFactory = Callback { SmartListCell(scope, it) }</span>
+    }
+<span class="nc" id="L198">}</span>
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc" id="L201">fun &lt;T&gt; ListView&lt;T&gt;.cellFormat(scope: Scope = FX.defaultScope, formatter: (ListCell&lt;T&gt;.(T) -&gt; Unit)) {</span>
+<span class="nc" id="L202">    properties[&quot;tornadofx.cellFormat&quot;] = formatter</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">    if (properties[&quot;tornadofx.cellFormatCapable&quot;] != true) {</span>
+<span class="nc" id="L204">        SmartListCell.setCapabilities(this)</span>
+<span class="nc" id="L205">        cellFactory = Callback { SmartListCell(scope, it) }</span>
+    }
+<span class="nc" id="L207">}</span>
+
+<span class="nc" id="L209">fun &lt;T&gt; ListView&lt;T&gt;.onEdit(scope: Scope = FX.defaultScope, eventListener: ListCell&lt;T&gt;.(EditEventType, T?) -&gt; Unit) {</span>
+<span class="nc" id="L210">    isEditable = true</span>
+<span class="nc" id="L211">    properties[&quot;tornadofx.editSupport&quot;] = eventListener</span>
+    // Install a edit capable cellFactory it none is present. The default cellFormat factory will do.
+<span class="nc bnc" id="L213" title="All 2 branches missed.">    if (properties[&quot;tornadofx.editCapable&quot;] != true) cellFormat(scope) { }</span>
+<span class="nc" id="L214">}</span>
+
+/**
+ * Calculate a unique Node per item and set this Node as the graphic of the ListCell.
+ *
+ * To support this feature, a custom cellFactory is automatically installed, unless an already
+ * compatible cellFactory is found. The cellFactories installed via #cellFormat already knows
+ * how to retrieve cached values.
+ */
+<span class="nc" id="L223">fun &lt;T&gt; ListView&lt;T&gt;.cellCache(scope: Scope = FX.defaultScope, cachedGraphicProvider: (T) -&gt; Node) {</span>
+<span class="nc" id="L224">    properties[&quot;tornadofx.cellCache&quot;] = ListCellCache(cachedGraphicProvider)</span>
+    // Install a cache capable cellFactory it none is present. The default cellFormat factory will do.
+<span class="nc bnc" id="L226" title="All 2 branches missed.">    if (properties[&quot;tornadofx.cellCacheCapable&quot;] != true) {</span>
+<span class="nc" id="L227">        cellFormat(scope) { }</span>
+    }
+<span class="nc" id="L229">}</span>
+
+<span class="nc" id="L231">fun &lt;T&gt; ListView&lt;T&gt;.multiSelect(enable: Boolean = true) {</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">    selectionModel.selectionMode = if (enable) SelectionMode.MULTIPLE else SelectionMode.SINGLE</span>
+<span class="nc" id="L233">}</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

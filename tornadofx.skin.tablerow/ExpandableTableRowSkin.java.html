@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExpandableTableRowSkin.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx.skin.tablerow</a> &gt; <span class="el_source">ExpandableTableRowSkin.java</span></div><h1>ExpandableTableRowSkin.java</h1><pre class="source lang-java linenums">package tornadofx.skin.tablerow;
+
+import javafx.scene.Node;
+import javafx.scene.control.TableRow;
+import javafx.scene.control.skin.TableRowSkin;
+import tornadofx.ExpanderColumn;
+
+// This needs to be a Java class because of a Kotlin Bug: 
+// https://youtrack.jetbrains.com/issue/KT-12255
+
+public final class ExpandableTableRowSkin&lt;S&gt; extends TableRowSkin&lt;S&gt; {
+
+<span class="nc" id="L13">    private double tableRowPrefHeight = -1.0D;</span>
+
+    private final TableRow&lt;S&gt; tableRow;
+    private final ExpanderColumn&lt;S&gt; expander;
+
+    public ExpandableTableRowSkin(TableRow&lt;S&gt; tableRow, ExpanderColumn&lt;S&gt; expander) {
+<span class="nc" id="L19">        super(tableRow);</span>
+<span class="nc" id="L20">        this.tableRow = tableRow;</span>
+<span class="nc" id="L21">        this.expander = expander;</span>
+<span class="nc" id="L22">        this.tableRow.itemProperty().addListener((observable, oldValue, newValue) -&gt; {</span>
+<span class="nc bnc" id="L23" title="All 2 branches missed.">            if (oldValue != null) {</span>
+<span class="nc" id="L24">                Node expandedNode = expander.getExpandedNode(oldValue);</span>
+<span class="nc bnc" id="L25" title="All 2 branches missed.">                if (expandedNode != null) {</span>
+<span class="nc" id="L26">                    getChildren().remove(expandedNode);</span>
+                }
+            }
+<span class="nc" id="L29">        });</span>
+<span class="nc" id="L30">    }</span>
+
+    private boolean getExpanded() {
+<span class="nc" id="L33">        TableRow&lt;S&gt; tableRow = getSkinnable();</span>
+<span class="nc" id="L34">        final S item = tableRow.getItem();</span>
+<span class="nc bnc" id="L35" title="All 4 branches missed.">        return (item != null &amp;&amp; expander.getCellData(getSkinnable().getIndex()));</span>
+    }
+
+    private Node getContent() {
+<span class="nc" id="L39">        Node node = expander.getOrCreateExpandedNode(tableRow);</span>
+<span class="nc bnc" id="L40" title="All 2 branches missed.">        if (!getChildren().contains(node)) {</span>
+<span class="nc" id="L41">            getChildren().add(node);</span>
+        }
+<span class="nc" id="L43">        return node;</span>
+    }
+
+    protected double computePrefHeight(double width, double topInset, double rightInset, double bottomInset, double leftInset) {
+<span class="nc" id="L47">        tableRowPrefHeight = super.computePrefHeight(width, topInset, rightInset, bottomInset, leftInset);</span>
+<span class="nc bnc" id="L48" title="All 4 branches missed.">        return (getExpanded() &amp;&amp; getContent() != null) ? tableRowPrefHeight + getContent().prefHeight(width) : tableRowPrefHeight;</span>
+    }
+
+    protected void layoutChildren(double x, double y, double w, double h) {
+<span class="nc" id="L52">        super.layoutChildren(x, y, w, h);</span>
+<span class="nc bnc" id="L53" title="All 4 branches missed.">        if (getExpanded() &amp;&amp; getContent() != null) {</span>
+<span class="nc" id="L54">            getContent().resizeRelocate(0.0, tableRowPrefHeight, w, h - tableRowPrefHeight);</span>
+        }
+<span class="nc" id="L56">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

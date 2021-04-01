@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OSGISupport.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx.osgi.impl</a> &gt; <span class="el_source">OSGISupport.kt</span></div><h1>OSGISupport.kt</h1><pre class="source lang-java linenums">@file:Suppress(&quot;UNCHECKED_CAST&quot;)
+
+package tornadofx.osgi.impl
+
+import org.osgi.framework.Bundle
+import org.osgi.framework.BundleContext
+import org.osgi.framework.FrameworkUtil
+import org.osgi.framework.ServiceEvent
+import org.osgi.util.tracker.ServiceTracker
+import tornadofx.FX
+import tornadofx.withEach
+import java.util.logging.Level
+import kotlin.reflect.KClass
+
+val ServiceEvent.objectClass: String
+<span class="nc bnc" id="L16" title="All 2 branches missed.">    get() = (serviceReference.getProperty(&quot;objectClass&quot;) as Array&lt;String&gt;)[0]</span>
+
+<span class="nc" id="L18">val fxBundle: Bundle get() = FrameworkUtil.getBundle(Activator::class.java)</span>
+<span class="nc" id="L19">val fxBundleContext: BundleContext get() = fxBundle.bundleContext</span>
+
+/**
+ * Try to resolve the OSGi Bundle Id of the given class. This function can only be called
+ * if OSGi is available on the classpath.
+ */
+fun getBundleId(classFromBundle: KClass&lt;*&gt;): Long? {
+<span class="nc" id="L26">    try {</span>
+<span class="nc bnc" id="L27" title="All 2 branches missed.">        return FrameworkUtil.getBundle(classFromBundle.java)?.bundleId</span>
+<span class="nc" id="L28">    } catch (ex: Exception) {</span>
+<span class="nc" id="L29">        FX.log.log(Level.WARNING, &quot;OSGi was on the classpath but no Framework did not respond correctly&quot;, ex)</span>
+<span class="nc" id="L30">        return null</span>
+    }
+}
+inline fun &lt;reified T:Any?&gt; getBundleId(): Long? = getBundleId(T::class)
+
+inline fun &lt;S, T&gt; ServiceTracker&lt;S, T&gt;.withEach(fn: (S) -&gt; Unit) {
+<span class="nc bnc" id="L36" title="All 2 branches missed.">    services?.withEach {fn(this as S) }</span>
+<span class="nc" id="L37">}</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

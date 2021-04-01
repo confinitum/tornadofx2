@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Keyboard.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Keyboard.kt</span></div><h1>Keyboard.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.property.SimpleDoubleProperty
+import javafx.beans.property.SimpleObjectProperty
+import javafx.beans.property.SimpleStringProperty
+import javafx.collections.FXCollections
+import javafx.collections.ListChangeListener
+import javafx.event.EventTarget
+import javafx.scene.control.Button
+import javafx.scene.control.Control
+import javafx.scene.control.SkinBase
+import javafx.scene.paint.Color
+import javax.json.Json
+import javax.json.JsonObject
+
+<span class="nc" id="L16">fun EventTarget.keyboard(op: KeyboardLayout.() -&gt; Unit) = opcr(this, KeyboardLayout(), op)</span>
+
+<span class="nc" id="L18">class KeyboardStyles : Stylesheet() {</span>
+<span class="nc" id="L19">    init {</span>
+<span class="nc" id="L20">        keyboard {</span>
+<span class="nc" id="L21">            keyboardKey {</span>
+<span class="nc" id="L22">                borderWidth += box(1.px)</span>
+<span class="nc" id="L23">                borderColor += box(Color.BLACK)</span>
+<span class="nc" id="L24">                borderRadius += box(3.px)</span>
+<span class="nc" id="L25">                padding = box(3.px)</span>
+<span class="nc" id="L26">                backgroundInsets += box(5.px)</span>
+<span class="nc" id="L27">                backgroundRadius += box(5.px)</span>
+<span class="nc" id="L28">                backgroundColor += Color.WHITE</span>
+
+<span class="nc" id="L30">                and(armed) {</span>
+<span class="nc" id="L31">                    borderRadius += box(5.px)</span>
+<span class="nc" id="L32">                    backgroundInsets += box(7.px)</span>
+<span class="nc" id="L33">                    backgroundRadius += box(7.px)</span>
+<span class="nc" id="L34">                }</span>
+<span class="nc" id="L35">            }</span>
+<span class="nc" id="L36">        }</span>
+<span class="nc" id="L37">    }</span>
+}
+
+<span class="nc" id="L40">class KeyboardLayout : Control() {</span>
+<span class="nc" id="L41">    val rows = FXCollections.observableArrayList&lt;KeyboardRow&gt;()</span>
+
+<span class="nc" id="L43">    val unitSizeProperty = SimpleDoubleProperty(50.0)</span>
+<span class="nc" id="L44">    var unitSize by unitSizeProperty</span>
+
+<span class="nc" id="L46">    init {</span>
+<span class="nc" id="L47">        addClass(Stylesheet.keyboard)</span>
+<span class="nc" id="L48">    }</span>
+
+<span class="nc" id="L50">    override fun getUserAgentStylesheet() = KeyboardStyles().base64URL.toExternalForm()</span>
+
+<span class="nc" id="L52">    override fun createDefaultSkin() = KeyboardSkin(this)</span>
+
+<span class="nc" id="L54">    fun row(op: KeyboardRow.() -&gt; Unit) = KeyboardRow(this).apply {</span>
+<span class="nc" id="L55">        rows.add(this)</span>
+<span class="nc" id="L56">        op(this)</span>
+<span class="nc" id="L57">    }</span>
+
+    fun load(json: JsonObject) {
+<span class="nc" id="L60">        json.getJsonArray(&quot;rows&quot;).mapTo(rows) {</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">            KeyboardRow.fromJSON(this, it as JsonObject)</span>
+        }
+<span class="nc" id="L63">    }</span>
+
+<span class="nc" id="L65">    fun toJSON() = JsonBuilder()</span>
+<span class="nc" id="L66">            .add(&quot;rows&quot;, Json.createArrayBuilder().let { jsonRows -&gt;</span>
+<span class="nc" id="L67">                rows.forEach { jsonRows.add(it.toJSON()) }</span>
+<span class="nc" id="L68">                jsonRows.build()</span>
+            })
+<span class="nc" id="L70">            .build()</span>
+
+    fun toKeyboardLayoutEditorFormat(): String {
+<span class="nc" id="L73">        val output = StringBuilder()</span>
+<span class="nc" id="L74">        rows.forEachIndexed { rowIndex, row -&gt;</span>
+<span class="nc" id="L75">            output.append(&quot;[&quot;)</span>
+<span class="nc" id="L76">            row.keys.forEachIndexed { colIndex, key -&gt;</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">                if (colIndex &gt; 0) output.append(&quot;,&quot;)</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">                if (key is SpacerKeyboardKey) {</span>
+<span class="nc" id="L79">                    output.append(&quot;{x:${key.keyWidth}}&quot;)</span>
+                } else {
+<span class="nc bnc" id="L81" title="All 4 branches missed.">                    if (key.keyWidth != 1.0 || key.keyHeight != 1.0) {</span>
+<span class="nc" id="L82">                        output.append(&quot;{&quot;)</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">                        if (key.keyWidth != 1.0) output.append(&quot;w:${key.keyWidth}&quot;)</span>
+<span class="nc bnc" id="L84" title="All 2 branches missed.">                        if (key.keyHeight != 1.0) output.append(&quot;h:${key.keyHeight}&quot;)</span>
+<span class="nc" id="L85">                        output.append(&quot;},&quot;)</span>
+                    }
+<span class="nc bnc" id="L87" title="All 4 branches missed.">                    output.append(&quot;\&quot;${key.text?.replace(&quot;\\&quot;, &quot;\\\\&quot;) ?: &quot;&quot;}\&quot;&quot;)</span>
+                }
+<span class="nc" id="L89">            }</span>
+<span class="nc" id="L90">            output.append(&quot;]&quot;)</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">            if (rowIndex &lt; rows.size - 1) output.append(&quot;,&quot;)</span>
+<span class="nc" id="L92">            output.append(&quot;\n&quot;)</span>
+<span class="nc" id="L93">        }</span>
+<span class="nc" id="L94">        return output.toString()</span>
+    }
+
+
+<span class="nc" id="L98">    internal fun addKeys(added: List&lt;KeyboardKey&gt;) = children.addAll(added)</span>
+<span class="nc" id="L99">    internal fun removeKeys(removed: List&lt;KeyboardKey&gt;) = children.removeAll(removed)</span>
+}
+
+<span class="nc" id="L102">class KeyboardSkin(control: KeyboardLayout) : SkinBase&lt;KeyboardLayout&gt;(control) {</span>
+<span class="nc" id="L103">    val keyboard: KeyboardLayout = control</span>
+
+    override fun layoutChildren(contentX: Double, contentY: Double, contentWidth: Double, contentHeight: Double) {
+<span class="nc" id="L106">        var currentX: Double</span>
+<span class="nc" id="L107">        var currentY = contentY</span>
+
+<span class="nc" id="L109">        keyboard.rows.forEach { row -&gt;</span>
+<span class="nc" id="L110">            currentX = contentX</span>
+<span class="nc" id="L111">            row.keys.forEach { key -&gt;</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">                if (key !is SpacerKeyboardKey) key.resizeRelocate(currentX, currentY, key.prefWidth, key.prefHeight)</span>
+<span class="nc" id="L113">                currentX += key.prefWidth</span>
+<span class="nc" id="L114">            }</span>
+<span class="nc bnc" id="L115" title="All 4 branches missed.">            if (row.keys.isNotEmpty()) {</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">                currentY += row.keys.map { it.prefHeight(-1.0) }.min() ?: 0.0</span>
+            }
+<span class="nc" id="L118">        }</span>
+<span class="nc" id="L119">    }</span>
+
+<span class="nc" id="L121">    override fun computePrefHeight(width: Double, topInset: Double, rightInset: Double, bottomInset: Double, leftInset: Double) = keyboard.rows.sumByDouble { row -&gt;</span>
+<span class="nc bnc" id="L122" title="All 4 branches missed.">        if (row.keys.isEmpty()) 0.0 else row.keys.map { it.prefHeight(width) }.min() ?: 0.0</span>
+<span class="nc" id="L123">    } + topInset + bottomInset</span>
+
+<span class="nc" id="L125">    override fun computePrefWidth(height: Double, topInset: Double, rightInset: Double, bottomInset: Double, leftInset: Double) = (keyboard.rows.map { row -&gt;</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">        if (row.keys.isEmpty()) 0.0 else row.keys.sumByDouble { it.prefWidth(height) }</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">    }.max() ?: 0.0) + leftInset + rightInset</span>
+
+<span class="nc" id="L129">    override fun computeMinWidth(height: Double, topInset: Double, rightInset: Double, bottomInset: Double, leftInset: Double) = computePrefWidth(height, topInset, rightInset, bottomInset, leftInset)</span>
+<span class="nc" id="L130">    override fun computeMinHeight(width: Double, topInset: Double, rightInset: Double, bottomInset: Double, leftInset: Double) = computePrefHeight(width, topInset, rightInset, bottomInset, leftInset)</span>
+}
+
+<span class="nc" id="L133">class KeyboardRow(val keyboard: KeyboardLayout) {</span>
+<span class="nc" id="L134">    val keys = FXCollections.observableArrayList&lt;KeyboardKey&gt;()</span>
+
+<span class="nc" id="L136">    fun spacer(width: Number = 1.0, height: Number = 1.0) = SpacerKeyboardKey(keyboard, width, height).apply {</span>
+<span class="nc" id="L137">        keys.add(this)</span>
+<span class="nc" id="L138">    }</span>
+
+<span class="nc" id="L140">    fun key(text: String? = null, svg: String? = null, code: Int? = null, width: Number = 1.0, height: Number = 1.0, op: KeyboardKey.() -&gt; Unit = {}): KeyboardKey {</span>
+<span class="nc" id="L141">        val key = KeyboardKey(keyboard, text, svg, code, width, height)</span>
+<span class="nc" id="L142">        op(key)</span>
+<span class="nc" id="L143">        keys.add(key)</span>
+<span class="nc" id="L144">        return key</span>
+    }
+
+<span class="nc" id="L147">    init {</span>
+<span class="nc" id="L148">        keys.addListener(ListChangeListener {</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">            while (it.next()) {</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">                if (it.wasAdded()) keyboard.addKeys(it.addedSubList)</span>
+<span class="nc bnc" id="L151" title="All 2 branches missed.">                if (it.wasRemoved()) keyboard.removeKeys(it.removed)</span>
+            }
+<span class="nc" id="L153">        })</span>
+<span class="nc" id="L154">    }</span>
+
+    companion object {
+<span class="nc" id="L157">        fun fromJSON(keyboard: KeyboardLayout, json: JsonObject) = KeyboardRow(keyboard).apply {</span>
+<span class="nc" id="L158">            json.getJsonArray(&quot;keys&quot;).mapTo(keys) {</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">                KeyboardKey.fromJSON(keyboard, it as JsonObject)</span>
+            }
+<span class="nc" id="L161">        }</span>
+    }
+
+<span class="nc" id="L164">    fun toJSON() = JsonBuilder()</span>
+<span class="nc" id="L165">            .add(&quot;keys&quot;, Json.createArrayBuilder().let { jsonKeys -&gt;</span>
+<span class="nc" id="L166">                keys.forEach { jsonKeys.add(it.toJSON()) }</span>
+<span class="nc" id="L167">                jsonKeys.build()</span>
+            })
+<span class="nc" id="L169">            .build()</span>
+}
+
+<span class="nc" id="L172">class SpacerKeyboardKey(keyboard: KeyboardLayout, width: Number, height: Number) : KeyboardKey(keyboard, null, null, null, width, height) {</span>
+<span class="nc" id="L173">    init {</span>
+<span class="nc" id="L174">        addClass(Stylesheet.keyboardSpacerKey)</span>
+<span class="nc" id="L175">    }</span>
+
+<span class="nc" id="L177">    constructor(keyboard: KeyboardLayout, json: JsonObject) : this(keyboard, json.getDouble(&quot;width&quot;), json.getDouble(&quot;height&quot;))</span>
+}
+
+<span class="nc" id="L180">open class KeyboardKey(keyboard: KeyboardLayout, text: String?, svg: String?, code: Int? = null, width: Number, height: Number) : Button(text) {</span>
+<span class="nc" id="L181">    val svgProperty = SimpleStringProperty(svg)</span>
+<span class="nc" id="L182">    var svg by svgProperty</span>
+
+<span class="nc" id="L184">    val keyWidthProperty = SimpleDoubleProperty(width.toDouble())</span>
+<span class="nc" id="L185">    var keyWidth by keyWidthProperty</span>
+
+<span class="nc" id="L187">    val keyHeightProperty = SimpleDoubleProperty(height.toDouble())</span>
+<span class="nc" id="L188">    var keyHeight by keyHeightProperty</span>
+
+<span class="nc" id="L190">    val codeProperty = SimpleObjectProperty&lt;Int&gt;(code)</span>
+<span class="nc" id="L191">    var code by codeProperty</span>
+
+<span class="nc" id="L193">    init {</span>
+<span class="nc" id="L194">        addClass(Stylesheet.keyboardKey)</span>
+<span class="nc" id="L195">        prefWidthProperty().bind(keyWidthProperty * keyboard.unitSizeProperty)</span>
+<span class="nc" id="L196">        prefHeightProperty().bind(keyHeightProperty * keyboard.unitSizeProperty)</span>
+<span class="nc" id="L197">        svgProperty.onChange { updateGraphic() }</span>
+<span class="nc" id="L198">        updateGraphic()</span>
+<span class="nc" id="L199">    }</span>
+
+    private fun updateGraphic() {
+<span class="nc bnc" id="L202" title="All 2 branches missed.">        graphic = if (svg != null) svgpath(svg) else null</span>
+<span class="nc" id="L203">    }</span>
+
+<span class="nc" id="L205">    fun toJSON() = JsonBuilder()</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">            .add(&quot;type&quot;, if (this is SpacerKeyboardKey) &quot;spacer&quot; else null)</span>
+<span class="nc" id="L207">            .add(&quot;text&quot;, text)</span>
+<span class="nc" id="L208">            .add(&quot;svg&quot;, svg)</span>
+<span class="nc" id="L209">            .add(&quot;code&quot;, code)</span>
+<span class="nc" id="L210">            .add(&quot;width&quot;, keyWidth)</span>
+<span class="nc" id="L211">            .add(&quot;height&quot;, keyHeight)</span>
+<span class="nc" id="L212">            .build()</span>
+
+<span class="nc" id="L214">    constructor(keyboard: KeyboardLayout, json: JsonObject) : this(keyboard, json.string(&quot;text&quot;), json.string(&quot;svg&quot;), json.int(&quot;code&quot;), json.getDouble(&quot;width&quot;), json.getDouble(&quot;height&quot;))</span>
+
+    companion object {
+        fun fromJSON(keyboard: KeyboardLayout, json: JsonObject): KeyboardKey =
+<span class="nc bnc" id="L218" title="All 2 branches missed.">                if (json.getString(&quot;type&quot;, null) == &quot;spacer&quot;) SpacerKeyboardKey(keyboard, json) else KeyboardKey(keyboard, json)</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

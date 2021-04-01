@@ -1,0 +1,520 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Async.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Async.kt</span></div><h1>Async.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.application.Platform
+import javafx.beans.property.*
+import javafx.beans.value.ChangeListener
+import javafx.beans.value.ObservableValue
+import javafx.concurrent.Task
+import javafx.concurrent.Worker
+import javafx.scene.Node
+import javafx.scene.control.Labeled
+import javafx.scene.control.ProgressIndicator
+import javafx.scene.control.ToolBar
+import javafx.scene.layout.BorderPane
+import javafx.scene.layout.Region
+import javafx.util.Duration
+import java.util.*
+import java.util.concurrent.*
+import java.util.concurrent.atomic.AtomicLong
+import java.util.logging.Level
+import java.util.logging.Logger
+
+<span class="pc" id="L22">internal val log = Logger.getLogger(&quot;tornadofx.async&quot;)</span>
+<span class="pc bnc" id="L23" title="All 8 branches missed.">internal val dummyUncaughtExceptionHandler = Thread.UncaughtExceptionHandler { t, e -&gt; log.log(Level.WARNING, e) { &quot;Exception in ${t?.name ?: &quot;?&quot;}: ${e?.message ?: &quot;?&quot;}&quot; } }</span>
+
+private enum class ThreadPoolType { NoDaemon, Daemon }
+<span class="fc" id="L26">private val threadPools = mutableMapOf&lt;ThreadPoolType, ExecutorService&gt;()</span>
+
+internal val tfxThreadPool: ExecutorService
+<span class="fc" id="L29">    get() = threadPools.getOrPut(ThreadPoolType.NoDaemon) {</span>
+<span class="fc" id="L30">        Executors.newCachedThreadPool(TFXThreadFactory(daemon = false))</span>
+<span class="fc" id="L31">    }</span>
+
+internal val tfxDaemonThreadPool: ExecutorService
+<span class="fc" id="L34">    get() = threadPools.getOrPut(ThreadPoolType.Daemon) {</span>
+<span class="fc" id="L35">        Executors.newCachedThreadPool(TFXThreadFactory(daemon = true))</span>
+<span class="fc" id="L36">    }</span>
+
+
+internal fun shutdownThreadPools() {
+<span class="fc" id="L40">    threadPools.values.forEach { it.shutdown() }</span>
+<span class="fc" id="L41">    threadPools.clear()</span>
+<span class="fc" id="L42">}</span>
+
+<span class="pc" id="L44">private class TFXThreadFactory(val daemon: Boolean) : ThreadFactory {</span>
+<span class="fc" id="L45">    private val threadCounter = AtomicLong(0L)</span>
+<span class="fc" id="L46">    override fun newThread(runnable: Runnable?) = Thread(runnable, threadName()).apply {</span>
+<span class="fc" id="L47">        isDaemon = daemon</span>
+<span class="fc" id="L48">    }</span>
+
+<span class="fc bfc" id="L50" title="All 2 branches covered.">    private fun threadName() = &quot;tornadofx-thread-${threadCounter.incrementAndGet()}&quot; + if (daemon) &quot;-daemon&quot; else &quot;&quot;</span>
+}
+
+private fun awaitTermination(pool: ExecutorService, timeout: Long) {
+<span class="nc" id="L54">    synchronized(pool) {</span>
+        // Disable new tasks from being submitted
+<span class="nc" id="L56">        pool.shutdown()</span>
+<span class="nc" id="L57">    }</span>
+<span class="nc" id="L58">    try {</span>
+        // Wait a while for existing tasks to terminate
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        if (!pool.awaitTermination(timeout, TimeUnit.MILLISECONDS)) {</span>
+<span class="nc" id="L61">            synchronized(pool) {</span>
+<span class="nc" id="L62">                pool.shutdownNow() // Cancel currently executing tasks</span>
+            }
+            // Wait a while for tasks to respond to being cancelled
+<span class="nc bnc" id="L65" title="All 2 branches missed.">            if (!pool.awaitTermination(timeout, TimeUnit.MILLISECONDS)) {</span>
+<span class="nc" id="L66">                log.log(Level.SEVERE, &quot;Executor did not terminate&quot;)</span>
+            }
+        }
+<span class="nc" id="L69">    } catch (ie: InterruptedException) {</span>
+        // (Re-)Cancel if current thread also interrupted
+<span class="nc" id="L71">        synchronized(pool) {</span>
+<span class="nc" id="L72">            pool.shutdownNow()</span>
+        }
+        // Preserve interrupt status
+<span class="nc" id="L75">        Thread.currentThread().interrupt()</span>
+    }
+<span class="nc" id="L77">}</span>
+
+fun terminateAsyncExecutors(timeoutMillis: Long) {
+<span class="nc" id="L80">    awaitTermination(tfxThreadPool, timeoutMillis)</span>
+<span class="nc" id="L81">    awaitTermination(tfxDaemonThreadPool, timeoutMillis)</span>
+<span class="nc" id="L82">    threadPools.clear()</span>
+<span class="nc" id="L83">}</span>
+
+<span class="fc" id="L85">fun &lt;T&gt; task(taskStatus: TaskStatus? = null, func: FXTask&lt;*&gt;.() -&gt; T): Task&lt;T&gt; = task(daemon = false, taskStatus = taskStatus, func = func)</span>
+
+<span class="pc" id="L87">fun &lt;T&gt; task(daemon: Boolean = false, taskStatus: TaskStatus? = null, func: FXTask&lt;*&gt;.() -&gt; T): Task&lt;T&gt; = FXTask(taskStatus, func = func).apply {</span>
+<span class="pc bnc" id="L88" title="All 2 branches missed.">    setOnFailed({ (Thread.getDefaultUncaughtExceptionHandler() ?: dummyUncaughtExceptionHandler).uncaughtException(Thread.currentThread(), exception) })</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">    if (daemon) {</span>
+<span class="fc" id="L90">        tfxDaemonThreadPool.execute(this)</span>
+    } else {
+<span class="fc" id="L92">        tfxThreadPool.execute(this)</span>
+    }
+<span class="fc" id="L94">}</span>
+
+<span class="fc" id="L96">fun &lt;T&gt; runAsync(status: TaskStatus? = null, func: FXTask&lt;*&gt;.() -&gt; T) = task(status, func)</span>
+
+<span class="pc" id="L98">fun &lt;T&gt; runAsync(daemon: Boolean = false, status: TaskStatus? = null, func: FXTask&lt;*&gt;.() -&gt; T) = task(daemon, status, func)</span>
+
+<span class="nc" id="L100">infix fun &lt;T&gt; Task&lt;T&gt;.ui(func: (T) -&gt; Unit) = success(func)</span>
+
+<span class="fc" id="L102">infix fun &lt;T&gt; Task&lt;T&gt;.success(func: (T) -&gt; Unit) = apply {</span>
+<span class="fc" id="L103">    fun attachSuccessHandler() {</span>
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">        if (state == Worker.State.SUCCEEDED) {</span>
+<span class="nc" id="L105">            func(value)</span>
+        } else {
+<span class="fc" id="L107">            setOnSucceeded {</span>
+<span class="fc" id="L108">                func(value)</span>
+<span class="fc" id="L109">            }</span>
+        }
+<span class="fc" id="L111">    }</span>
+
+<span class="pc bpc" id="L113" title="1 of 2 branches missed.">    if (Platform.isFxApplicationThread())</span>
+<span class="nc" id="L114">        attachSuccessHandler()</span>
+    else
+<span class="fc" id="L116">        runLater { attachSuccessHandler() }</span>
+<span class="fc" id="L117">}</span>
+
+<span class="nc" id="L119">infix fun &lt;T&gt; Task&lt;T&gt;.fail(func: (Throwable) -&gt; Unit) = apply {</span>
+<span class="nc" id="L120">    fun attachFailHandler() {</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        if (state == Worker.State.FAILED) {</span>
+<span class="nc" id="L122">            func(exception)</span>
+        } else {
+<span class="nc" id="L124">            setOnFailed {</span>
+<span class="nc" id="L125">                func(exception)</span>
+<span class="nc" id="L126">            }</span>
+        }
+<span class="nc" id="L128">    }</span>
+
+<span class="nc bnc" id="L130" title="All 2 branches missed.">    if (Platform.isFxApplicationThread())</span>
+<span class="nc" id="L131">        attachFailHandler()</span>
+    else
+<span class="nc" id="L133">        runLater { attachFailHandler() }</span>
+<span class="nc" id="L134">}</span>
+
+<span class="nc" id="L136">infix fun &lt;T&gt; Task&lt;T&gt;.cancel(func: () -&gt; Unit) = apply {</span>
+<span class="nc" id="L137">    fun attachCancelHandler() {</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">        if (state == Worker.State.CANCELLED) {</span>
+<span class="nc" id="L139">            func()</span>
+        } else {
+<span class="nc" id="L141">            setOnCancelled {</span>
+<span class="nc" id="L142">                func()</span>
+<span class="nc" id="L143">            }</span>
+        }
+<span class="nc" id="L145">    }</span>
+
+<span class="nc bnc" id="L147" title="All 2 branches missed.">    if (Platform.isFxApplicationThread())</span>
+<span class="nc" id="L148">        attachCancelHandler()</span>
+    else
+<span class="nc" id="L150">        runLater { attachCancelHandler() }</span>
+<span class="nc" id="L151">}</span>
+
+/**
+ * Run the specified Runnable on the JavaFX Application Thread at some
+ * unspecified time in the future.
+ */
+<span class="fc" id="L157">fun runLater(op: () -&gt; Unit) = Platform.runLater(op)</span>
+
+<span class="pc" id="L159">private val runLaterTimer: Timer by lazy { Timer(true) }</span>
+
+/**
+ * Run the specified Runnable on the JavaFX Application Thread after a
+ * specified delay.
+ *
+ * runLater(10.seconds) {
+ *     // Do something on the application thread
+ * }
+ *
+ * This function returns a TimerTask which includes a runningProperty as well as the owning timer.
+ * You can cancel the task before the time is up to abort the execution.
+ */
+fun runLater(delay: Duration, op: () -&gt; Unit): FXTimerTask {
+<span class="nc" id="L173">    val task = FXTimerTask(op, runLaterTimer)</span>
+<span class="nc" id="L174">    runLaterTimer.schedule(task, delay.toMillis().toLong())</span>
+<span class="nc" id="L175">    return task</span>
+}
+
+/**
+ * Wait on the UI thread until a certain value is available on this observable.
+ *
+ * This method does not block the UI thread even though it halts further execution until the condition is met.
+ */
+fun &lt;T&gt; ObservableValue&lt;T&gt;.awaitUntil(condition: (T) -&gt; Boolean) {
+<span class="nc bnc" id="L184" title="All 4 branches missed.">    check(!Platform.isNestedLoopRunning()) { &quot;awaitUntil is not allowed during animation or layout processing&quot; }</span>
+
+<span class="nc" id="L186">    val changeListener = object : ChangeListener&lt;T&gt; {</span>
+        override fun changed(observable: ObservableValue&lt;out T&gt;?, oldValue: T, newValue: T) {
+<span class="nc bnc" id="L188" title="All 2 branches missed.">            if (condition(value)) {</span>
+<span class="nc" id="L189">                runLater {</span>
+<span class="nc" id="L190">                    Platform.exitNestedEventLoop(this@awaitUntil, null)</span>
+<span class="nc" id="L191">                    removeListener(this)</span>
+<span class="nc" id="L192">                }</span>
+            }
+<span class="nc" id="L194">        }</span>
+    }
+
+<span class="nc" id="L197">    changeListener.changed(this, value, value)</span>
+<span class="nc" id="L198">    addListener(changeListener)</span>
+<span class="nc" id="L199">    Platform.enterNestedEventLoop(this)</span>
+<span class="nc" id="L200">}</span>
+
+/**
+ * Wait on the UI thread until this observable value is true.
+ *
+ * This method does not block the UI thread even though it halts further execution until the condition is met.
+ */
+fun ObservableValue&lt;Boolean&gt;.awaitUntil() {
+<span class="nc" id="L208">    this.awaitUntil { it }</span>
+<span class="nc" id="L209">}</span>
+
+/**
+ * Replace this node with a progress node while a long running task
+ * is running and swap it back when complete.
+ *
+ * If this node is Labeled, the graphic property will contain the progress bar instead while the task is running.
+ *
+ * The default progress node is a ProgressIndicator that fills the same
+ * client area as the parent. You can swap the progress node for any Node you like.
+ *
+ * For latch usage see [runAsyncWithOverlay]
+ */
+<span class="nc" id="L222">fun Node.runAsyncWithProgress(latch: CountDownLatch, timeout: Duration? = null, progress: Node = ProgressIndicator()): Task&lt;Boolean&gt; {</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">    return if (timeout == null) {</span>
+<span class="nc" id="L224">        runAsyncWithProgress(progress) { latch.await(); true }</span>
+    } else {
+<span class="nc" id="L226">        runAsyncWithOverlay(progress) { latch.await(timeout.toMillis().toLong(), TimeUnit.MILLISECONDS) }</span>
+    }
+}
+
+/**
+ * Replace this node with a progress node while a long running task
+ * is running and swap it back when complete.
+ *
+ * If this node is Labeled, the graphic property will contain the progress bar instead while the task is running.
+ *
+ * The default progress node is a ProgressIndicator that fills the same
+ * client area as the parent. You can swap the progress node for any Node you like.
+ */
+<span class="nc" id="L239">fun &lt;T&gt; Node.runAsyncWithProgress(progress: Node = ProgressIndicator(), op: () -&gt; T): Task&lt;T&gt; {</span>
+<span class="nc bnc" id="L240" title="All 2 branches missed.">    if (this is Labeled) {</span>
+<span class="nc" id="L241">        val oldGraphic = graphic</span>
+<span class="nc bnc" id="L242" title="All 4 branches missed.">        (progress as? Region)?.setPrefSize(16.0, 16.0)</span>
+<span class="nc" id="L243">        graphic = progress</span>
+<span class="nc" id="L244">        return task {</span>
+<span class="nc" id="L245">            try {</span>
+<span class="nc" id="L246">                op()</span>
+            } finally {
+<span class="nc" id="L248">                runLater {</span>
+<span class="nc" id="L249">                    this@runAsyncWithProgress.graphic = oldGraphic</span>
+<span class="nc" id="L250">                }</span>
+            }
+        }
+    } else {
+<span class="nc bnc" id="L254" title="All 6 branches missed.">        val paddingHorizontal = (this as? Region)?.paddingHorizontal?.toDouble() ?: 0.0</span>
+<span class="nc bnc" id="L255" title="All 6 branches missed.">        val paddingVertical = (this as? Region)?.paddingVertical?.toDouble() ?: 0.0</span>
+<span class="nc bnc" id="L256" title="All 4 branches missed.">        (progress as? Region)?.setPrefSize(boundsInParent.width - paddingHorizontal, boundsInParent.height - paddingVertical)</span>
+        // Unwrap ToolBar parent, it has an extra HBox or VBox inside it, we need to target the items list
+<span class="nc bnc" id="L258" title="All 8 branches missed.">        val p = (parent?.parent as? ToolBar) ?: parent ?: throw IllegalArgumentException(&quot;runAsyncWithProgress cannot target an UI element with no parent!&quot;)</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">        val children = requireNotNull(p.getChildList()) { &quot;This node has no child list, and cannot contain the progress node&quot; }</span>
+<span class="nc" id="L260">        val index = children.indexOf(this)</span>
+<span class="nc" id="L261">        children.add(index, progress)</span>
+<span class="nc" id="L262">        removeFromParent()</span>
+<span class="nc" id="L263">        return task {</span>
+<span class="nc" id="L264">            val result = op()</span>
+<span class="nc" id="L265">            runLater {</span>
+<span class="nc" id="L266">                children.add(index, this@runAsyncWithProgress)</span>
+<span class="nc" id="L267">                progress.removeFromParent()</span>
+<span class="nc" id="L268">            }</span>
+<span class="nc" id="L269">            result</span>
+        }
+    }
+}
+
+/**
+ * Covers node with overlay (by default - an instance of [MaskPane]) until [latch] is released by another thread.
+ * It's useful when more control over async execution is needed, like:
+ * * A task already have its thread and overlay should be visible until some callback is invoked (it should invoke
+ * [CountDownLatch.countDown] or [Latch.release]) in order to unlock UI. Keep in mind that if [latch] is not released
+ * and [timeout] is not set, overlay may never get removed.
+ * * An overlay should be removed after some time, even if task is getting unresponsive (use [timeout] for this).
+ * Keep in mind that this timeout applies to overlay only, not the latch itself.
+ * * In addition to masking UI, you need an access to property indicating if background process is running;
+ * [Latch.lockedProperty] serves exactly that purpose.
+ * * More threads are involved in task execution. You can create a [CountDownLatch] for number of workers, call
+ * [CountDownLatch.countDown] from each of them when it's done and overlay will stay visible until all workers finish
+ * their jobs.
+ *
+ * @param latch an instance of [CountDownLatch], usage of [Latch] is recommended.
+ * @param timeout timeout after which overlay will be removed anyway. Can be `null` (which means no timeout).
+ * @param overlayNode optional custom overlay node. For best effect set transparency.
+ *
+ * # Example 1
+ * The simplest case: overlay is visible for two seconds - until latch release. Replace [Thread.sleep] with any
+ * blocking action. Manual thread creation is for the sake of the example only.
+ *
+ * ```kotlin
+ * val latch = Latch()
+ * root.runAsyncWithOverlay(latch) ui {
+ *   //UI action
+ * }
+ *
+ * Thread({
+ *   Thread.sleep(2000)
+ *   latch.release()
+ * }).start()
+ * ```
+ *
+ * # Example 2
+ * The latch won't be released until both workers are done. In addition, until workers are done, button will stay
+ * disabled. New latch has to be created and rebound every time.
+ *
+ * ```kotlin
+ * val latch = Latch(2)
+ * root.runAsyncWithOverlay(latch)
+ * button.disableWhen(latch.lockedProperty())
+ * runAsync(worker1.work(); latch.countDown())
+ * runAsync(worker2.work(); latch.countDown())
+ */
+@JvmOverloads
+<span class="nc" id="L320">fun Node.runAsyncWithOverlay(latch: CountDownLatch, timeout: Duration? = null, overlayNode: Node = MaskPane()): Task&lt;Boolean&gt; {</span>
+<span class="pc bpc" id="L321" title="1 of 2 branches missed.">    return if (timeout == null) {</span>
+<span class="fc" id="L322">        runAsyncWithOverlay(overlayNode) { latch.await(); true }</span>
+    } else {
+<span class="nc" id="L324">        runAsyncWithOverlay(overlayNode) { latch.await(timeout.toMillis().toLong(), TimeUnit.MILLISECONDS) }</span>
+    }
+}
+
+@JvmOverloads
+<span class="nc" id="L329">fun UIComponent.runAsyncWithOverlay(latch: CountDownLatch, timeout: Duration? = null, overlayNode: Node = MaskPane()): Task&lt;Boolean&gt; {</span>
+<span class="nc" id="L330">    return root.runAsyncWithOverlay(latch, timeout, overlayNode)</span>
+}
+
+/**
+ * Runs given task in background thread, covering node with overlay (default one is [MaskPane]) until task is done.
+ *
+ * # Example
+ *
+ * ```kotlin
+ * root.runAsyncWithOverlay {
+ *   Thread.sleep(2000)
+ * } ui {
+ *   //UI action
+ * }
+ * ```
+ *
+ * @param overlayNode optional custom overlay node. For best effect set transparency.
+ */
+@JvmOverloads
+<span class="nc" id="L349">fun &lt;T : Any&gt; Node.runAsyncWithOverlay(overlayNode: Node = MaskPane(), op: () -&gt; T): Task&lt;T&gt; {</span>
+<span class="fc" id="L350">    val overlayContainer = stackpane { add(overlayNode) }</span>
+
+<span class="fc" id="L352">    replaceWith(overlayContainer)</span>
+<span class="fc" id="L353">    overlayContainer.children.add(0, this)</span>
+
+<span class="fc" id="L355">    return task {</span>
+<span class="fc" id="L356">        try {</span>
+<span class="fc" id="L357">            op()</span>
+        } finally {
+<span class="fc" id="L359">            runLater { overlayContainer.replaceWith(this@runAsyncWithOverlay) }</span>
+        }
+    }
+}
+
+@JvmOverloads
+<span class="nc" id="L365">fun &lt;T : Any&gt; UIComponent.runAsyncWithOverlay(overlayNode: Node = MaskPane(), op: () -&gt; T): Task&lt;T&gt; {</span>
+<span class="nc" id="L366">    return root.runAsyncWithOverlay(overlayNode, op)</span>
+}
+
+/**
+ * A basic mask pane, intended for blocking gui underneath. Styling example:
+ *
+ * ```css
+ * .mask-pane {
+ *     -fx-background-color: rgba(0,0,0,0.5);
+ *     -fx-accent: aliceblue;
+ * }
+ *
+ * .mask-pane &gt; .progress-indicator {
+ *     -fx-max-width: 300;
+ *     -fx-max-height: 300;
+ * }
+ * ```
+ */
+<span class="nc" id="L384">class MaskPane : BorderPane() {</span>
+<span class="nc" id="L385">    init {</span>
+<span class="nc" id="L386">        addClass(&quot;mask-pane&quot;)</span>
+<span class="nc" id="L387">        center = progressindicator()</span>
+<span class="nc" id="L388">    }</span>
+
+    override fun getUserAgentStylesheet(): String =
+<span class="nc" id="L391">            MaskPane::class.java.getResource(&quot;maskpane.css&quot;).toExternalForm()</span>
+}
+
+/**
+ * Adds some superpowers to good old [CountDownLatch], like exposed [lockedProperty] or ability to release latch
+ * immediately.
+ *
+ * By default, initializes a latch with a count of `1`, which means that the first invocation of [countDown] will
+ * allow all waiting threads to proceed.
+ *
+ * All documentation of superclass applies here. Default behavior has not been altered.
+ */
+<span class="fc" id="L403">class Latch(count: Int = 1) : CountDownLatch(count) {</span>
+
+<span class="fc" id="L405">    private val lockedProperty by lazy { ReadOnlyBooleanWrapper(locked) }</span>
+
+    /**
+     * Locked state of this latch exposed as a property. Keep in mind that latch instance can be used only once, so
+     * this property has to rebound every time.
+     */
+<span class="fc" id="L411">    fun lockedProperty(): ReadOnlyBooleanProperty = lockedProperty.readOnlyProperty</span>
+
+    /**
+     * Locked state of this latch. `true` if and only if [CountDownLatch.getCount] is greater than `0`.
+     * Once latch is released it changes to `false` permanently.
+     */
+<span class="fc bfc" id="L417" title="All 2 branches covered.">    val locked get() = count &gt; 0L</span>
+
+    /**
+     * Releases latch immediately and allows waiting thread(s) to proceed. Can be safely used if this latch has been
+     * initialized with `count` of `1`, should be used with care otherwise - [countDown] invocations ar preferred in
+     * such cases.
+     */
+<span class="fc" id="L424">    fun release() = (1..count).forEach { countDown() } //maybe not the prettiest way, but works fine</span>
+
+    override fun countDown() {
+<span class="fc" id="L427">        super.countDown()</span>
+<span class="fc" id="L428">        lockedProperty.set(locked)</span>
+<span class="fc" id="L429">    }</span>
+}
+
+<span class="nc" id="L432">class FXTimerTask(val op: () -&gt; Unit, val timer: Timer) : TimerTask() {</span>
+<span class="nc" id="L433">    private val internalRunning = ReadOnlyBooleanWrapper(false)</span>
+<span class="nc" id="L434">    val runningProperty: ReadOnlyBooleanProperty get() = internalRunning.readOnlyProperty</span>
+<span class="nc" id="L435">    val running: Boolean get() = runningProperty.value</span>
+
+<span class="nc" id="L437">    private val internalCompleted = ReadOnlyBooleanWrapper(false)</span>
+<span class="nc" id="L438">    val completedProperty: ReadOnlyBooleanProperty get() = internalCompleted.readOnlyProperty</span>
+<span class="nc" id="L439">    val completed: Boolean get() = completedProperty.value</span>
+
+    override fun run() {
+<span class="nc" id="L442">        internalRunning.value = true</span>
+<span class="nc" id="L443">        Platform.runLater {</span>
+<span class="nc" id="L444">            try {</span>
+<span class="nc" id="L445">                op()</span>
+            } finally {
+<span class="nc" id="L447">                internalRunning.value = false</span>
+<span class="nc" id="L448">                internalCompleted.value = true</span>
+            }
+<span class="nc" id="L450">        }</span>
+<span class="nc" id="L451">    }</span>
+}
+
+infix fun &lt;T&gt; Task&lt;T&gt;.finally(func: () -&gt; Unit) {
+<span class="nc bnc" id="L455" title="All 2 branches missed.">    require(this is FXTask&lt;*&gt;) { &quot;finally() called on non-FXTask subclass&quot; }</span>
+<span class="nc" id="L456">    finally(func)</span>
+<span class="nc" id="L457">}</span>
+
+<span class="pc" id="L459">class FXTask&lt;T&gt;(val status: TaskStatus? = null, val func: FXTask&lt;*&gt;.() -&gt; T) : Task&lt;T&gt;() {</span>
+<span class="fc" id="L460">    private var internalCompleted = ReadOnlyBooleanWrapper(false)</span>
+<span class="nc" id="L461">    val completedProperty: ReadOnlyBooleanProperty get() = internalCompleted.readOnlyProperty</span>
+<span class="nc" id="L462">    val completed: Boolean get() = completedProperty.value</span>
+    private var finallyListener: (() -&gt; Unit)? = null
+
+<span class="fc" id="L465">    override fun call() = func(this)</span>
+
+<span class="fc" id="L467">    init {</span>
+<span class="pc bpc" id="L468" title="1 of 2 branches missed.">        status?.item = this</span>
+<span class="fc" id="L469">    }</span>
+
+    fun finally(func: () -&gt; Unit) {
+<span class="nc" id="L472">        this.finallyListener = func</span>
+<span class="nc" id="L473">    }</span>
+
+    override fun succeeded() {
+<span class="fc" id="L476">        internalCompleted.value = true</span>
+<span class="pc bpc" id="L477" title="1 of 2 branches missed.">        finallyListener?.invoke()</span>
+<span class="fc" id="L478">    }</span>
+
+    override fun failed() {
+<span class="nc" id="L481">        internalCompleted.value = true</span>
+<span class="nc bnc" id="L482" title="All 2 branches missed.">        finallyListener?.invoke()</span>
+<span class="nc" id="L483">    }</span>
+
+    override fun cancelled() {
+<span class="nc" id="L486">        internalCompleted.value = true</span>
+<span class="nc bnc" id="L487" title="All 2 branches missed.">        finallyListener?.invoke()</span>
+<span class="nc" id="L488">    }</span>
+
+    public override fun updateProgress(workDone: Long, max: Long) {
+<span class="nc" id="L491">        super.updateProgress(workDone, max)</span>
+<span class="nc" id="L492">    }</span>
+
+    public override fun updateProgress(workDone: Double, max: Double) {
+<span class="nc" id="L495">        super.updateProgress(workDone, max)</span>
+<span class="nc" id="L496">    }</span>
+
+    @Suppress(&quot;UNCHECKED_CAST&quot;)
+    fun value(v: Any) {
+<span class="nc" id="L500">        super.updateValue(v as T)</span>
+<span class="nc" id="L501">    }</span>
+
+    public override fun updateTitle(t: String?) {
+<span class="nc" id="L504">        super.updateTitle(t)</span>
+<span class="nc" id="L505">    }</span>
+
+    public override fun updateMessage(m: String?) {
+<span class="nc" id="L508">        super.updateMessage(m)</span>
+<span class="nc" id="L509">    }</span>
+
+}
+
+<span class="nc" id="L513">open class TaskStatus : ItemViewModel&lt;FXTask&lt;*&gt;&gt;() {</span>
+<span class="nc bnc" id="L514" title="All 2 branches missed.">    val running: ReadOnlyBooleanProperty = bind { SimpleBooleanProperty().apply { if (item != null) bind(item.runningProperty()) } }</span>
+<span class="nc bnc" id="L515" title="All 2 branches missed.">    val completed: ReadOnlyBooleanProperty = bind { SimpleBooleanProperty().apply { if (item != null) bind(item.completedProperty) } }</span>
+<span class="nc bnc" id="L516" title="All 2 branches missed.">    val message: ReadOnlyStringProperty = bind { SimpleStringProperty().apply { if (item != null) bind(item.messageProperty()) } }</span>
+<span class="nc bnc" id="L517" title="All 2 branches missed.">    val title: ReadOnlyStringProperty = bind { SimpleStringProperty().apply { if (item != null) bind(item.titleProperty()) } }</span>
+<span class="nc bnc" id="L518" title="All 2 branches missed.">    val progress: ReadOnlyDoubleProperty = bind { SimpleDoubleProperty().apply { if (item != null) bind(item.progressProperty()) } }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

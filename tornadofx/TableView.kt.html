@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TableView.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">TableView.kt</span></div><h1>TableView.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.property.ObjectProperty
+import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.property.SimpleObjectProperty
+import javafx.scene.Node
+import javafx.scene.control.SelectionMode
+import javafx.scene.control.TableCell
+import javafx.scene.control.TableColumn
+import javafx.scene.control.TableView
+import javafx.util.Callback
+import javafx.util.StringConverter
+import kotlin.reflect.KClass
+
+<span class="nc" id="L15">abstract class TableCellFragment&lt;S, T&gt; : RowItemFragment&lt;S, T&gt;() {</span>
+<span class="nc" id="L16">    val cellProperty: ObjectProperty&lt;TableCell&lt;S, T&gt;?&gt; = SimpleObjectProperty()</span>
+<span class="nc" id="L17">    var cell by cellProperty</span>
+
+<span class="nc" id="L19">    val editingProperty = SimpleBooleanProperty(false)</span>
+<span class="nc" id="L20">    val editing by editingProperty</span>
+
+    open fun startEdit() {
+<span class="nc" id="L23">    }</span>
+
+    open fun commitEdit(newValue: T) {
+<span class="nc" id="L26">    }</span>
+
+    open fun cancelEdit() {
+<span class="nc" id="L29">    }</span>
+
+    open fun onEdit(op: () -&gt; Unit) {
+<span class="nc bnc" id="L32" title="All 2 branches missed.">        editingProperty.onChange { if (it) op() }</span>
+<span class="nc" id="L33">    }</span>
+}
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="pc" id="L37">open class SmartTableCell&lt;S, T&gt;(val scope: Scope = FX.defaultScope, val owningColumn: TableColumn&lt;S, T&gt;) : TableCell&lt;S, T&gt;() {</span>
+<span class="nc" id="L38">    private val editSupport: (TableCell&lt;S, T&gt;.(EditEventType, T?) -&gt; Unit)? get() = owningColumn.properties[&quot;tornadofx.editSupport&quot;] as (TableCell&lt;S, T&gt;.(EditEventType, T?) -&gt; Unit)?</span>
+<span class="fc" id="L39">    private val cellFormat: (TableCell&lt;S, T&gt;.(T) -&gt; Unit)? get() = owningColumn.properties[&quot;tornadofx.cellFormat&quot;] as (TableCell&lt;S, T&gt;.(T) -&gt; Unit)?</span>
+<span class="fc" id="L40">    private val cellCache: TableColumnCellCache&lt;T&gt;? get() = owningColumn.properties[&quot;tornadofx.cellCache&quot;] as TableColumnCellCache&lt;T&gt;?</span>
+    private var cellFragment: TableCellFragment&lt;S, T&gt;? = null
+<span class="fc" id="L42">    private var fresh = true</span>
+    private var freshStyleClass: Collection&lt;String&gt;? = null
+
+<span class="fc" id="L45">    init {</span>
+<span class="fc" id="L46">        owningColumn.properties[&quot;tornadofx.cellFormatCapable&quot;] = true</span>
+<span class="fc" id="L47">        owningColumn.properties[&quot;tornadofx.cellCacheCapable&quot;] = true</span>
+<span class="fc" id="L48">        owningColumn.properties[&quot;tornadofx.editCapable&quot;] = true</span>
+<span class="fc" id="L49">        indexProperty().onChange {</span>
+<span class="fc bfc" id="L50" title="All 2 branches covered.">            if (it == -1) clearCellFragment()</span>
+<span class="fc" id="L51">        }</span>
+<span class="fc" id="L52">    }</span>
+
+    override fun startEdit() {
+<span class="nc" id="L55">        super.startEdit()</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        editSupport?.invoke(this, EditEventType.StartEdit, null)</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">        cellFragment?.startEdit()</span>
+<span class="nc" id="L58">    }</span>
+
+    override fun commitEdit(newValue: T) {
+<span class="nc" id="L61">        super.commitEdit(newValue)</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">        editSupport?.invoke(this, EditEventType.CommitEdit, newValue)</span>
+<span class="nc bnc" id="L63" title="All 2 branches missed.">        cellFragment?.commitEdit(newValue)</span>
+<span class="nc" id="L64">    }</span>
+
+    override fun cancelEdit() {
+<span class="nc" id="L67">        super.cancelEdit()</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        editSupport?.invoke(this, EditEventType.CancelEdit, null)</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">        cellFragment?.cancelEdit()</span>
+<span class="nc" id="L70">    }</span>
+
+    override fun updateItem(item: T, empty: Boolean) {
+<span class="fc" id="L73">        super.updateItem(item, empty)</span>
+
+<span class="pc bpc" id="L75" title="1 of 4 branches missed.">        if (item == null || empty) {</span>
+<span class="fc" id="L76">            cleanUp()</span>
+<span class="fc" id="L77">            clearCellFragment()</span>
+        } else {
+<span class="fc" id="L79">            FX.ignoreParentBuilder = FX.IgnoreParentBuilder.Once</span>
+<span class="fc" id="L80">            try {</span>
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">                cellCache?.apply { graphic = getOrCreateNode(item) }</span>
+            } finally {
+<span class="fc" id="L83">                FX.ignoreParentBuilder = FX.IgnoreParentBuilder.No</span>
+            }
+<span class="fc bfc" id="L85" title="All 2 branches covered.">            if (fresh) {</span>
+<span class="fc" id="L86">                val cellFragmentType = owningColumn.properties[&quot;tornadofx.cellFragment&quot;] as KClass&lt;TableCellFragment&lt;S, T&gt;&gt;?</span>
+<span class="pc bpc" id="L87" title="1 of 2 branches missed.">                cellFragment = if (cellFragmentType != null) find(cellFragmentType, scope) else null</span>
+<span class="fc" id="L88">                freshStyleClass = listOf(*styleClass.toTypedArray())</span>
+<span class="fc" id="L89">                fresh = false</span>
+            }
+<span class="pc bpc" id="L91" title="1 of 2 branches missed.">            cellFragment?.apply {</span>
+<span class="nc" id="L92">                editingProperty.cleanBind(editingProperty())</span>
+<span class="nc" id="L93">                itemProperty.value = item</span>
+<span class="nc" id="L94">                rowItemProperty.value = tableView.items[index]</span>
+<span class="nc" id="L95">                cellProperty.value = this@SmartTableCell</span>
+<span class="nc" id="L96">                graphic = root</span>
+<span class="nc" id="L97">            }</span>
+<span class="pc bpc" id="L98" title="1 of 2 branches missed.">            cellFormat?.invoke(this, item)</span>
+        }
+<span class="fc" id="L100">    }</span>
+
+    private fun cleanUp() {
+<span class="fc" id="L103">        textProperty().unbind()</span>
+<span class="fc" id="L104">        graphicProperty().unbind()</span>
+<span class="fc" id="L105">        text = null</span>
+<span class="fc" id="L106">        graphic = null</span>
+<span class="fc" id="L107">        style = null</span>
+        //restore default style classes
+<span class="fc bfc" id="L109" title="All 2 branches covered.">        freshStyleClass?.let { styleClass.retainAll(it) }</span>
+<span class="fc" id="L110">    }</span>
+
+    private fun clearCellFragment() {
+<span class="pc bpc" id="L113" title="1 of 2 branches missed.">        cellFragment?.apply {</span>
+<span class="nc" id="L114">            cellProperty.value = null</span>
+<span class="nc" id="L115">            itemProperty.value = null</span>
+<span class="nc" id="L116">            editingProperty.unbind()</span>
+<span class="nc" id="L117">            editingProperty.value = false</span>
+<span class="nc" id="L118">        }</span>
+<span class="fc" id="L119">    }</span>
+}
+
+
+<span class="fc" id="L123">fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.cellFormat(scope: Scope = FX.defaultScope, formatter: TableCell&lt;S, T&gt;.(T) -&gt; Unit) {</span>
+<span class="fc" id="L124">    properties[&quot;tornadofx.cellFormat&quot;] = formatter</span>
+<span class="pc bpc" id="L125" title="1 of 2 branches missed.">    if (properties[&quot;tornadofx.cellFormatCapable&quot;] != true)</span>
+<span class="fc" id="L126">        cellFactory = Callback { SmartTableCell&lt;S, T&gt;(scope, it) }</span>
+<span class="fc" id="L127">}</span>
+
+<span class="nc" id="L129">fun &lt;S, T, F: TableCellFragment&lt;S, T&gt;&gt; TableColumn&lt;S, T&gt;.cellFragment(scope: Scope = FX.defaultScope, fragment: KClass&lt;F&gt;) {</span>
+<span class="nc" id="L130">    properties[&quot;tornadofx.cellFragment&quot;] = fragment</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">    if (properties[&quot;tornadofx.cellFormatCapable&quot;] != true)</span>
+<span class="nc" id="L132">        cellFactory = Callback { SmartTableCell&lt;S, T&gt;(scope, it) }</span>
+<span class="nc" id="L133">}</span>
+
+/**
+ * Calculate a unique Node per item and set this Node as the graphic of the TableCell.
+ *
+ * To support this feature, a custom cellFactory is automatically installed, unless an already
+ * compatible cellFactory is found. The cellFactories installed via #cellFormat already knows
+ * how to retrieve cached values.
+ */
+<span class="nc" id="L142">fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.cellCache(scope: Scope  = FX.defaultScope, cachedGraphicProvider: (T) -&gt; Node) {</span>
+<span class="nc" id="L143">    properties[&quot;tornadofx.cellCache&quot;] = TableColumnCellCache(cachedGraphicProvider)</span>
+    // Install a cache capable cellFactory it none is present. The default cellFormat factory will do.
+<span class="nc bnc" id="L145" title="All 2 branches missed.">    if (properties[&quot;tornadofx.cellCacheCapable&quot;] != true)</span>
+<span class="nc" id="L146">        cellFactory = Callback { SmartTableCell&lt;S, T&gt;(scope, it) }</span>
+<span class="nc" id="L147">}</span>
+
+
+<span class="nc" id="L150">fun &lt;T, S&gt; TableColumn&lt;T, S?&gt;.converter(converter: StringConverter&lt;in S&gt;): TableColumn&lt;T, S?&gt; = apply {</span>
+<span class="nc" id="L151">    cellFormat(FX.defaultScope) { text = converter.toString(it) }</span>
+<span class="nc" id="L152">}</span>
+
+<span class="nc" id="L154">fun &lt;T&gt; TableView&lt;T&gt;.multiSelect(enable: Boolean = true) {</span>
+<span class="nc bnc" id="L155" title="All 2 branches missed.">    selectionModel.selectionMode = if (enable) SelectionMode.MULTIPLE else SelectionMode.SINGLE</span>
+<span class="nc" id="L156">}</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Binding.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Binding.kt</span></div><h1>Binding.kt</h1><pre class="source lang-java linenums">@file:Suppress(&quot;UNCHECKED_CAST&quot;, &quot;CAST_NEVER_SUCCEEDS&quot;)
+
+package tornadofx
+
+import javafx.beans.binding.Bindings
+import javafx.beans.binding.BooleanBinding
+import javafx.beans.binding.BooleanExpression
+import javafx.beans.property.Property
+import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.property.SimpleObjectProperty
+import javafx.beans.property.StringProperty
+import javafx.beans.value.ChangeListener
+import javafx.beans.value.ObservableValue
+import javafx.beans.value.WritableValue
+import javafx.collections.FXCollections
+import javafx.collections.ObservableList
+import javafx.scene.control.*
+import javafx.scene.paint.Color
+import javafx.scene.text.Text
+import javafx.util.StringConverter
+import javafx.util.converter.*
+import java.math.BigDecimal
+import java.math.BigInteger
+import java.text.Format
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.util.*
+import java.util.concurrent.Callable
+
+
+private fun &lt;T&gt; Property&lt;T&gt;.internalBind(property: ObservableValue&lt;T&gt;, readonly: Boolean) {
+<span class="nc" id="L33">    ViewModel.register(this, property)</span>
+
+<span class="nc bnc" id="L35" title="All 4 branches missed.">    if (readonly || (property !is Property&lt;*&gt;)) bind(property) else bindBidirectional(property as Property&lt;T&gt;)</span>
+<span class="nc" id="L36">}</span>
+
+<span class="nc" id="L38">fun &lt;T&gt; ComboBoxBase&lt;T&gt;.bind(property: ObservableValue&lt;T&gt;, readonly: Boolean = false) =</span>
+<span class="nc" id="L39">        valueProperty().internalBind(property, readonly)</span>
+
+<span class="nc" id="L41">fun ColorPicker.bind(property: ObservableValue&lt;Color&gt;, readonly: Boolean = false) =</span>
+<span class="nc" id="L42">        valueProperty().internalBind(property, readonly)</span>
+
+<span class="nc" id="L44">fun DatePicker.bind(property: ObservableValue&lt;LocalDate&gt;, readonly: Boolean = false) =</span>
+<span class="nc" id="L45">        valueProperty().internalBind(property, readonly)</span>
+
+<span class="nc" id="L47">fun ProgressIndicator.bind(property: ObservableValue&lt;Number&gt;, readonly: Boolean = false) =</span>
+<span class="nc" id="L48">        progressProperty().internalBind(property, readonly)</span>
+
+<span class="nc" id="L50">fun &lt;T&gt; ChoiceBox&lt;T&gt;.bind(property: ObservableValue&lt;T&gt;, readonly: Boolean = false) =</span>
+<span class="nc" id="L51">        valueProperty().internalBind(property, readonly)</span>
+
+<span class="nc" id="L53">fun CheckBox.bind(property: ObservableValue&lt;Boolean&gt;, readonly: Boolean = false) =</span>
+<span class="nc" id="L54">        selectedProperty().internalBind(property, readonly)</span>
+
+<span class="nc" id="L56">fun CheckMenuItem.bind(property: ObservableValue&lt;Boolean&gt;, readonly: Boolean = false) =</span>
+<span class="nc" id="L57">        selectedProperty().internalBind(property, readonly)</span>
+
+<span class="nc" id="L59">fun Slider.bind(property: ObservableValue&lt;Number&gt;, readonly: Boolean = false) =</span>
+<span class="nc" id="L60">        valueProperty().internalBind(property, readonly)</span>
+
+<span class="nc" id="L62">fun &lt;T&gt; Spinner&lt;T&gt;.bind(property: ObservableValue&lt;T&gt;, readonly: Boolean = false) =</span>
+<span class="nc" id="L63">        valueFactory.valueProperty().internalBind(property, readonly)</span>
+
+
+inline fun &lt;reified S : T, reified T : Any&gt; Labeled.bind(
+        property: ObservableValue&lt;S&gt;,
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        readonly: Boolean = false,</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">        converter: StringConverter&lt;T&gt;? = null,</span>
+<span class="nc" id="L70">        format: Format? = null</span>
+) {
+<span class="nc" id="L72">    bindStringProperty(textProperty(), converter, format, property, readonly)</span>
+<span class="nc" id="L73">}</span>
+
+inline fun &lt;reified S : T, reified T : Any&gt; TitledPane.bind(
+        property: ObservableValue&lt;S&gt;,
+<span class="nc bnc" id="L77" title="All 2 branches missed.">        readonly: Boolean = false,</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        converter: StringConverter&lt;T&gt;? = null,</span>
+<span class="nc" id="L79">        format: Format? = null</span>
+<span class="nc" id="L80">) = bindStringProperty(textProperty(), converter, format, property, readonly)</span>
+
+inline fun &lt;reified S : T, reified T : Any&gt; Text.bind(
+        property: ObservableValue&lt;S&gt;,
+<span class="nc bnc" id="L84" title="All 2 branches missed.">        readonly: Boolean = false,</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        converter: StringConverter&lt;T&gt;? = null,</span>
+<span class="nc" id="L86">        format: Format? = null</span>
+<span class="nc" id="L87">) = bindStringProperty(textProperty(), converter, format, property, readonly)</span>
+
+inline fun &lt;reified S : T, reified T : Any&gt; TextInputControl.bind(
+        property: ObservableValue&lt;S&gt;,
+<span class="nc bnc" id="L91" title="All 2 branches missed.">        readonly: Boolean = false,</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        converter: StringConverter&lt;T&gt;? = null,</span>
+<span class="nc" id="L93">        format: Format? = null</span>
+<span class="nc" id="L94">) = bindStringProperty(textProperty(), converter, format, property, readonly)</span>
+
+inline fun &lt;reified S : T, reified T : Any&gt; bindStringProperty(
+        stringProperty: StringProperty,
+        converter: StringConverter&lt;T&gt;?,
+        format: Format?,
+        property: ObservableValue&lt;S&gt;,
+        readonly: Boolean
+) {
+    if (stringProperty.isBound) stringProperty.unbind()
+    val effectiveReadonly = readonly || property !is Property&lt;S&gt; || S::class != T::class
+
+    ViewModel.register(stringProperty, property)
+
+    if (S::class == String::class) when {
+        effectiveReadonly -&gt; stringProperty.bind(property as ObservableValue&lt;String&gt;)
+        else -&gt; stringProperty.bindBidirectional(property as Property&lt;String&gt;)
+    } else {
+        val effectiveConverter = if (format != null) null else converter ?: getDefaultConverter&lt;S&gt;()
+        if (effectiveReadonly) {
+            val toStringConverter = Callable {
+<span class="nc" id="L115">                when {</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">                    converter != null -&gt; converter.toString(property.value)</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">                    format != null -&gt; format.format(property.value)</span>
+<span class="nc bnc" id="L118" title="All 2 branches missed.">                    else -&gt; property.value?.toString()</span>
+                }
+            }
+            val stringBinding = Bindings.createStringBinding(toStringConverter, property)
+            stringProperty.bind(stringBinding)
+        } else when {
+            effectiveConverter != null -&gt; stringProperty.bindBidirectional(property as Property&lt;S&gt;, effectiveConverter as StringConverter&lt;S&gt;)
+            format != null -&gt; stringProperty.bindBidirectional(property as Property&lt;S&gt;, format)
+            else -&gt; throw IllegalArgumentException(&quot;Cannot convert from ${S::class} to String without an explicit converter or format&quot;)
+        }
+    }
+}
+
+inline fun &lt;reified T : Any&gt; getDefaultConverter() = when (T::class.javaPrimitiveType ?: T::class) {
+    Int::class.javaPrimitiveType -&gt; IntegerStringConverter()
+    Long::class.javaPrimitiveType -&gt; LongStringConverter()
+    Double::class.javaPrimitiveType -&gt; DoubleStringConverter()
+    Float::class.javaPrimitiveType -&gt; FloatStringConverter()
+    Date::class -&gt; DateStringConverter()
+    BigDecimal::class -&gt; BigDecimalStringConverter()
+    BigInteger::class -&gt; BigIntegerStringConverter()
+    Number::class -&gt; NumberStringConverter()
+    LocalDate::class -&gt; LocalDateStringConverter()
+    LocalTime::class -&gt; LocalTimeStringConverter()
+    LocalDateTime::class -&gt; LocalDateTimeStringConverter()
+    Boolean::class.javaPrimitiveType -&gt; BooleanStringConverter()
+    else -&gt; null
+} as StringConverter&lt;T&gt;?
+
+<span class="nc" id="L147">fun ObservableValue&lt;Boolean&gt;.toBinding() = object : BooleanBinding() {</span>
+<span class="nc" id="L148">    init {</span>
+<span class="nc" id="L149">        super.bind(this@toBinding)</span>
+<span class="nc" id="L150">    }</span>
+
+    override fun dispose() {
+<span class="nc" id="L153">        super.unbind(this@toBinding)</span>
+<span class="nc" id="L154">    }</span>
+
+<span class="nc" id="L156">    override fun computeValue() = this@toBinding.value</span>
+
+<span class="nc" id="L158">    override fun getDependencies(): ObservableList&lt;*&gt; = FXCollections.singletonObservableList(this@toBinding)</span>
+<span class="nc" id="L159">}</span>
+
+fun &lt;T, N&gt; ObservableValue&lt;T&gt;.select(nested: (T) -&gt; ObservableValue&lt;N&gt;): Property&lt;N&gt; {
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">    fun extractNested(): ObservableValue&lt;N&gt;? = value?.let(nested)</span>
+
+<span class="fc" id="L164">    var currentNested: ObservableValue&lt;N&gt;? = extractNested()</span>
+
+<span class="fc" id="L166">    return object : SimpleObjectProperty&lt;N&gt;() {</span>
+<span class="pc" id="L167">        val changeListener = ChangeListener&lt;Any?&gt; { _, _, _ -&gt;</span>
+<span class="fc" id="L168">            invalidated()</span>
+<span class="fc" id="L169">            fireValueChangedEvent()</span>
+<span class="fc" id="L170">        }</span>
+
+<span class="fc" id="L172">        init {</span>
+<span class="pc bpc" id="L173" title="1 of 2 branches missed.">            currentNested?.addListener(changeListener)</span>
+<span class="fc" id="L174">            this@select.addListener(changeListener)</span>
+<span class="fc" id="L175">        }</span>
+
+        override fun invalidated() {
+<span class="pc bpc" id="L178" title="1 of 2 branches missed.">            currentNested?.removeListener(changeListener)</span>
+<span class="fc" id="L179">            currentNested = extractNested()</span>
+<span class="pc bpc" id="L180" title="1 of 2 branches missed.">            currentNested?.addListener(changeListener)</span>
+<span class="fc" id="L181">        }</span>
+
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">        override fun get() = currentNested?.value</span>
+
+        override fun set(v: N?) {
+<span class="pc bpc" id="L186" title="2 of 4 branches missed.">            (currentNested as? WritableValue&lt;N&gt;)?.value = v</span>
+<span class="fc" id="L187">            super.set(v)</span>
+<span class="fc" id="L188">        }</span>
+
+    }
+
+}
+
+fun &lt;T&gt; ObservableValue&lt;T&gt;.selectBoolean(nested: (T) -&gt; BooleanExpression): BooleanExpression {
+<span class="nc" id="L195">    fun extractNested() = nested(value)</span>
+
+<span class="nc" id="L197">    val dis = this</span>
+<span class="nc" id="L198">    var currentNested = extractNested()</span>
+
+<span class="nc" id="L200">    return object : SimpleBooleanProperty() {</span>
+<span class="nc" id="L201">        val changeListener = ChangeListener&lt;Boolean&gt; { _, _, _ -&gt;</span>
+<span class="nc" id="L202">            currentNested = extractNested()</span>
+<span class="nc" id="L203">            fireValueChangedEvent()</span>
+<span class="nc" id="L204">        }</span>
+
+<span class="nc" id="L206">        init {</span>
+<span class="nc" id="L207">            dis.onChange {</span>
+<span class="nc" id="L208">                fireValueChangedEvent()</span>
+<span class="nc" id="L209">                invalidated()</span>
+<span class="nc" id="L210">            }</span>
+<span class="nc" id="L211">        }</span>
+
+        override fun invalidated() {
+<span class="nc" id="L214">            currentNested.removeListener(changeListener)</span>
+<span class="nc" id="L215">            currentNested = extractNested()</span>
+<span class="nc" id="L216">            currentNested.addListener(changeListener)</span>
+<span class="nc" id="L217">        }</span>
+
+<span class="nc" id="L219">        override fun getValue() = currentNested.value</span>
+
+        override fun setValue(v: Boolean?) {
+<span class="nc bnc" id="L222" title="All 4 branches missed.">            (currentNested as? WritableValue&lt;*&gt;)?.value = v</span>
+<span class="nc" id="L223">            super.setValue(v)</span>
+<span class="nc" id="L224">        }</span>
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

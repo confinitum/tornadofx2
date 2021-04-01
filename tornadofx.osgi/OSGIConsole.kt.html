@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OSGIConsole.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx.osgi</a> &gt; <span class="el_source">OSGIConsole.kt</span></div><h1>OSGIConsole.kt</h1><pre class="source lang-java linenums">package tornadofx.osgi
+
+import javafx.scene.control.TableView
+import javafx.scene.control.TextInputDialog
+import javafx.scene.input.TransferMode
+import javafx.stage.FileChooser
+import org.osgi.framework.Bundle
+import org.osgi.framework.Bundle.ACTIVE
+import org.osgi.framework.startlevel.BundleStartLevel
+import tornadofx.*
+import tornadofx.osgi.impl.fxBundleContext
+import java.nio.file.Files
+
+<span class="nc" id="L14">class OSGIConsole : View() {</span>
+<span class="nc" id="L15">    override val root = borderpane {</span>
+<span class="nc" id="L16">        title = &quot;TornadoFX OSGi Console&quot;</span>
+<span class="nc" id="L17">        prefWidth = 800.0</span>
+<span class="nc" id="L18">        prefHeight = 600.0</span>
+
+<span class="nc" id="L20">        center {</span>
+<span class="nc" id="L21">            tableview&lt;Bundle&gt; {</span>
+<span class="nc" id="L22">                columnResizePolicy = TableView.CONSTRAINED_RESIZE_POLICY</span>
+
+<span class="nc" id="L24">                column(&quot;ID&quot;, Long::class) {</span>
+<span class="nc" id="L25">                    value { it.value.bundleId }</span>
+<span class="nc" id="L26">                    fixedWidth(75.0)</span>
+<span class="nc" id="L27">                }</span>
+
+<span class="nc" id="L29">                column(&quot;State&quot;, String::class) {</span>
+<span class="nc" id="L30">                    value { it.value.stateDescription }</span>
+<span class="nc" id="L31">                    fixedWidth(120.0)</span>
+<span class="nc" id="L32">                }</span>
+<span class="nc" id="L33">                column(&quot;Level&quot;, Int::class) {</span>
+<span class="nc" id="L34">                    value { it.value.state }</span>
+<span class="nc" id="L35">                    fixedWidth(50.0)</span>
+<span class="nc" id="L36">                }</span>
+<span class="nc" id="L37">                column(&quot;Name&quot;, String::class) {</span>
+<span class="nc" id="L38">                    value { it.value.description }</span>
+<span class="nc" id="L39">                }</span>
+
+<span class="nc" id="L41">                items.setAll(fxBundleContext.bundles.toList())</span>
+
+<span class="nc" id="L43">                fxBundleContext.addBundleListener {</span>
+<span class="nc" id="L44">                    items.setAll(fxBundleContext.bundles.toList())</span>
+<span class="nc" id="L45">                }</span>
+
+<span class="nc" id="L47">                contextmenu {</span>
+<span class="nc" id="L48">                    item(&quot;Stop&quot;).action {</span>
+<span class="nc bnc" id="L49" title="All 2 branches missed.">                        selectedItem?.stop()</span>
+<span class="nc" id="L50">                    }</span>
+<span class="nc" id="L51">                    item(&quot;Start&quot;).action {</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">                        selectedItem?.start()</span>
+<span class="nc" id="L53">                    }</span>
+<span class="nc" id="L54">                    item(&quot;Uninstall&quot;).action {</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">                        selectedItem?.uninstall()</span>
+<span class="nc" id="L56">                    }</span>
+<span class="nc" id="L57">                    item(&quot;Update&quot;).action {</span>
+<span class="nc bnc" id="L58" title="All 2 branches missed.">                        selectedItem?.update()</span>
+<span class="nc" id="L59">                    }</span>
+<span class="nc" id="L60">                    item(&quot;Update from...&quot;).action {</span>
+<span class="nc" id="L61">                        val result = chooseFile(&quot;Select file to replace ${selectedItem!!.symbolicName}&quot;, arrayOf(FileChooser.ExtensionFilter(&quot;OSGi Bundle Jar&quot;, &quot;jar&quot;)))</span>
+<span class="nc bnc" id="L62" title="All 6 branches missed.">                        if (result.isNotEmpty()) selectedItem?.update(Files.newInputStream(result.first().toPath()))</span>
+<span class="nc" id="L63">                    }</span>
+<span class="nc" id="L64">                    item(&quot;Set start level...&quot;).action {</span>
+<span class="nc" id="L65">                        TextInputDialog(&quot;&quot;).showAndWait().ifPresent {</span>
+<span class="nc" id="L66">                            selectedItem!!.bundleContext.bundle.adapt(BundleStartLevel::class.java).startLevel = it.toInt()</span>
+<span class="nc" id="L67">                        }</span>
+<span class="nc" id="L68">                    }</span>
+<span class="nc" id="L69">                }</span>
+
+<span class="nc" id="L71">                setOnContextMenuRequested {</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">                    val stop = contextMenu.items.first { it.text == &quot;Stop&quot; }</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">                    val start = contextMenu.items.first { it.text == &quot;Start&quot; }</span>
+<span class="nc bnc" id="L74" title="All 4 branches missed.">                    stop.isDisable = selectedItem?.state != Bundle.ACTIVE</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">                    start.isDisable = !stop.isDisable</span>
+<span class="nc" id="L76">                }</span>
+
+<span class="nc" id="L78">                setOnDragOver { event -&gt;</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">                    if (event.dragboard.hasFiles()) event.acceptTransferModes(TransferMode.COPY)</span>
+<span class="nc" id="L80">                    event.consume()</span>
+<span class="nc" id="L81">                }</span>
+
+<span class="nc" id="L83">                setOnDragDropped { event -&gt;</span>
+<span class="nc bnc" id="L84" title="All 6 branches missed.">                    if (event.dragboard.hasFiles() &amp;&amp; event.dragboard.files.first().name.toLowerCase().endsWith(&quot;.jar&quot;)) {</span>
+<span class="nc" id="L85">                        event.dragboard.files.forEach {</span>
+<span class="nc" id="L86">                            fxBundleContext.installBundle(&quot;file:${it.absolutePath}&quot;)</span>
+<span class="nc" id="L87">                        }</span>
+<span class="nc" id="L88">                        event.isDropCompleted = true</span>
+                    } else {
+<span class="nc" id="L90">                        event.isDropCompleted = false</span>
+                    }
+<span class="nc" id="L92">                    event.consume()</span>
+<span class="nc" id="L93">                }</span>
+<span class="nc" id="L94">            }</span>
+<span class="nc" id="L95">        }</span>
+
+<span class="nc" id="L97">    }</span>
+
+<span class="nc bnc" id="L99" title="All 7 branches missed.">    val Bundle.stateDescription : String get() = when (state) {</span>
+<span class="nc" id="L100">        ACTIVE -&gt; &quot;Active&quot;</span>
+<span class="nc" id="L101">        Bundle.INSTALLED -&gt; &quot;Installed&quot;</span>
+<span class="nc" id="L102">        Bundle.RESOLVED -&gt; &quot;Resolved&quot;</span>
+<span class="nc" id="L103">        Bundle.STARTING -&gt; &quot;Starting&quot;</span>
+<span class="nc" id="L104">        Bundle.STOPPING -&gt; &quot;Stopping&quot;</span>
+<span class="nc" id="L105">        Bundle.UNINSTALLED -&gt; &quot;Uninstalled&quot;</span>
+<span class="nc" id="L106">        else -&gt; &quot;Unknown&quot;</span>
+<span class="nc" id="L107">    }</span>
+
+    val Bundle.description : String get() {
+<span class="nc bnc" id="L110" title="All 6 branches missed.">        val name = headers[&quot;Bundle-Name&quot;] ?: symbolicName ?: location ?: &quot;?&quot;</span>
+<span class="nc" id="L111">        return &quot;$name | $version&quot;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

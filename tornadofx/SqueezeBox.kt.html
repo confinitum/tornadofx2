@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SqueezeBox.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">SqueezeBox.kt</span></div><h1>SqueezeBox.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.property.BooleanProperty
+import javafx.beans.property.SimpleBooleanProperty
+import javafx.collections.FXCollections
+import javafx.event.EventTarget
+import javafx.scene.Node
+import javafx.scene.control.Button
+import javafx.scene.control.Control
+import javafx.scene.control.SkinBase
+import javafx.scene.control.TitledPane
+
+<span class="nc" id="L13">class SqueezeBox(multiselect: Boolean = true, fillHeight: Boolean = false) : Control() {</span>
+<span class="nc" id="L14">    internal val panes = FXCollections.observableArrayList&lt;TitledPane&gt;()</span>
+
+<span class="nc" id="L16">    val multiselectProperty: BooleanProperty = SimpleBooleanProperty(multiselect)</span>
+<span class="nc" id="L17">    var multiselect by multiselectProperty</span>
+
+<span class="nc" id="L19">    val fillHeightProperty: BooleanProperty = SimpleBooleanProperty(fillHeight)</span>
+<span class="nc" id="L20">    var fillHeight by fillHeightProperty</span>
+
+<span class="nc" id="L22">    init {</span>
+<span class="nc" id="L23">        addClass(SqueezeBoxStyles.squeezeBox)</span>
+<span class="nc" id="L24">        children.onChange { change -&gt;</span>
+<span class="nc bnc" id="L25" title="All 2 branches missed.">            while (change.next()) {</span>
+<span class="nc bnc" id="L26" title="All 2 branches missed.">                if (change.wasAdded()) change.addedSubList.filterIsInstanceTo(panes)</span>
+<span class="nc bnc" id="L27" title="All 2 branches missed.">                if (change.wasRemoved()) panes -= change.removed.filterIsInstance&lt;TitledPane&gt;()</span>
+            }
+<span class="nc" id="L29">        }</span>
+
+<span class="nc" id="L31">        multiselectProperty.onChange {</span>
+<span class="nc bnc" id="L32" title="All 2 branches missed.">            if (!multiselect) {</span>
+<span class="nc bnc" id="L33" title="All 2 branches missed.">                panes.filter { it.isExpanded }.drop(1).withEach { isExpanded = false }</span>
+            }
+<span class="nc" id="L35">        }</span>
+<span class="nc" id="L36">    }</span>
+
+<span class="nc" id="L38">    override fun getUserAgentStylesheet() = SqueezeBoxStyles().base64URL.toExternalForm()</span>
+
+<span class="nc" id="L40">    override fun createDefaultSkin() = SqueezeBoxSkin(this)</span>
+
+    internal fun addChild(child: Node) {
+<span class="nc" id="L43">        children.add(child)</span>
+<span class="nc" id="L44">    }</span>
+
+    internal fun updateExpanded(pane: TitledPane) {
+<span class="nc bnc" id="L47" title="All 4 branches missed.">        if (!multiselect &amp;&amp; pane.isExpanded) {</span>
+<span class="nc" id="L48">            panes.asSequence()</span>
+<span class="nc" id="L49">                    .filterNot { it == pane }</span>
+<span class="nc" id="L50">                    .filter {  it.isExpanded }</span>
+<span class="nc" id="L51">                    .withEach{ isExpanded = false }</span>
+        }
+<span class="nc" id="L53">    }</span>
+}
+
+<span class="nc" id="L56">class SqueezeBoxSkin(val control: SqueezeBox) : SkinBase&lt;SqueezeBox&gt;(control) {</span>
+
+    override fun computeMinHeight(width: Double, topInset: Double, rightInset: Double, bottomInset: Double, leftInset: Double): Double {
+<span class="nc" id="L59">        return children.sumByDouble { it.minHeight(width) } + topInset + bottomInset</span>
+    }
+
+    override fun computePrefHeight(width: Double, topInset: Double, rightInset: Double, bottomInset: Double, leftInset: Double): Double {
+<span class="nc" id="L63">        return children.sumByDouble { it.prefHeight(width) } + topInset + bottomInset</span>
+    }
+
+    override fun computeMinWidth(height: Double, topInset: Double, rightInset: Double, bottomInset: Double, leftInset: Double): Double {
+<span class="nc bnc" id="L67" title="All 2 branches missed.">        return children.mapEach { minWidth(height) }.max() ?: 0.0 + leftInset + rightInset</span>
+    }
+
+    override fun computePrefWidth(height: Double, topInset: Double, rightInset: Double, bottomInset: Double, leftInset: Double): Double {
+<span class="nc bnc" id="L71" title="All 2 branches missed.">        return children.mapEach { prefWidth(height) }.max() ?: 0.0 + leftInset + rightInset</span>
+    }
+
+    override fun layoutChildren(contentX: Double, contentY: Double, contentWidth: Double, contentHeight: Double) {
+<span class="nc" id="L75">        var currentY = contentY</span>
+<span class="nc" id="L76">        var extraHeightPerExpandedPane = 0.0</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">        if (skinnable.fillHeight) {</span>
+<span class="nc" id="L78">            var totalPrefHeight: Double = 0.0</span>
+<span class="nc" id="L79">            var expandedCount = 0</span>
+<span class="nc" id="L80">            control.panes.forEach {</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">                if (it.isExpanded) expandedCount += 1</span>
+<span class="nc" id="L82">                totalPrefHeight += it.prefHeight(contentWidth)</span>
+<span class="nc" id="L83">            }</span>
+<span class="nc" id="L84">            extraHeightPerExpandedPane = (contentHeight - totalPrefHeight) / expandedCount</span>
+        }
+<span class="nc" id="L86">        control.panes.forEach { pane -&gt;</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">            val prefHeight = pane.prefHeight(contentWidth) + if (pane.isExpanded) extraHeightPerExpandedPane else 0.0</span>
+<span class="nc" id="L88">            pane.resizeRelocate(contentX, currentY, contentWidth, prefHeight)</span>
+<span class="nc" id="L89">            pane.renderCloseButton(contentWidth, currentY)</span>
+<span class="nc" id="L90">            currentY += prefHeight</span>
+<span class="nc" id="L91">        }</span>
+<span class="nc" id="L92">    }</span>
+
+    private fun Node.renderCloseButton(contentWidth: Double, contentY: Double) {
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        if (properties[&quot;tornadofx.closeable&quot;] == true) {</span>
+<span class="nc" id="L96">            val closeButton = properties.getOrPut(&quot;tornadofx.closeButton&quot;) {</span>
+<span class="nc" id="L97">                Button().apply {</span>
+<span class="nc" id="L98">                    addClass(SqueezeBoxStyles.closeButton)</span>
+<span class="nc" id="L99">                    isFocusTraversable = false</span>
+<span class="nc" id="L100">                    control.addChild(this)</span>
+<span class="nc" id="L101">                    setOnAction {</span>
+<span class="nc" id="L102">                        this@renderCloseButton.removeFromParent()</span>
+<span class="nc" id="L103">                        removeFromParent()</span>
+<span class="nc" id="L104">                    }</span>
+<span class="nc" id="L105">                    graphic = svgpath(InternalWindow.Styles.crossPath)</span>
+<span class="nc" id="L106">                }</span>
+            } as Button
+<span class="nc" id="L108">            closeButton.resizeRelocate(contentWidth - 20, contentY + 4, 16.0, 16.0)</span>
+        }
+<span class="nc" id="L110">    }</span>
+}
+
+<span class="nc" id="L113">fun EventTarget.squeezebox(multiselect: Boolean = true, fillHeight: Boolean = true, op: SqueezeBox.() -&gt; Unit) = SqueezeBox(multiselect, fillHeight).attachTo(this, op)</span>
+
+<span class="nc" id="L115">fun SqueezeBox.fold(title: String? = null, expanded: Boolean = false, icon: Node? = null, closeable: Boolean = false, op: TitledPane.() -&gt; Unit): TitledPane {</span>
+<span class="nc" id="L116">    val fold = TitledPane(title, null)</span>
+<span class="nc" id="L117">    fold.expandedProperty().onChange { updateExpanded(fold) }</span>
+<span class="nc" id="L118">    fold.graphic = icon</span>
+<span class="nc" id="L119">    fold.isExpanded = expanded</span>
+<span class="nc" id="L120">    fold.properties[&quot;tornadofx.closeable&quot;] = closeable</span>
+<span class="nc" id="L121">    addChild(fold)</span>
+<span class="nc" id="L122">    op.invoke(fold)</span>
+<span class="nc" id="L123">    return fold</span>
+}
+
+<span class="nc" id="L126">class SqueezeBoxStyles : Stylesheet() {</span>
+    companion object {
+<span class="nc" id="L128">        val squeezeBox by cssclass()</span>
+<span class="nc" id="L129">        val closeButton by cssclass()</span>
+    }
+
+<span class="nc" id="L132">    init {</span>
+<span class="nc" id="L133">        squeezeBox child titledPane {</span>
+<span class="nc" id="L134">            title {</span>
+<span class="nc" id="L135">                backgroundRadius += box(0.px)</span>
+<span class="nc" id="L136">            }</span>
+<span class="nc" id="L137">        }</span>
+<span class="nc" id="L138">        closeButton {</span>
+<span class="nc" id="L139">            backgroundInsets += box(0.px)</span>
+<span class="nc" id="L140">        }</span>
+<span class="nc" id="L141">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

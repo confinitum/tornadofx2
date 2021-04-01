@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Forms.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Forms.kt</span></div><h1>Forms.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.DefaultProperty
+import javafx.beans.binding.Bindings.createObjectBinding
+import javafx.beans.property.SimpleObjectProperty
+import javafx.beans.property.SimpleStringProperty
+import javafx.collections.ListChangeListener
+import javafx.collections.ObservableList
+import javafx.css.PseudoClass
+import javafx.event.EventTarget
+import javafx.geometry.Orientation
+import javafx.geometry.Orientation.HORIZONTAL
+import javafx.geometry.Orientation.VERTICAL
+import javafx.scene.Node
+import javafx.scene.control.ButtonBar
+import javafx.scene.control.Label
+import javafx.scene.layout.*
+import javafx.scene.layout.Priority.SOMETIMES
+import javafx.stage.Stage
+import java.util.*
+import java.util.concurrent.Callable
+
+<span class="pc" id="L23">fun EventTarget.form(op: Form.() -&gt; Unit = {}) = opcr(this, Form(), op)</span>
+
+<span class="fc" id="L25">fun EventTarget.fieldset(text: String? = null, icon: Node? = null, labelPosition: Orientation? = null, wrapWidth: Double? = null, op: Fieldset.() -&gt; Unit = {}): Fieldset {</span>
+<span class="fc bfc" id="L26" title="All 2 branches covered.">    val fieldset = Fieldset(text ?: &quot;&quot;)</span>
+<span class="pc bpc" id="L27" title="1 of 2 branches missed.">    if (wrapWidth != null) fieldset.wrapWidth = wrapWidth</span>
+<span class="pc bpc" id="L28" title="1 of 2 branches missed.">    if (labelPosition != null) fieldset.labelPosition = labelPosition</span>
+<span class="pc bpc" id="L29" title="1 of 2 branches missed.">    if (icon != null) fieldset.icon = icon</span>
+<span class="fc" id="L30">    opcr(this, fieldset, op)</span>
+<span class="fc" id="L31">    return fieldset</span>
+}
+
+/**
+ *  Creates a ButtonBarFiled with the given button order (refer to [javafx.scene.control.ButtonBar#buttonOrderProperty()] for more information about buttonOrder).
+ */
+<span class="nc" id="L37">fun EventTarget.buttonbar(buttonOrder: String? = null, forceLabelIndent: Boolean = true, op: ButtonBar.() -&gt; Unit = {}): ButtonBarField {</span>
+<span class="nc" id="L38">    val field = ButtonBarField(buttonOrder, forceLabelIndent)</span>
+<span class="nc" id="L39">    opcr(this, field){}</span>
+<span class="nc" id="L40">    op(field.inputContainer)</span>
+<span class="nc" id="L41">    return field</span>
+}
+
+/**
+ * Create a field with the given text and operate on it.
+ * @param text The label of the field
+ * @param forceLabelIndent Indent the label even if it's empty, good for aligning buttons etc
+ * @orientation Whether to create an HBox (HORIZONTAL) or a VBox (VERTICAL) container for the field content
+ * @op Code that will run in the context of the content container (Either HBox or VBox per the orientation)
+ *
+ * @see buttonbar
+ */
+<span class="pc" id="L53">fun EventTarget.field(text: String? = null, orientation: Orientation = HORIZONTAL, forceLabelIndent: Boolean = false, op: Field.() -&gt; Unit = {}): Field {</span>
+<span class="pc bpc" id="L54" title="1 of 2 branches missed.">    val field = Field(text ?: &quot;&quot;, orientation, forceLabelIndent)</span>
+<span class="fc" id="L55">    opcr(this, field){}</span>
+<span class="fc" id="L56">    op(field)</span>
+<span class="fc" id="L57">    return field</span>
+}
+
+<span class="fc" id="L60">open class Form : VBox() {</span>
+<span class="fc" id="L61">    init {</span>
+<span class="fc" id="L62">        addClass(Stylesheet.form)</span>
+<span class="fc" id="L63">    }</span>
+
+    internal fun labelContainerWidth(height: Double): Double
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">            = fieldsets.flatMap { it.fields }.map { it.labelContainer }.map { f -&gt; f.prefWidth(-height) }.max() ?: 0.0</span>
+
+<span class="fc" id="L68">    internal val fieldsets = HashSet&lt;Fieldset&gt;()</span>
+
+    override fun getUserAgentStylesheet(): String =
+<span class="fc" id="L71">            Form::class.java.getResource(&quot;form.css&quot;).toExternalForm()</span>
+}
+
+@DefaultProperty(&quot;children&quot;)
+<span class="pc" id="L75">open class Fieldset(text: String? = null, labelPosition: Orientation = HORIZONTAL) : VBox() {</span>
+    @Deprecated(&quot;Please use the new more concise syntax.&quot;, ReplaceWith(&quot;textProperty&quot;))
+<span class="nc" id="L77">    fun textProperty() = textProperty</span>
+<span class="pc" id="L78">    val textProperty = SimpleStringProperty()</span>
+<span class="fc" id="L79">    var text by textProperty</span>
+
+<span class="pc" id="L81">    val inputGrowProperty = SimpleObjectProperty&lt;Priority&gt;(SOMETIMES)</span>
+<span class="fc" id="L82">    var inputGrow by inputGrowProperty</span>
+    @Deprecated(&quot;Please use the new more concise syntax.&quot;, ReplaceWith(&quot;inputGrowProperty&quot;), DeprecationLevel.WARNING)
+<span class="nc" id="L84">    fun inputGrowProperty() = inputGrowProperty</span>
+
+<span class="pc" id="L86">    var labelPositionProperty = SimpleObjectProperty&lt;Orientation&gt;()</span>
+<span class="fc" id="L87">    var labelPosition by labelPositionProperty</span>
+    @Deprecated(&quot;Please use the new more concise syntax.&quot;, ReplaceWith(&quot;labelPositionProperty&quot;), DeprecationLevel.WARNING)
+<span class="nc" id="L89">    fun labelPositionProperty() = labelPositionProperty</span>
+
+<span class="pc" id="L91">    val wrapWidthProperty = SimpleObjectProperty&lt;Number&gt;()</span>
+<span class="fc" id="L92">    var wrapWidth by wrapWidthProperty</span>
+    @Deprecated(&quot;Please use the new more concise syntax.&quot;, ReplaceWith(&quot;wrapWidthProperty&quot;), DeprecationLevel.WARNING)
+<span class="nc" id="L94">    fun wrapWidthProperty() = wrapWidthProperty</span>
+
+<span class="pc" id="L96">    val iconProperty = SimpleObjectProperty&lt;Node&gt;()</span>
+<span class="fc" id="L97">    var icon by iconProperty</span>
+    @Deprecated(&quot;Please use the new more concise syntax.&quot;, ReplaceWith(&quot;iconProperty&quot;), DeprecationLevel.WARNING)
+<span class="nc" id="L99">    fun iconProperty() = iconProperty</span>
+
+<span class="pc" id="L101">    val legendProperty = SimpleObjectProperty&lt;Label&gt;()</span>
+<span class="fc" id="L102">    var legend by legendProperty</span>
+    @Deprecated(&quot;Please use the new more concise syntax.&quot;, ReplaceWith(&quot;legendProperty&quot;), DeprecationLevel.WARNING)
+<span class="nc" id="L104">    fun legendProperty() = legendProperty</span>
+
+<span class="fc" id="L106">    init {</span>
+<span class="fc" id="L107">        addClass(Stylesheet.fieldset)</span>
+
+        // Apply pseudo classes when orientation changes
+<span class="fc" id="L110">        syncOrientationState()</span>
+
+        // Add legend label when text is populated
+<span class="pc bpc" id="L113" title="1 of 6 branches missed.">        textProperty.onChange { newValue -&gt; if (!newValue.isNullOrBlank()) addLegend() }</span>
+
+        // Add legend when icon is populated
+<span class="pc bnc" id="L116" title="All 2 branches missed.">        iconProperty.onChange { newValue -&gt; if (newValue != null) addLegend() }</span>
+
+        // Make sure input children gets the configured HBox.hgrow property
+<span class="fc" id="L119">        syncHgrow()</span>
+
+        // Initial values
+<span class="fc" id="L122">        this@Fieldset.labelPosition = labelPosition</span>
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">        if (text != null) this@Fieldset.text = text</span>
+
+        // Register/deregister with parent Form
+<span class="fc" id="L126">        parentProperty().addListener { _, oldParent, newParent -&gt;</span>
+<span class="pc bpc" id="L127" title="3 of 6 branches missed.">            ((oldParent as? Form) ?: oldParent?.findParent&lt;Form&gt;())?.fieldsets?.remove(this)</span>
+<span class="pc bpc" id="L128" title="4 of 6 branches missed.">            ((newParent as? Form) ?: newParent?.findParent&lt;Form&gt;())?.fieldsets?.add(this)</span>
+<span class="fc" id="L129">        }</span>
+<span class="fc" id="L130">    }</span>
+
+    private fun syncHgrow() {
+<span class="fc" id="L133">        children.addListener(ListChangeListener { c -&gt;</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">            while (c.next()) {</span>
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">                if (c.wasAdded()) {</span>
+<span class="fc" id="L136">                    c.addedSubList.asSequence().filterIsInstance&lt;Field&gt;().forEach { added -&gt;</span>
+
+                        // Configure hgrow for current children
+<span class="pc" id="L139">                        added.inputContainer.children.forEach { configureHgrow(it) }</span>
+
+                        // Add listener to support inputs added later
+<span class="pc bpc" id="L142" title="1 of 4 branches missed.">                        added.inputContainer.children.addListener(ListChangeListener { while (it.next()) if (it.wasAdded()) it.addedSubList.forEach { configureHgrow(it) } })</span>
+<span class="fc" id="L143">                    }</span>
+                }
+            }
+<span class="fc" id="L146">        })</span>
+
+        // Change HGrow for unconfigured children when inputGrow changes
+<span class="fc" id="L149">        inputGrowProperty.onChange {</span>
+<span class="nc" id="L150">            children.asSequence().filterIsInstance&lt;Field&gt;().forEach { field -&gt;</span>
+<span class="nc" id="L151">                field.inputContainer.children.forEach { configureHgrow(it) }</span>
+<span class="nc" id="L152">            }</span>
+<span class="nc" id="L153">        }</span>
+<span class="fc" id="L154">    }</span>
+
+    private fun syncOrientationState() {
+<span class="fc" id="L157">        labelPositionProperty.onChange { newValue -&gt;</span>
+<span class="pc bpc" id="L158" title="1 of 2 branches missed.">            if (newValue == HORIZONTAL) {</span>
+<span class="fc" id="L159">                pseudoClassStateChanged(VERTICAL_PSEUDOCLASS_STATE, false)</span>
+<span class="fc" id="L160">                pseudoClassStateChanged(HORIZONTAL_PSEUDOCLASS_STATE, true)</span>
+            } else {
+<span class="nc" id="L162">                pseudoClassStateChanged(HORIZONTAL_PSEUDOCLASS_STATE, false)</span>
+<span class="nc" id="L163">                pseudoClassStateChanged(VERTICAL_PSEUDOCLASS_STATE, true)</span>
+            }
+<span class="fc" id="L165">        }</span>
+
+        // Setup listeneres for wrapping
+<span class="fc" id="L168">        wrapWidthProperty.onChange { newValue -&gt;</span>
+<span class="nc" id="L169">            val responsiveOrientation = createObjectBinding&lt;Orientation&gt;(Callable {</span>
+<span class="nc bnc" id="L170" title="All 4 branches missed.">                if (width &lt; newValue?.toDouble() ?: 0.0) VERTICAL else HORIZONTAL</span>
+<span class="nc" id="L171">            }, widthProperty())</span>
+
+<span class="nc" id="L173">            labelPositionProperty.cleanBind(responsiveOrientation)</span>
+<span class="nc" id="L174">        }</span>
+<span class="fc" id="L175">    }</span>
+
+    private fun addLegend() {
+<span class="pc bpc" id="L178" title="1 of 2 branches missed.">        if (legend == null) {</span>
+<span class="fc" id="L179">            legend = Label()</span>
+<span class="fc" id="L180">            legend.textProperty().bind(textProperty)</span>
+<span class="fc" id="L181">            legend.addClass(Stylesheet.legend)</span>
+<span class="fc" id="L182">            children.add(0, legend)</span>
+        }
+
+<span class="fc" id="L185">        legend.graphic = icon</span>
+<span class="fc" id="L186">    }</span>
+
+    private fun configureHgrow(input: Node) {
+<span class="fc" id="L189">        HBox.setHgrow(input, inputGrow)</span>
+<span class="fc" id="L190">    }</span>
+
+<span class="pc" id="L192">    val form: Form get() = findParent() ?: kotlin.error(&quot;FieldSet should be a child of Form node&quot;)</span>
+
+<span class="fc" id="L194">    internal val fields = HashSet&lt;Field&gt;()</span>
+
+    companion object {
+<span class="fc" id="L197">        private val HORIZONTAL_PSEUDOCLASS_STATE = PseudoClass.getPseudoClass(&quot;horizontal&quot;)</span>
+<span class="fc" id="L198">        private val VERTICAL_PSEUDOCLASS_STATE = PseudoClass.getPseudoClass(&quot;vertical&quot;)</span>
+    }
+}
+
+<span class="nc" id="L202">class StageAwareFieldset(text: String? = null, labelPosition: Orientation = HORIZONTAL) : Fieldset(text, labelPosition) {</span>
+<span class="nc" id="L203">    lateinit var stage: Stage</span>
+<span class="nc" id="L204">    fun close() = stage.close()</span>
+}
+/**
+ * Make this Node (presumably an input element) the mnemonicTarget for the field label. When the label
+ * of the field is activated, this input element will receive focus.
+ */
+fun Node.mnemonicTarget() {
+<span class="nc" id="L211">    findParent&lt;Field&gt;()?.apply {</span>
+<span class="nc" id="L212">        label.isMnemonicParsing = true</span>
+<span class="nc" id="L213">        label.labelFor = this@mnemonicTarget</span>
+<span class="nc" id="L214">    }</span>
+<span class="nc" id="L215">}</span>
+
+@DefaultProperty(&quot;inputs&quot;)
+<span class="nc" id="L218">class ButtonBarField(buttonOrder: String? = null, forceLabelIndent: Boolean = true) : AbstractField(&quot;&quot;, forceLabelIndent) {</span>
+<span class="nc" id="L219">    override val inputContainer = ButtonBar(buttonOrder)</span>
+<span class="nc" id="L220">    override val inputs: ObservableList&lt;Node&gt; = inputContainer.buttons</span>
+
+<span class="nc" id="L222">    init {</span>
+<span class="nc" id="L223">        inputContainer.addClass(Stylesheet.inputContainer)</span>
+<span class="nc" id="L224">        children.add(inputContainer)</span>
+<span class="nc" id="L225">    }</span>
+}
+
+@DefaultProperty(&quot;inputs&quot;)
+<span class="pc" id="L229">class Field(text: String? = null, orientation: Orientation = HORIZONTAL, forceLabelIndent: Boolean = false) : AbstractField(text, forceLabelIndent) {</span>
+<span class="pc bpc" id="L230" title="1 of 2 branches missed.">    override val inputContainer = if (orientation == HORIZONTAL) HBox() else VBox()</span>
+<span class="pc" id="L231">    override val inputs: ObservableList&lt;Node&gt; = inputContainer.children</span>
+
+<span class="fc" id="L233">    init {</span>
+<span class="fc" id="L234">        inputContainer.addClass(Stylesheet.inputContainer)</span>
+<span class="pc bpc" id="L235" title="1 of 2 branches missed.">        inputContainer.addPseudoClass(orientation.name.toLowerCase())</span>
+<span class="fc" id="L236">        children.add(inputContainer)</span>
+
+        // Register/deregister with parent Fieldset
+<span class="fc" id="L239">        parentProperty().addListener { _, oldParent, newParent -&gt;</span>
+<span class="pc bpc" id="L240" title="3 of 6 branches missed.">            ((oldParent as? Fieldset) ?: oldParent?.findParent&lt;Fieldset&gt;())?.fields?.remove(this)</span>
+<span class="pc bpc" id="L241" title="4 of 6 branches missed.">            ((newParent as? Fieldset) ?: newParent?.findParent&lt;Fieldset&gt;())?.fields?.add(this)</span>
+<span class="fc" id="L242">        }</span>
+<span class="fc" id="L243">    }</span>
+}
+
+@DefaultProperty(&quot;inputs&quot;)
+<span class="pc" id="L247">abstract class AbstractField(text: String? = null, val forceLabelIndent: Boolean = false) : Pane() {</span>
+<span class="pc" id="L248">    val textProperty = SimpleStringProperty(text)</span>
+    @Deprecated(&quot;Please use the new more concise syntax.&quot;, ReplaceWith(&quot;textProperty&quot;), DeprecationLevel.WARNING)
+<span class="nc" id="L250">    fun textProperty() = textProperty</span>
+<span class="fc" id="L251">    var text by textProperty</span>
+
+<span class="pc" id="L253">    val label = Label()</span>
+<span class="fc" id="L254">    val labelContainer = HBox(label).apply { addClass(Stylesheet.labelContainer) }</span>
+    abstract val inputContainer: Region
+
+    @Suppress(&quot;unused&quot;) // FXML Default Target
+    abstract val inputs: ObservableList&lt;Node&gt;
+
+<span class="fc" id="L260">    init {</span>
+<span class="fc" id="L261">        isFocusTraversable = false</span>
+<span class="fc" id="L262">        addClass(Stylesheet.field)</span>
+<span class="fc" id="L263">        label.textProperty().bind(textProperty)</span>
+<span class="fc" id="L264">        children.add(labelContainer)</span>
+<span class="fc" id="L265">    }</span>
+
+<span class="pc" id="L267">    val fieldset: Fieldset get() = findParent() ?: kotlin.error(&quot;Field should be a child of FieldSet node&quot;)</span>
+
+    override fun computePrefHeight(width: Double): Double {
+<span class="pc bpc" id="L270" title="4 of 8 branches missed.">        val labelHasContent = forceLabelIndent || !textProperty.value.isNullOrBlank()</span>
+
+<span class="pc bpc" id="L272" title="1 of 2 branches missed.">        val labelHeight = if (labelHasContent) labelContainer.prefHeight(width) else 0.0</span>
+<span class="fc" id="L273">        val inputHeight = inputContainer.prefHeight(width)</span>
+
+<span class="fc" id="L275">        val insets = insets</span>
+
+<span class="pc bpc" id="L277" title="1 of 2 branches missed.">        if (fieldset.labelPosition == HORIZONTAL)</span>
+<span class="fc" id="L278">            return Math.max(labelHeight, inputHeight) + insets.top + insets.bottom</span>
+
+<span class="nc" id="L280">        return labelHeight + inputHeight + insets.top + insets.bottom</span>
+    }
+
+    override fun computePrefWidth(height: Double): Double {
+<span class="fc" id="L284">        val fieldset = fieldset</span>
+<span class="pc bpc" id="L285" title="4 of 8 branches missed.">        val labelHasContent = forceLabelIndent || !textProperty.value.isNullOrBlank()</span>
+
+<span class="pc bpc" id="L287" title="1 of 2 branches missed.">        val labelWidth = if (labelHasContent) fieldset.form.labelContainerWidth(height) else 0.0</span>
+<span class="fc" id="L288">        val inputWidth = inputContainer.prefWidth(height)</span>
+
+<span class="fc" id="L290">        val insets = insets</span>
+
+<span class="pc bpc" id="L292" title="1 of 2 branches missed.">        if (fieldset.labelPosition == VERTICAL)</span>
+<span class="nc" id="L293">            return Math.max(labelWidth, inputWidth) + insets.left + insets.right</span>
+
+<span class="fc" id="L295">        return labelWidth + inputWidth + insets.left + insets.right</span>
+    }
+
+<span class="fc" id="L298">    override fun computeMinHeight(width: Double) = computePrefHeight(width)</span>
+
+    override fun layoutChildren() {
+<span class="fc" id="L301">        val fieldset = fieldset</span>
+<span class="pc bpc" id="L302" title="4 of 8 branches missed.">        val labelHasContent = forceLabelIndent || !textProperty.value.isNullOrBlank()</span>
+
+<span class="fc" id="L304">        val insets = insets</span>
+<span class="fc" id="L305">        val contentX = insets.left</span>
+<span class="fc" id="L306">        val contentY = insets.top</span>
+<span class="fc" id="L307">        val contentWidth = width - insets.left - insets.right</span>
+<span class="fc" id="L308">        val contentHeight = height - insets.top - insets.bottom</span>
+
+<span class="fc" id="L310">        val labelWidth = Math.min(contentWidth, fieldset.form.labelContainerWidth(height))</span>
+
+<span class="pc bpc" id="L312" title="1 of 2 branches missed.">        if (fieldset.labelPosition == HORIZONTAL) {</span>
+<span class="pc bpc" id="L313" title="1 of 2 branches missed.">            if (labelHasContent) {</span>
+<span class="fc" id="L314">                labelContainer.resizeRelocate(contentX, contentY, labelWidth, contentHeight)</span>
+
+<span class="fc" id="L316">                val inputX = contentX + labelWidth</span>
+<span class="fc" id="L317">                val inputWidth = contentWidth - labelWidth</span>
+
+<span class="fc" id="L319">                inputContainer.resizeRelocate(inputX, contentY, inputWidth, contentHeight)</span>
+            } else {
+<span class="nc" id="L321">                inputContainer.resizeRelocate(contentX, contentY, contentWidth, contentHeight)</span>
+<span class="nc" id="L322">            }</span>
+        } else {
+<span class="nc bnc" id="L324" title="All 2 branches missed.">            if (labelHasContent) {</span>
+<span class="nc" id="L325">                val labelPrefHeight = labelContainer.prefHeight(width)</span>
+<span class="nc" id="L326">                val labelHeight = Math.min(labelPrefHeight, contentHeight)</span>
+
+<span class="nc" id="L328">                labelContainer.resizeRelocate(contentX, contentY, Math.min(labelWidth, contentWidth), labelHeight)</span>
+
+<span class="nc" id="L330">                val restHeight = contentHeight - labelHeight</span>
+
+<span class="nc" id="L332">                inputContainer.resizeRelocate(contentX, contentY + labelHeight, contentWidth, restHeight)</span>
+            } else {
+<span class="nc" id="L334">                inputContainer.resizeRelocate(contentX, contentY, contentWidth, contentHeight)</span>
+            }
+        }
+<span class="fc" id="L337">    }</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TabPane.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">TabPane.kt</span></div><h1>TabPane.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.binding.BooleanBinding
+import javafx.beans.binding.BooleanExpression
+import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.value.ChangeListener
+import javafx.beans.value.ObservableValue
+import javafx.event.EventTarget
+import javafx.scene.Node
+import javafx.scene.control.Tab
+import javafx.scene.control.TabPane
+import javafx.scene.layout.Pane
+import javafx.scene.layout.VBox
+import kotlin.reflect.KClass
+
+<span class="nc" id="L16">fun EventTarget.tabpane(op: TabPane.() -&gt; Unit = {}) =  TabPane().attachTo(this, op)</span>
+
+<span class="nc" id="L18">fun &lt;T : Node&gt; TabPane.tab(text: String, content: T, op: T.() -&gt; Unit = {}): Tab {</span>
+<span class="nc" id="L19">    return tab(tabs.size, text, content, op)</span>
+}
+
+<span class="nc" id="L22">fun &lt;T : Node&gt; TabPane.tab(index: Int, text: String, content: T, op: T.() -&gt; Unit = {}): Tab {</span>
+<span class="nc" id="L23">    val tab = Tab(text, content)</span>
+<span class="nc" id="L24">    tabs.add(index, tab)</span>
+<span class="nc" id="L25">    op(content)</span>
+<span class="nc" id="L26">    return tab</span>
+}
+
+@Deprecated(&quot;Use the tab builder that extracts the closeable state from UIComponent.closeable instead&quot;, ReplaceWith(&quot;add(uiComponent)&quot;))
+<span class="nc" id="L30">fun TabPane.tab(uiComponent: UIComponent, closable: Boolean = true, op: Tab.() -&gt; Unit = {}): Tab {</span>
+<span class="nc" id="L31">    val tab = Tab()</span>
+<span class="nc" id="L32">    tab.isClosable = closable</span>
+<span class="nc" id="L33">    tab.textProperty().bind(uiComponent.titleProperty)</span>
+<span class="nc" id="L34">    tab.content = uiComponent.root</span>
+<span class="nc" id="L35">    tabs.add(tab)</span>
+<span class="nc" id="L36">    op(tab)</span>
+<span class="nc" id="L37">    return tab</span>
+}
+
+<span class="nc" id="L40">inline fun &lt;reified  T: UIComponent&gt; TabPane.tab(noinline op: Tab.() -&gt; Unit = {}) = tab(T::class, op)</span>
+<span class="nc" id="L41">fun TabPane.tab(uiComponent: KClass&lt;out UIComponent&gt;, op: Tab.() -&gt; Unit = {}) = tab(find(uiComponent), op)</span>
+
+<span class="nc" id="L43">fun TabPane.tab(uiComponent: UIComponent, op: Tab.() -&gt; Unit = {}): Tab {</span>
+<span class="nc" id="L44">    add(uiComponent.root)</span>
+<span class="nc" id="L45">    val tab = tabs.last()</span>
+<span class="nc" id="L46">    tab.graphic = uiComponent.icon</span>
+<span class="nc" id="L47">    return tab.also(op)</span>
+}
+
+<span class="nc bnc" id="L50" title="All 2 branches missed.">fun &lt;T : Node&gt; Iterable&lt;T&gt;.contains(cmp: UIComponent) = any { it == cmp.root }</span>
+
+<span class="nc" id="L52">fun TabPane.contains(cmp: UIComponent) = tabs.map { it.content }.contains(cmp)</span>
+
+<span class="nc" id="L54">fun Tab.disableWhen(predicate: ObservableValue&lt;Boolean&gt;) = disableProperty().cleanBind(predicate)</span>
+fun Tab.enableWhen(predicate: ObservableValue&lt;Boolean&gt;) {
+<span class="nc bnc" id="L56" title="All 2 branches missed.">    val binding = if (predicate is BooleanBinding) predicate.not() else predicate.toBinding().not()</span>
+<span class="nc" id="L57">    disableProperty().cleanBind(binding)</span>
+<span class="nc" id="L58">}</span>
+fun Tab.closeableWhen(predicate: ObservableValue&lt;Boolean&gt;) {
+<span class="nc" id="L60">    closableProperty().bind(predicate)</span>
+<span class="nc" id="L61">}</span>
+
+fun Tab.visibleWhen(predicate: ObservableValue&lt;Boolean&gt;) {
+<span class="nc" id="L64">    val localTabPane = tabPane</span>
+<span class="nc" id="L65">    fun updateState() {</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        if (predicate.value.not()) localTabPane.tabs.remove(this)</span>
+<span class="nc bnc" id="L67" title="All 2 branches missed.">        else if (this !in localTabPane.tabs) localTabPane.tabs.add(this)</span>
+<span class="nc" id="L68">    }</span>
+<span class="nc" id="L69">    updateState()</span>
+<span class="nc" id="L70">    predicate.onChange { updateState() }</span>
+<span class="nc" id="L71">}</span>
+
+<span class="nc" id="L73">fun Tab.close() = removeFromParent()</span>
+
+val TabPane.savable: BooleanExpression
+    get() {
+<span class="nc" id="L77">        val savable = SimpleBooleanProperty(true)</span>
+
+<span class="nc" id="L79">        fun updateState() {</span>
+<span class="nc" id="L80">            savable.cleanBind(contentUiComponent&lt;UIComponent&gt;()?.effectiveSavable ?: SimpleBooleanProperty(Workspace.defaultSavable))</span>
+<span class="nc" id="L81">        }</span>
+
+<span class="nc" id="L83">        val contentChangeListener = ChangeListener&lt;Node?&gt; { _, _, _ -&gt; updateState() }</span>
+
+<span class="nc" id="L85">        updateState()</span>
+
+<span class="nc bnc" id="L87" title="All 4 branches missed.">        selectionModel.selectedItem?.contentProperty()?.addListener(contentChangeListener)</span>
+<span class="nc" id="L88">        selectionModel.selectedItemProperty().addListener { _, oldTab, newTab -&gt;</span>
+<span class="nc" id="L89">            updateState()</span>
+<span class="nc bnc" id="L90" title="All 4 branches missed.">            oldTab?.contentProperty()?.removeListener(contentChangeListener)</span>
+<span class="nc bnc" id="L91" title="All 4 branches missed.">            newTab?.contentProperty()?.addListener(contentChangeListener)</span>
+<span class="nc" id="L92">        }</span>
+
+<span class="nc" id="L94">        return savable</span>
+    }
+
+val TabPane.creatable: BooleanExpression
+    get() {
+<span class="nc" id="L99">        val creatable = SimpleBooleanProperty(true)</span>
+
+<span class="nc" id="L101">        fun updateState() {</span>
+<span class="nc" id="L102">            creatable.cleanBind(contentUiComponent&lt;UIComponent&gt;()?.effectiveCreatable ?: SimpleBooleanProperty(Workspace.defaultCreatable))</span>
+<span class="nc" id="L103">        }</span>
+
+<span class="nc" id="L105">        val contentChangeListener = ChangeListener&lt;Node?&gt; { _, _, _ -&gt; updateState() }</span>
+
+<span class="nc" id="L107">        updateState()</span>
+
+<span class="nc bnc" id="L109" title="All 4 branches missed.">        selectionModel.selectedItem?.contentProperty()?.addListener(contentChangeListener)</span>
+<span class="nc" id="L110">        selectionModel.selectedItemProperty().addListener { _, oldTab, newTab -&gt;</span>
+<span class="nc" id="L111">            updateState()</span>
+<span class="nc bnc" id="L112" title="All 4 branches missed.">            oldTab?.contentProperty()?.removeListener(contentChangeListener)</span>
+<span class="nc bnc" id="L113" title="All 4 branches missed.">            newTab?.contentProperty()?.addListener(contentChangeListener)</span>
+<span class="nc" id="L114">        }</span>
+
+<span class="nc" id="L116">        return creatable</span>
+    }
+
+val TabPane.deletable: BooleanExpression
+    get() {
+<span class="nc" id="L121">        val deletable = SimpleBooleanProperty(true)</span>
+
+<span class="nc" id="L123">        fun updateState() {</span>
+<span class="nc" id="L124">            deletable.cleanBind(contentUiComponent&lt;UIComponent&gt;()?.effectiveDeletable ?: SimpleBooleanProperty(Workspace.defaultDeletable))</span>
+<span class="nc" id="L125">        }</span>
+
+<span class="nc" id="L127">        val contentChangeListener = ChangeListener&lt;Node?&gt; { observable, oldValue, newValue -&gt; updateState() }</span>
+
+<span class="nc" id="L129">        updateState()</span>
+
+<span class="nc bnc" id="L131" title="All 4 branches missed.">        selectionModel.selectedItem?.contentProperty()?.addListener(contentChangeListener)</span>
+<span class="nc" id="L132">        selectionModel.selectedItemProperty().addListener { observable, oldTab, newTab -&gt;</span>
+<span class="nc" id="L133">            updateState()</span>
+<span class="nc bnc" id="L134" title="All 4 branches missed.">            oldTab?.contentProperty()?.removeListener(contentChangeListener)</span>
+<span class="nc bnc" id="L135" title="All 4 branches missed.">            newTab?.contentProperty()?.addListener(contentChangeListener)</span>
+<span class="nc" id="L136">        }</span>
+
+<span class="nc" id="L138">        return deletable</span>
+    }
+
+
+val TabPane.refreshable: BooleanExpression
+    get() {
+<span class="nc" id="L144">        val refreshable = SimpleBooleanProperty(true)</span>
+
+<span class="nc" id="L146">        fun updateState() {</span>
+<span class="nc" id="L147">            refreshable.cleanBind(contentUiComponent&lt;UIComponent&gt;()?.effectiveRefreshable ?: SimpleBooleanProperty(Workspace.defaultRefreshable))</span>
+<span class="nc" id="L148">        }</span>
+
+<span class="nc" id="L150">        val contentChangeListener = ChangeListener&lt;Node?&gt; { _, _, _ -&gt; updateState() }</span>
+
+<span class="nc" id="L152">        updateState()</span>
+
+<span class="nc bnc" id="L154" title="All 4 branches missed.">        selectionModel.selectedItem?.contentProperty()?.addListener(contentChangeListener)</span>
+<span class="nc" id="L155">        selectionModel.selectedItemProperty().addListener { observable, oldTab, newTab -&gt;</span>
+<span class="nc" id="L156">            updateState()</span>
+<span class="nc bnc" id="L157" title="All 4 branches missed.">            oldTab?.contentProperty()?.removeListener(contentChangeListener)</span>
+<span class="nc bnc" id="L158" title="All 4 branches missed.">            newTab?.contentProperty()?.addListener(contentChangeListener)</span>
+<span class="nc" id="L159">        }</span>
+
+<span class="nc" id="L161">        return refreshable</span>
+    }
+
+inline fun &lt;reified T : UIComponent&gt; TabPane.contentUiComponent(): T? = selectionModel.selectedItem?.content?.uiComponent()
+<span class="nc" id="L165">fun TabPane.onDelete() = contentUiComponent&lt;UIComponent&gt;()?.onDelete()</span>
+<span class="nc" id="L166">fun TabPane.onSave() = contentUiComponent&lt;UIComponent&gt;()?.onSave()</span>
+<span class="nc" id="L167">fun TabPane.onCreate() = contentUiComponent&lt;UIComponent&gt;()?.onCreate()</span>
+<span class="nc" id="L168">fun TabPane.onRefresh() = contentUiComponent&lt;UIComponent&gt;()?.onRefresh()</span>
+<span class="nc" id="L169">fun TabPane.onNavigateBack() = contentUiComponent&lt;UIComponent&gt;()?.onNavigateBack() ?: true</span>
+<span class="nc" id="L170">fun TabPane.onNavigateForward() = contentUiComponent&lt;UIComponent&gt;()?.onNavigateForward() ?: true</span>
+
+<span class="nc" id="L172">fun TabPane.tab(text: String? = null, tag: Any? = null, op: Tab.() -&gt; Unit = {}): Tab {</span>
+<span class="nc bnc" id="L173" title="All 4 branches missed.">    val tab = Tab(text ?: tag?.toString())</span>
+<span class="nc" id="L174">    tab.tag = tag</span>
+<span class="nc" id="L175">    tabs.add(tab)</span>
+<span class="nc" id="L176">    return tab.also(op)</span>
+}
+
+fun Tab.whenSelected(op: () -&gt; Unit) {
+<span class="nc bnc" id="L180" title="All 2 branches missed.">    selectedProperty().onChange { if (it) op() }</span>
+<span class="nc" id="L181">}</span>
+
+<span class="nc" id="L183">fun Tab.select() = apply { tabPane.selectionModel.select(this) }</span>
+
+@Deprecated(&quot;No need to use the content{} wrapper anymore, just use a builder directly inside the Tab&quot;, ReplaceWith(&quot;no content{} wrapper&quot;), DeprecationLevel.WARNING)
+fun Tab.content(op: Pane.() -&gt; Unit): Node {
+<span class="nc" id="L187">    val fake = VBox()</span>
+<span class="nc" id="L188">    op(fake)</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">    content = if (fake.children.size == 1) fake.children.first() else fake</span>
+<span class="nc" id="L190">    return content</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

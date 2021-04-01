@@ -1,0 +1,1098 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ItemControls.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">ItemControls.kt</span></div><h1>ItemControls.kt</h1><pre class="source lang-java linenums">@file:Suppress(&quot;UNCHECKED_CAST&quot;)
+
+package tornadofx
+
+import javafx.application.Platform
+import javafx.beans.InvalidationListener
+import javafx.beans.Observable
+import javafx.beans.binding.Bindings
+import javafx.beans.binding.BooleanBinding
+import javafx.beans.binding.ObjectBinding
+import javafx.beans.property.*
+import javafx.beans.value.ObservableValue
+import javafx.beans.value.WritableValue
+import javafx.collections.FXCollections
+import javafx.collections.ListChangeListener
+import javafx.collections.ObservableList
+import javafx.collections.ObservableMap
+import javafx.event.EventTarget
+import javafx.geometry.Insets
+import javafx.geometry.Pos
+import javafx.scene.Node
+import javafx.scene.control.*
+import javafx.scene.control.cell.*
+import javafx.scene.input.MouseEvent
+import javafx.scene.layout.StackPane
+import javafx.scene.paint.Color
+import javafx.scene.shape.Polygon
+import javafx.scene.text.Text
+import javafx.util.Callback
+import javafx.util.StringConverter
+import tornadofx.skin.tablerow.DirtyDecoratingTableRowSkin
+import tornadofx.skin.tablerow.ExpandableTableRowSkin
+import java.util.*
+import kotlin.reflect.KClass
+import kotlin.reflect.KFunction
+import kotlin.reflect.KMutableProperty1
+import kotlin.reflect.KProperty1
+
+/**
+ * Create a spinner for an arbitrary type. This spinner requires you to configure a value factory, or it will throw an exception.
+ */
+fun &lt;T&gt; EventTarget.spinner(
+<span class="nc" id="L43">        editable: Boolean = false,</span>
+<span class="nc" id="L44">        property: Property&lt;T&gt;? = null,</span>
+<span class="nc" id="L45">        enableScroll: Boolean = false,</span>
+<span class="nc" id="L46">        op: Spinner&lt;T&gt;.() -&gt; Unit = {}</span>
+<span class="nc" id="L47">) = Spinner&lt;T&gt;().also{</span>
+<span class="nc" id="L48">    it.isEditable = editable</span>
+<span class="nc" id="L49">    it.attachTo(this, op)</span>
+
+<span class="nc bnc" id="L51" title="All 4 branches missed.">    if (property != null) requireNotNull(it.valueFactory) {</span>
+<span class="nc" id="L52">            &quot;You must configure the value factory or use the Number based spinner builder &quot; +</span>
+                    &quot;which configures a default value factory along with min, max and initialValue!&quot;
+<span class="nc" id="L54">    }.valueProperty().apply {</span>
+<span class="nc" id="L55">        bindBidirectional(property)</span>
+<span class="nc" id="L56">        ViewModel.register(this, property)</span>
+<span class="nc" id="L57">    }</span>
+
+<span class="nc bnc" id="L59" title="All 2 branches missed.">    if (enableScroll) it.setOnScroll { event -&gt;</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        if (event.deltaY &gt; 0) it.increment()</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        if (event.deltaY &lt; 0) it.decrement()</span>
+<span class="nc" id="L62">    }</span>
+
+<span class="nc bnc" id="L64" title="All 2 branches missed.">    if (editable) it.focusedProperty().addListener { _, _, newValue -&gt;</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        if (!newValue) it.increment(0)</span>
+<span class="nc" id="L66">    }</span>
+<span class="nc" id="L67">}</span>
+
+<span class="nc bnc" id="L69" title="All 14 branches missed.">inline fun &lt;reified T : Number&gt; EventTarget.spinner(min: T? = null, max: T? = null, initialValue: T? = null, amountToStepBy: T? = null, editable: Boolean = false, property: Property&lt;T&gt;? = null, enableScroll: Boolean = false, noinline op: Spinner&lt;T&gt;.() -&gt; Unit = {}): Spinner&lt;T&gt; {</span>
+<span class="nc" id="L70">    val spinner: Spinner&lt;T&gt;</span>
+<span class="nc bnc" id="L71" title="All 18 branches missed.">    val isInt = (property is IntegerProperty &amp;&amp; property !is DoubleProperty &amp;&amp; property !is FloatProperty) || min is Int || max is Int || initialValue is Int ||</span>
+            T::class == Int::class || T::class == Integer::class || T::class.javaPrimitiveType == Integer::class.java
+<span class="nc bnc" id="L73" title="All 2 branches missed.">    if (isInt) {</span>
+<span class="nc bnc" id="L74" title="All 8 branches missed.">        spinner = Spinner(min?.toInt() ?: 0, max?.toInt() ?: 100, initialValue?.toInt() ?: 0, amountToStepBy?.toInt()</span>
+<span class="nc" id="L75">                ?: 1)</span>
+    } else {
+<span class="nc bnc" id="L77" title="All 6 branches missed.">        spinner = Spinner(min?.toDouble() ?: 0.0, max?.toDouble() ?: 100.0, initialValue?.toDouble()</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">                ?: 0.0, amountToStepBy?.toDouble() ?: 1.0)</span>
+    }
+<span class="nc bnc" id="L80" title="All 2 branches missed.">    if (property != null) {</span>
+<span class="nc" id="L81">        spinner.valueFactory.valueProperty().bindBidirectional(property)</span>
+<span class="nc" id="L82">        ViewModel.register(spinner.valueFactory.valueProperty(), property)</span>
+    }
+<span class="nc" id="L84">    spinner.isEditable = editable</span>
+
+<span class="nc bnc" id="L86" title="All 2 branches missed.">    if (enableScroll) {</span>
+<span class="nc" id="L87">        spinner.setOnScroll { event -&gt;</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">            if (event.deltaY &gt; 0) spinner.increment()</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">            if (event.deltaY &lt; 0) spinner.decrement()</span>
+<span class="nc" id="L90">        }</span>
+    }
+
+<span class="nc bnc" id="L93" title="All 2 branches missed.">    if (editable) {</span>
+<span class="nc" id="L94">        spinner.focusedProperty().addListener { _, _, newValue -&gt;</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">            if (!newValue) {</span>
+<span class="nc" id="L96">                spinner.increment(0)</span>
+            }
+<span class="nc" id="L98">        }</span>
+    }
+
+<span class="nc" id="L101">    return spinner.attachTo(this, op)</span>
+}
+
+fun &lt;T&gt; EventTarget.spinner(
+        items: ObservableList&lt;T&gt;,
+<span class="nc" id="L106">        editable: Boolean = false,</span>
+<span class="nc" id="L107">        property: Property&lt;T&gt;? = null,</span>
+<span class="nc" id="L108">        enableScroll: Boolean = false,</span>
+<span class="nc" id="L109">        op: Spinner&lt;T&gt;.() -&gt; Unit = {}</span>
+<span class="nc" id="L110">) = Spinner&lt;T&gt;(items).attachTo(this,op){</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">    if (property != null) it.valueFactory.valueProperty().apply {</span>
+<span class="nc" id="L112">        bindBidirectional(property)</span>
+<span class="nc" id="L113">        ViewModel.register(this, property)</span>
+<span class="nc" id="L114">    }</span>
+
+<span class="nc" id="L116">    it.isEditable = editable</span>
+
+<span class="nc bnc" id="L118" title="All 2 branches missed.">    if (enableScroll) it.setOnScroll { event -&gt;</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        if (event.deltaY &gt; 0) it.increment()</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">        if (event.deltaY &lt; 0) it.decrement()</span>
+<span class="nc" id="L121">    }</span>
+
+<span class="nc bnc" id="L123" title="All 2 branches missed.">    if (editable) it.focusedProperty().addListener { _, _, newValue -&gt;</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">        if (!newValue) it.increment(0)</span>
+<span class="nc" id="L125">    }</span>
+<span class="nc" id="L126">}</span>
+
+fun &lt;T&gt; EventTarget.spinner(
+        valueFactory: SpinnerValueFactory&lt;T&gt;,
+<span class="nc" id="L130">        editable: Boolean = false,</span>
+<span class="nc" id="L131">        property: Property&lt;T&gt;? = null,</span>
+<span class="nc" id="L132">        enableScroll: Boolean = false,</span>
+<span class="nc" id="L133">        op: Spinner&lt;T&gt;.() -&gt; Unit = {}</span>
+<span class="nc" id="L134">) = Spinner&lt;T&gt;(valueFactory).attachTo(this, op){</span>
+<span class="nc bnc" id="L135" title="All 2 branches missed.">    if (property != null) it.valueFactory.valueProperty().apply {</span>
+<span class="nc" id="L136">        bindBidirectional(property)</span>
+<span class="nc" id="L137">        ViewModel.register(this, property)</span>
+<span class="nc" id="L138">    }</span>
+
+<span class="nc" id="L140">    it.isEditable = editable</span>
+
+<span class="nc bnc" id="L142" title="All 2 branches missed.">    if (enableScroll) it.setOnScroll { event -&gt;</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">        if (event.deltaY &gt; 0) it.increment()</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">        if (event.deltaY &lt; 0) it.decrement()</span>
+<span class="nc" id="L145">    }</span>
+
+<span class="nc bnc" id="L147" title="All 2 branches missed.">    if (editable) it.focusedProperty().addListener { _, _, newValue -&gt;</span>
+<span class="nc bnc" id="L148" title="All 2 branches missed.">            if (!newValue) it.increment(0)</span>
+<span class="nc" id="L149">    }</span>
+<span class="nc" id="L150">}</span>
+
+<span class="nc" id="L152">fun &lt;T&gt; EventTarget.combobox(property: Property&lt;T&gt;? = null, values: List&lt;T&gt;? = null, op: ComboBox&lt;T&gt;.() -&gt; Unit = {}) = ComboBox&lt;T&gt;().attachTo(this, op) {</span>
+<span class="nc bnc" id="L153" title="All 6 branches missed.">    if (values != null) it.items = values as? ObservableList&lt;T&gt; ?: values.asObservable()</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">    if (property != null) it.bind(property)</span>
+<span class="nc" id="L155">}</span>
+
+<span class="nc" id="L157">fun &lt;T&gt; ComboBox&lt;T&gt;.cellFormat(scope: Scope, formatButtonCell: Boolean = true, formatter: ListCell&lt;T&gt;.(T) -&gt; Unit) {</span>
+<span class="nc" id="L158">    cellFactory = Callback {</span>
+        //ListView may be defined or not, so properties are set the safe way
+<span class="nc" id="L160">        SmartListCell(scope, it, mapOf&lt;Any, Any&gt;(&quot;tornadofx.cellFormat&quot; to formatter))</span>
+    }
+<span class="nc bnc" id="L162" title="All 2 branches missed.">    if (formatButtonCell) buttonCell = cellFactory.call(null)</span>
+<span class="nc" id="L163">}</span>
+
+<span class="nc" id="L165">fun &lt;T&gt; EventTarget.choicebox(property: Property&lt;T&gt;? = null, values: List&lt;T&gt;? = null, op: ChoiceBox&lt;T&gt;.() -&gt; Unit = {}) = ChoiceBox&lt;T&gt;().attachTo(this, op) {</span>
+<span class="nc bnc" id="L166" title="All 6 branches missed.">    if (values != null) it.items = (values as? ObservableList&lt;T&gt;) ?: values.asObservable()</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">    if (property != null) it.bind(property)</span>
+<span class="nc" id="L168">}</span>
+
+<span class="nc" id="L170">fun &lt;T&gt; EventTarget.listview(values: ObservableList&lt;T&gt;? = null, op: ListView&lt;T&gt;.() -&gt; Unit = {}) = ListView&lt;T&gt;().attachTo(this, op) {</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">    if (values != null) {</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">        if (values is SortedFilteredList&lt;T&gt;) values.bindTo(it)</span>
+<span class="nc" id="L173">        else it.items = values</span>
+    }
+<span class="nc" id="L175">}</span>
+
+<span class="nc" id="L177">fun &lt;T&gt; EventTarget.listview(values: ReadOnlyListProperty&lt;T&gt;, op: ListView&lt;T&gt;.() -&gt; Unit = {}) = listview(values as ObservableValue&lt;ObservableList&lt;T&gt;&gt;, op)</span>
+
+<span class="nc" id="L179">fun &lt;T&gt; EventTarget.listview(values: ObservableValue&lt;ObservableList&lt;T&gt;&gt;, op: ListView&lt;T&gt;.() -&gt; Unit = {}) = ListView&lt;T&gt;().attachTo(this, op) {</span>
+<span class="nc" id="L180">    fun rebinder() {</span>
+<span class="nc bnc" id="L181" title="All 4 branches missed.">        (it.items as? SortedFilteredList&lt;T&gt;)?.bindTo(it)</span>
+<span class="nc" id="L182">    }</span>
+<span class="nc" id="L183">    it.itemsProperty().bind(values)</span>
+<span class="nc" id="L184">    rebinder()</span>
+<span class="nc" id="L185">    it.itemsProperty().onChange {</span>
+<span class="nc" id="L186">        rebinder()</span>
+<span class="nc" id="L187">    }</span>
+<span class="nc" id="L188">}</span>
+
+<span class="pc" id="L190">fun &lt;T&gt; EventTarget.tableview(items: ObservableList&lt;T&gt;? = null, op: TableView&lt;T&gt;.() -&gt; Unit = {}) = TableView&lt;T&gt;().attachTo(this, op) {</span>
+<span class="pc bpc" id="L191" title="1 of 2 branches missed.">    if (items != null) {</span>
+<span class="pc bpc" id="L192" title="1 of 2 branches missed.">        if (items is SortedFilteredList&lt;T&gt;) items.bindTo(it)</span>
+<span class="fc" id="L193">        else it.items = items</span>
+    }
+<span class="fc" id="L195">}</span>
+
+<span class="nc" id="L197">fun &lt;T&gt; EventTarget.tableview(items: ReadOnlyListProperty&lt;T&gt;, op: TableView&lt;T&gt;.() -&gt; Unit = {}) = tableview(items as ObservableValue&lt;ObservableList&lt;T&gt;&gt;, op)</span>
+
+<span class="nc" id="L199">fun &lt;T&gt; EventTarget.tableview(items: ObservableValue&lt;out ObservableList&lt;T&gt;&gt;, op: TableView&lt;T&gt;.() -&gt; Unit = {}) = TableView&lt;T&gt;().attachTo(this, op) {</span>
+<span class="nc" id="L200">    fun rebinder() {</span>
+<span class="nc bnc" id="L201" title="All 4 branches missed.">        (it.items as? SortedFilteredList&lt;T&gt;)?.bindTo(it)</span>
+<span class="nc" id="L202">    }</span>
+<span class="nc" id="L203">    it.itemsProperty().bind(items)</span>
+<span class="nc" id="L204">    rebinder()</span>
+<span class="nc" id="L205">    it.itemsProperty().onChange {</span>
+<span class="nc" id="L206">        rebinder()</span>
+<span class="nc" id="L207">    }</span>
+<span class="nc" id="L208">    items.onChange {</span>
+<span class="nc" id="L209">        rebinder()</span>
+<span class="nc" id="L210">    }</span>
+<span class="nc" id="L211">}</span>
+
+<span class="nc" id="L213">fun &lt;T&gt; EventTarget.treeview(root: TreeItem&lt;T&gt;? = null, op: TreeView&lt;T&gt;.() -&gt; Unit = {}) = TreeView&lt;T&gt;().attachTo(this, op) {</span>
+<span class="nc bnc" id="L214" title="All 2 branches missed.">    if (root != null) it.root = root</span>
+<span class="nc" id="L215">}</span>
+
+<span class="nc" id="L217">fun &lt;T&gt; EventTarget.treetableview(root: TreeItem&lt;T&gt;? = null, op: TreeTableView&lt;T&gt;.() -&gt; Unit = {}) = TreeTableView&lt;T&gt;().attachTo(this, op) {</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">    if (root != null) it.root = root</span>
+<span class="nc" id="L219">}</span>
+
+fun &lt;T : Any&gt; TreeView&lt;T&gt;.lazyPopulate(
+<span class="nc bnc" id="L222" title="All 2 branches missed.">        leafCheck: (LazyTreeItem&lt;T&gt;) -&gt; Boolean = { !it.hasChildren() },</span>
+<span class="nc" id="L223">        itemProcessor: (LazyTreeItem&lt;T&gt;) -&gt; Unit = {},</span>
+        childFactory: (TreeItem&lt;T&gt;) -&gt; List&lt;T&gt;?
+) {
+<span class="nc" id="L226">    fun createItem(value: T) = LazyTreeItem(value, leafCheck, itemProcessor, childFactory).also(itemProcessor)</span>
+
+<span class="nc bnc" id="L228" title="All 2 branches missed.">    requireNotNull(root) { &quot;You must set a root TreeItem before calling lazyPopulate&quot; }</span>
+
+<span class="nc" id="L230">    task {</span>
+<span class="nc" id="L231">        childFactory.invoke(root)</span>
+<span class="nc" id="L232">    } success {</span>
+<span class="nc bnc" id="L233" title="All 2 branches missed.">        root.children.setAll(it?.map(::createItem) ?: emptyList())</span>
+<span class="nc" id="L234">    }</span>
+<span class="nc" id="L235">}</span>
+
+<span class="nc" id="L237">class LazyTreeItem&lt;T : Any&gt;(</span>
+        value: T,
+<span class="nc" id="L239">        val leafCheck: (LazyTreeItem&lt;T&gt;) -&gt; Boolean,</span>
+<span class="nc" id="L240">        val itemProcessor: (LazyTreeItem&lt;T&gt;) -&gt; Unit = {},</span>
+<span class="nc" id="L241">        val childFactory: (TreeItem&lt;T&gt;) -&gt; List&lt;T&gt;?</span>
+<span class="nc" id="L242">) : TreeItem&lt;T&gt;(value) {</span>
+<span class="nc" id="L243">    private val leafResult: Boolean by lazy { leafCheck(this) }</span>
+<span class="nc" id="L244">    var childFactoryInvoked = false</span>
+<span class="nc" id="L245">    var childFactoryResult: List&lt;T&gt;? = null</span>
+
+    override fun isLeaf(): Boolean {
+<span class="nc" id="L248">        return leafResult</span>
+    }
+
+    override fun getChildren(): ObservableList&lt;TreeItem&lt;T&gt;&gt; {
+<span class="nc bnc" id="L252" title="All 2 branches missed.">        if (!childFactoryInvoked) {</span>
+<span class="nc" id="L253">            task {</span>
+<span class="nc" id="L254">                invokeAndSetChildFactorySynchronously()</span>
+<span class="nc" id="L255">            } success {</span>
+<span class="nc bnc" id="L256" title="All 2 branches missed.">                if (childFactoryResult != null) listenForChanges()</span>
+<span class="nc" id="L257">            }</span>
+        }
+<span class="nc" id="L259">        return super.getChildren()</span>
+    }
+
+    private fun listenForChanges() {
+<span class="nc bnc" id="L263" title="All 4 branches missed.">        (childFactoryResult as? ObservableList&lt;T&gt;)?.addListener(ListChangeListener { change -&gt;</span>
+<span class="nc bnc" id="L264" title="All 2 branches missed.">            while (change.next()) {</span>
+<span class="nc bnc" id="L265" title="All 2 branches missed.">                if (change.wasPermutated()) {</span>
+<span class="nc" id="L266">                    children.subList(change.from, change.to).clear()</span>
+<span class="nc" id="L267">                    val permutated = change.list.subList(change.from, change.to).map { newLazyTreeItem(it) }</span>
+<span class="nc" id="L268">                    children.addAll(change.from, permutated)</span>
+                } else {
+<span class="nc bnc" id="L270" title="All 2 branches missed.">                    if (change.wasRemoved()) {</span>
+<span class="nc bnc" id="L271" title="All 2 branches missed.">                        val removed = change.removed.flatMap { removed -&gt; children.filter { it.value == removed } }</span>
+<span class="nc" id="L272">                        children.removeAll(removed)</span>
+                    }
+<span class="nc bnc" id="L274" title="All 2 branches missed.">                    if (change.wasAdded()) {</span>
+<span class="nc" id="L275">                        val added = change.addedSubList.map { newLazyTreeItem(it) }</span>
+<span class="nc" id="L276">                        children.addAll(change.from, added)</span>
+                    }
+                }
+            }
+<span class="nc" id="L280">        })</span>
+<span class="nc" id="L281">    }</span>
+
+<span class="nc bnc" id="L283" title="All 4 branches missed.">    fun hasChildren(): Boolean = invokeAndSetChildFactorySynchronously().isNullOrEmpty()</span>
+
+    private fun invokeAndSetChildFactorySynchronously(): List&lt;T&gt;? {
+<span class="nc bnc" id="L286" title="All 2 branches missed.">        if (!childFactoryInvoked) {</span>
+<span class="nc" id="L287">            childFactoryInvoked = true</span>
+<span class="nc" id="L288">            childFactoryResult = childFactory(this).also { result -&gt;</span>
+<span class="nc bnc" id="L289" title="All 2 branches missed.">                if(result != null) {</span>
+<span class="nc" id="L290">                    super.getChildren().setAll(result.map { newLazyTreeItem(it) })</span>
+                }
+<span class="nc" id="L292">            }</span>
+        }
+<span class="nc" id="L294">        return childFactoryResult</span>
+    }
+
+<span class="nc" id="L297">    private fun newLazyTreeItem(item: T) = LazyTreeItem(item, leafCheck, itemProcessor, childFactory).apply { itemProcessor(this) }</span>
+}
+
+<span class="nc" id="L300">fun &lt;T&gt; TreeItem&lt;T&gt;.treeitem(value: T? = null, op: TreeItem&lt;T&gt;.() -&gt; Unit = {}): TreeItem&lt;T&gt; {</span>
+<span class="nc bnc" id="L301" title="All 2 branches missed.">    val treeItem = value?.let { TreeItem&lt;T&gt;(it) } ?: TreeItem&lt;T&gt;()</span>
+<span class="nc" id="L302">    treeItem.op()</span>
+<span class="nc" id="L303">    this += treeItem</span>
+<span class="nc" id="L304">    return treeItem</span>
+}
+
+operator fun &lt;T&gt; TreeItem&lt;T&gt;.plusAssign(treeItem: TreeItem&lt;T&gt;) {
+<span class="nc" id="L308">    this.children.add(treeItem)</span>
+<span class="nc" id="L309">}</span>
+
+<span class="fc" id="L311">fun &lt;S&gt; TableView&lt;S&gt;.makeIndexColumn(name: String = &quot;#&quot;, startNumber: Int = 1): TableColumn&lt;S, Number&gt; {</span>
+<span class="fc" id="L312">    return TableColumn&lt;S, Number&gt;(name).apply {</span>
+<span class="fc" id="L313">        isSortable = false</span>
+<span class="fc" id="L314">        prefWidth = width</span>
+<span class="fc" id="L315">        this@makeIndexColumn.columns += this</span>
+<span class="fc" id="L316">        setCellValueFactory { ReadOnlyObjectWrapper(items.indexOf(it.value) + startNumber) }</span>
+<span class="fc" id="L317">    }</span>
+}
+
+<span class="nc" id="L320">fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.enableTextWrap() = apply {</span>
+<span class="nc" id="L321">    setCellFactory {</span>
+<span class="nc" id="L322">        TableCell&lt;S, T&gt;().apply {</span>
+<span class="nc" id="L323">            val text = Text()</span>
+<span class="nc" id="L324">            graphic = text</span>
+<span class="nc" id="L325">            prefHeight = Control.USE_COMPUTED_SIZE</span>
+<span class="nc" id="L326">            text.wrappingWidthProperty().bind(this@enableTextWrap.widthProperty().subtract(Bindings.multiply(2.0, graphicTextGapProperty())))</span>
+<span class="nc bnc" id="L327" title="All 4 branches missed.">            text.textProperty().bind(stringBinding(itemProperty()) { get()?.toString() ?: &quot;&quot; })</span>
+<span class="nc" id="L328">        }</span>
+    }
+<span class="nc" id="L330">}</span>
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="fc" id="L333">fun &lt;S&gt; TableView&lt;S&gt;.addColumnInternal(column: TableColumn&lt;S, *&gt;, index: Int? = null) {</span>
+<span class="pc bpc" id="L334" title="2 of 4 branches missed.">    val columnTarget = properties[&quot;tornadofx.columnTarget&quot;] as? ObservableList&lt;TableColumn&lt;S, *&gt;&gt; ?: columns</span>
+<span class="pc bpc" id="L335" title="1 of 2 branches missed.">    if (index == null) columnTarget.add(column) else columnTarget.add(index, column)</span>
+<span class="fc" id="L336">}</span>
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc" id="L339">fun &lt;S&gt; TreeTableView&lt;S&gt;.addColumnInternal(column: TreeTableColumn&lt;S, *&gt;, index: Int? = null) {</span>
+<span class="nc bnc" id="L340" title="All 4 branches missed.">    val columnTarget = properties[&quot;tornadofx.columnTarget&quot;] as? ObservableList&lt;TreeTableColumn&lt;S, *&gt;&gt; ?: columns</span>
+<span class="nc bnc" id="L341" title="All 2 branches missed.">    if (index == null) columnTarget.add(column) else columnTarget.add(index, column)</span>
+<span class="nc" id="L342">}</span>
+
+/**
+ * Create a column holding children columns
+ */
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc" id="L348">fun &lt;S&gt; TableView&lt;S&gt;.nestedColumn(title: String, op: TableView&lt;S&gt;.(TableColumn&lt;S, Any?&gt;) -&gt; Unit = {}): TableColumn&lt;S, Any?&gt; {</span>
+<span class="nc" id="L349">    val column = TableColumn&lt;S, Any?&gt;(title)</span>
+<span class="nc" id="L350">    addColumnInternal(column)</span>
+<span class="nc bnc" id="L351" title="All 2 branches missed.">    val previousColumnTarget = properties[&quot;tornadofx.columnTarget&quot;] as? ObservableList&lt;TableColumn&lt;S, *&gt;&gt;</span>
+<span class="nc" id="L352">    properties[&quot;tornadofx.columnTarget&quot;] = column.columns</span>
+<span class="nc" id="L353">    op(this, column)</span>
+<span class="nc" id="L354">    properties[&quot;tornadofx.columnTarget&quot;] = previousColumnTarget</span>
+<span class="nc" id="L355">    return column</span>
+}
+
+/**
+ * Create a column holding children columns
+ */
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc" id="L362">fun &lt;S&gt; TreeTableView&lt;S&gt;.nestedColumn(title: String, op: TreeTableView&lt;S&gt;.() -&gt; Unit = {}): TreeTableColumn&lt;S, Any?&gt; {</span>
+<span class="nc" id="L363">    val column = TreeTableColumn&lt;S, Any?&gt;(title)</span>
+<span class="nc" id="L364">    addColumnInternal(column)</span>
+<span class="nc bnc" id="L365" title="All 2 branches missed.">    val previousColumnTarget = properties[&quot;tornadofx.columnTarget&quot;] as? ObservableList&lt;TableColumn&lt;S, *&gt;&gt;</span>
+<span class="nc" id="L366">    properties[&quot;tornadofx.columnTarget&quot;] = column.columns</span>
+<span class="nc" id="L367">    op(this)</span>
+<span class="nc" id="L368">    properties[&quot;tornadofx.columnTarget&quot;] = previousColumnTarget</span>
+<span class="nc" id="L369">    return column</span>
+}
+
+/**
+ * Create a column using the propertyName of the attribute you want shown.
+ */
+<span class="nc" id="L375">fun &lt;S, T&gt; TableView&lt;S&gt;.column(title: String, propertyName: String, op: TableColumn&lt;S, T&gt;.() -&gt; Unit = {}): TableColumn&lt;S, T&gt; {</span>
+<span class="nc" id="L376">    val column = TableColumn&lt;S, T&gt;(title)</span>
+<span class="nc" id="L377">    column.cellValueFactory = PropertyValueFactory&lt;S, T&gt;(propertyName)</span>
+<span class="nc" id="L378">    addColumnInternal(column)</span>
+<span class="nc" id="L379">    return column.also(op)</span>
+}
+
+/**
+ * Create a column using the getter of the attribute you want shown.
+ */
+@JvmName(&quot;pojoColumn&quot;)
+fun &lt;S, T&gt; TableView&lt;S&gt;.column(title: String, getter: KFunction&lt;T&gt;): TableColumn&lt;S, T&gt; {
+<span class="nc bnc" id="L387" title="All 4 branches missed.">    val startIndex = if (getter.name.startsWith(&quot;is&quot;) &amp;&amp; getter.name[2].isUpperCase()) 2 else 3</span>
+<span class="nc bnc" id="L388" title="All 2 branches missed.">    val propName = getter.name.substring(startIndex).decapitalize()</span>
+<span class="nc" id="L389">    return this.column(title, propName)</span>
+}
+
+/**
+ * Create a column using the propertyName of the attribute you want shown.
+ */
+<span class="nc" id="L395">fun &lt;S, T&gt; TreeTableView&lt;S&gt;.column(title: String, propertyName: String, op: TreeTableColumn&lt;S, T&gt;.() -&gt; Unit = {}): TreeTableColumn&lt;S, T&gt; {</span>
+<span class="nc" id="L396">    val column = TreeTableColumn&lt;S, T&gt;(title)</span>
+<span class="nc" id="L397">    column.cellValueFactory = TreeItemPropertyValueFactory&lt;S, T&gt;(propertyName)</span>
+<span class="nc" id="L398">    addColumnInternal(column)</span>
+<span class="nc" id="L399">    return column.also(op)</span>
+}
+
+/**
+ * Create a column using the getter of the attribute you want shown.
+ */
+@JvmName(&quot;pojoColumn&quot;)
+fun &lt;S, T&gt; TreeTableView&lt;S&gt;.column(title: String, getter: KFunction&lt;T&gt;): TreeTableColumn&lt;S, T&gt; {
+<span class="nc bnc" id="L407" title="All 4 branches missed.">    val startIndex = if (getter.name.startsWith(&quot;is&quot;) &amp;&amp; getter.name[2].isUpperCase()) 2 else 3</span>
+<span class="nc bnc" id="L408" title="All 2 branches missed.">    val propName = getter.name.substring(startIndex).decapitalize()</span>
+<span class="nc" id="L409">    return this.column(title, propName)</span>
+}
+
+<span class="nc" id="L412">fun &lt;S, T&gt; TableColumn&lt;S, T?&gt;.useComboBox(items: ObservableList&lt;T&gt;, afterCommit: (TableColumn.CellEditEvent&lt;S, T?&gt;) -&gt; Unit = {}) = apply {</span>
+<span class="nc" id="L413">    cellFactory = ComboBoxTableCell.forTableColumn(items)</span>
+<span class="nc" id="L414">    setOnEditCommit {</span>
+<span class="nc bnc" id="L415" title="All 2 branches missed.">        val property = it.tableColumn.getCellObservableValue(it.rowValue) as Property&lt;T?&gt;</span>
+<span class="nc" id="L416">        property.value = it.newValue</span>
+<span class="nc" id="L417">        afterCommit(it)</span>
+<span class="nc" id="L418">    }</span>
+<span class="nc" id="L419">}</span>
+
+inline fun &lt;S, reified T&gt; TableColumn&lt;S, T?&gt;.useTextField(
+<span class="nc bnc" id="L422" title="All 2 branches missed.">        converter: StringConverter&lt;T&gt;? = null,</span>
+<span class="nc" id="L423">        noinline afterCommit: (TableColumn.CellEditEvent&lt;S, T?&gt;) -&gt; Unit = {}</span>
+<span class="nc" id="L424">) = apply {</span>
+<span class="nc" id="L425">    when (T::class) {</span>
+<span class="nc bnc" id="L426" title="All 2 branches missed.">        String::class -&gt; {</span>
+            @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc" id="L428">            val stringColumn = this as TableColumn&lt;S, String?&gt;</span>
+<span class="nc" id="L429">            stringColumn.cellFactory = TextFieldTableCell.forTableColumn()</span>
+        }
+        else -&gt; {
+<span class="nc bnc" id="L432" title="All 2 branches missed.">            requireNotNull(converter) { &quot;You must supply a converter for non String columns&quot; }</span>
+<span class="nc" id="L433">            cellFactory = TextFieldTableCell.forTableColumn(converter)</span>
+        }
+    }
+
+<span class="nc" id="L437">    setOnEditCommit {</span>
+<span class="nc bnc" id="L438" title="All 4 branches missed.">        val property = it.tableColumn.getCellObservableValue(it.rowValue) as Property&lt;T?&gt;</span>
+<span class="nc" id="L439">        property.value = it.newValue</span>
+<span class="nc" id="L440">        afterCommit(it)</span>
+<span class="nc" id="L441">    }</span>
+<span class="nc" id="L442">}</span>
+
+<span class="nc" id="L444">fun &lt;S, T&gt; TableColumn&lt;S, T?&gt;.useChoiceBox(items: ObservableList&lt;T&gt;, afterCommit: (TableColumn.CellEditEvent&lt;S, T?&gt;) -&gt; Unit = {}) = apply {</span>
+<span class="nc" id="L445">    cellFactory = ChoiceBoxTableCell.forTableColumn(items)</span>
+<span class="nc" id="L446">    setOnEditCommit {</span>
+<span class="nc bnc" id="L447" title="All 2 branches missed.">        val property = it.tableColumn.getCellObservableValue(it.rowValue) as Property&lt;T?&gt;</span>
+<span class="nc" id="L448">        property.value = it.newValue</span>
+<span class="nc" id="L449">        afterCommit(it)</span>
+<span class="nc" id="L450">    }</span>
+<span class="nc" id="L451">}</span>
+
+<span class="nc" id="L453">fun &lt;S&gt; TableColumn&lt;S, out Number?&gt;.useProgressBar(scope: Scope, afterCommit: (TableColumn.CellEditEvent&lt;S, Number?&gt;) -&gt; Unit = {}) = apply {</span>
+<span class="nc" id="L454">    cellFormat(scope) {</span>
+<span class="nc" id="L455">        addClass(Stylesheet.progressBarTableCell)</span>
+<span class="nc" id="L456">        graphic = cache {</span>
+<span class="nc bnc" id="L457" title="All 2 branches missed.">            progressbar(itemProperty().doubleBinding { it?.toDouble() ?: 0.0 }) {</span>
+<span class="nc" id="L458">                useMaxWidth = true</span>
+<span class="nc" id="L459">            }</span>
+        }
+<span class="nc" id="L461">    }</span>
+<span class="nc" id="L462">    (this as TableColumn&lt;S, Number?&gt;).setOnEditCommit {</span>
+<span class="nc bnc" id="L463" title="All 2 branches missed.">        val property = it.tableColumn.getCellObservableValue(it.rowValue) as Property&lt;Number?&gt;</span>
+<span class="nc bnc" id="L464" title="All 2 branches missed.">        property.value = it.newValue?.toDouble()</span>
+<span class="nc" id="L465">        afterCommit(it as TableColumn.CellEditEvent&lt;S, Number?&gt;)</span>
+<span class="nc" id="L466">    }</span>
+<span class="nc" id="L467">}</span>
+
+<span class="pc" id="L469">fun &lt;S&gt; TableColumn&lt;S, Boolean?&gt;.useCheckbox(editable: Boolean = true) = apply {</span>
+<span class="fc" id="L470">    cellFormat {</span>
+<span class="nc" id="L471">        graphic = cache {</span>
+<span class="nc" id="L472">            alignment = Pos.CENTER</span>
+<span class="nc" id="L473">            checkbox {</span>
+<span class="nc bnc" id="L474" title="All 2 branches missed.">                if (editable) {</span>
+<span class="nc" id="L475">                    selectedProperty().bindBidirectional(itemProperty())</span>
+
+<span class="nc" id="L477">                    setOnAction {</span>
+<span class="nc" id="L478">                        tableView.edit(index, tableColumn)</span>
+<span class="nc bnc" id="L479" title="All 2 branches missed.">                        commitEdit(!isSelected)</span>
+<span class="nc" id="L480">                    }</span>
+                } else {
+<span class="nc" id="L482">                    selectedProperty().bind(itemProperty())</span>
+                }
+<span class="nc" id="L484">            }</span>
+        }
+<span class="nc" id="L486">    }</span>
+<span class="pc bpc" id="L487" title="1 of 2 branches missed.">    if (editable) {</span>
+<span class="fc" id="L488">        runLater {</span>
+<span class="pc bpc" id="L489" title="1 of 2 branches missed.">            tableView?.isEditable = true</span>
+<span class="fc" id="L490">        }</span>
+    }
+<span class="fc" id="L492">}</span>
+
+// This was used earlier, but was changed to using cellFormat with cache, see above
+//class CheckBoxCell&lt;S&gt;(val makeEditable: Boolean) : TableCell&lt;S, Boolean?&gt;() {
+//    val checkbox: CheckBox by lazy {
+//        CheckBox().apply {
+//            if (makeEditable) {
+//                selectedProperty().bindBidirectional(itemProperty())
+//                setOnAction {
+//                    tableView.edit(index, tableColumn)
+//                    commitEdit(!isSelected)
+//                }
+//            } else {
+//                isDisable = true
+//                selectedProperty().bind(itemProperty())
+//            }
+//        }
+//    }
+//
+//    init {
+//        if (makeEditable) {
+//            isEditable = true
+//            tableView?.isEditable = true
+//        }
+//    }
+//
+//    override fun updateItem(item: Boolean?, empty: Boolean) {
+//        super.updateItem(item, empty)
+//        style { alignment = Pos.CENTER }
+//        graphic = if (empty || item == null) null else checkbox
+//    }
+//}
+
+
+<span class="nc" id="L526">fun &lt;S&gt; ListView&lt;S&gt;.useCheckbox(converter: StringConverter&lt;S&gt;? = null, getter: (S) -&gt; ObservableValue&lt;Boolean&gt;) {</span>
+<span class="nc bnc" id="L527" title="All 2 branches missed.">    setCellFactory { CheckBoxListCell(getter, converter) }</span>
+<span class="nc" id="L528">}</span>
+
+fun &lt;T&gt; TableView&lt;T&gt;.bindSelected(property: Property&lt;T&gt;) {
+<span class="nc" id="L531">    selectionModel.selectedItemProperty().onChange {</span>
+<span class="nc" id="L532">        property.value = it</span>
+<span class="nc" id="L533">    }</span>
+<span class="nc" id="L534">}</span>
+
+fun &lt;T&gt; ComboBox&lt;T&gt;.bindSelected(property: Property&lt;T&gt;) {
+<span class="nc" id="L537">    selectionModel.selectedItemProperty().onChange {</span>
+<span class="nc" id="L538">        property.value = it</span>
+<span class="nc" id="L539">    }</span>
+<span class="nc" id="L540">}</span>
+
+fun &lt;T&gt; TableView&lt;out T&gt;.bindSelected(model: ItemViewModel&lt;in T&gt;) {
+<span class="fc" id="L543">    selectionModel.selectedItemProperty().onChange {</span>
+<span class="fc" id="L544">        model.item = it</span>
+<span class="fc" id="L545">    }</span>
+<span class="fc" id="L546">}</span>
+
+val &lt;T&gt; TableView&lt;T&gt;.selectedCell: TablePosition&lt;T, *&gt;?
+<span class="nc" id="L549">    get() = selectionModel.selectedCells.firstOrNull() as TablePosition&lt;T, *&gt;?</span>
+
+val &lt;T&gt; TableView&lt;T&gt;.selectedColumn: TableColumn&lt;T, *&gt;?
+<span class="nc bnc" id="L552" title="All 2 branches missed.">    get() = selectedCell?.tableColumn</span>
+
+val &lt;T&gt; TableView&lt;T&gt;.selectedValue: Any?
+<span class="nc bnc" id="L555" title="All 4 branches missed.">    get() = selectedColumn?.getCellObservableValue(selectedItem)?.value</span>
+
+val &lt;T&gt; TreeTableView&lt;T&gt;.selectedCell: TreeTablePosition&lt;T, *&gt;?
+<span class="nc" id="L558">    get() = selectionModel.selectedCells.firstOrNull()</span>
+
+val &lt;T&gt; TreeTableView&lt;T&gt;.selectedColumn: TreeTableColumn&lt;T, *&gt;?
+<span class="nc bnc" id="L561" title="All 2 branches missed.">    get() = selectedCell?.tableColumn</span>
+
+val &lt;T&gt; TreeTableView&lt;T&gt;.selectedValue: Any?
+<span class="nc bnc" id="L564" title="All 4 branches missed.">    get() = selectedColumn?.getCellObservableValue(selectionModel.selectedItem)?.value</span>
+
+/**
+ * Create a column with a value factory that extracts the value from the given mutable
+ * property and converts the property to an observable value.
+ */
+<span class="nc" id="L570">inline fun &lt;reified S, T&gt; TableView&lt;S&gt;.column(title: String, prop: KMutableProperty1&lt;S, T&gt;, noinline op: TableColumn&lt;S, T&gt;.() -&gt; Unit = {}): TableColumn&lt;S, T&gt; {</span>
+<span class="nc" id="L571">    val column = TableColumn&lt;S, T&gt;(title)</span>
+<span class="nc" id="L572">    column.cellValueFactory = Callback { observable(it.value, prop) }</span>
+<span class="nc" id="L573">    addColumnInternal(column)</span>
+<span class="nc" id="L574">    return column.also(op)</span>
+}
+
+<span class="nc" id="L577">inline fun &lt;reified S, T&gt; TreeTableView&lt;S&gt;.column(title: String, prop: KMutableProperty1&lt;S, T&gt;, noinline op: TreeTableColumn&lt;S, T&gt;.() -&gt; Unit = {}): TreeTableColumn&lt;S, T&gt; {</span>
+<span class="nc" id="L578">    val column = TreeTableColumn&lt;S, T&gt;(title)</span>
+<span class="nc" id="L579">    column.cellValueFactory = Callback { observable(it.value.value, prop) }</span>
+<span class="nc" id="L580">    addColumnInternal(column)</span>
+<span class="nc" id="L581">    return column.also(op)</span>
+}
+
+/**
+ * Create a column with a value factory that extracts the value from the given property and
+ * converts the property to an observable value.
+ *
+ * ATTENTION: This function was renamed to `readonlyColumn` to avoid shadowing the version for
+ * observable properties.
+ */
+<span class="nc" id="L591">inline fun &lt;reified S, T&gt; TableView&lt;S&gt;.readonlyColumn(title: String, prop: KProperty1&lt;S, T&gt;, noinline op: TableColumn&lt;S, T&gt;.() -&gt; Unit = {}): TableColumn&lt;S, T&gt; {</span>
+<span class="nc" id="L592">    val column = TableColumn&lt;S, T&gt;(title)</span>
+<span class="nc" id="L593">    column.cellValueFactory = Callback { observable(it.value, prop) }</span>
+<span class="nc" id="L594">    addColumnInternal(column)</span>
+<span class="nc" id="L595">    return column.also(op)</span>
+}
+
+<span class="nc" id="L598">inline fun &lt;reified S, T&gt; TreeTableView&lt;S&gt;.column(title: String, prop: KProperty1&lt;S, T&gt;, noinline op: TreeTableColumn&lt;S, T&gt;.() -&gt; Unit = {}): TreeTableColumn&lt;S, T&gt; {</span>
+<span class="nc" id="L599">    val column = TreeTableColumn&lt;S, T&gt;(title)</span>
+<span class="nc" id="L600">    column.cellValueFactory = Callback { observable(it.value.value, prop) }</span>
+<span class="nc" id="L601">    addColumnInternal(column)</span>
+<span class="nc" id="L602">    return column.also(op)</span>
+}
+
+/**
+ * Create a column with a value factory that extracts the value from the given ObservableValue property.
+ */
+<span class="nc" id="L608">inline fun &lt;reified S, T&gt; TableView&lt;S&gt;.column(title: String, prop: KProperty1&lt;S, ObservableValue&lt;T&gt;&gt;, noinline op: TableColumn&lt;S, T&gt;.() -&gt; Unit = {}): TableColumn&lt;S, T&gt; {</span>
+<span class="nc" id="L609">    val column = TableColumn&lt;S, T&gt;(title)</span>
+<span class="nc" id="L610">    column.cellValueFactory = Callback { prop.call(it.value) }</span>
+<span class="nc" id="L611">    addColumnInternal(column)</span>
+<span class="nc" id="L612">    return column.also(op)</span>
+}
+
+/**
+ * Add a global edit commit handler to the TableView. You avoid assuming the responsibility
+ * for writing back the data into your domain object and can consentrate on the actual
+ * response you want to happen when a column commits and edit.
+ */
+fun &lt;S&gt; TableView&lt;S&gt;.onEditCommit(onCommit: TableColumn.CellEditEvent&lt;S, Any&gt;.(S) -&gt; Unit) {
+<span class="nc" id="L621">    fun addEventHandlerForColumn(column: TableColumn&lt;S, *&gt;) {</span>
+<span class="nc" id="L622">        column.addEventHandler(TableColumn.editCommitEvent&lt;S, Any&gt;()) { event -&gt;</span>
+            // Make sure the domain object gets the new value before we notify our handler
+<span class="nc" id="L624">            Platform.runLater {</span>
+<span class="nc" id="L625">                onCommit(event, event.rowValue)</span>
+<span class="nc" id="L626">            }</span>
+<span class="nc" id="L627">        }</span>
+<span class="nc" id="L628">        column.columns.forEach(::addEventHandlerForColumn)</span>
+<span class="nc" id="L629">    }</span>
+
+<span class="nc" id="L631">    columns.forEach(::addEventHandlerForColumn)</span>
+
+<span class="nc" id="L633">    columns.addListener({ change: ListChangeListener.Change&lt;out TableColumn&lt;S, *&gt;&gt; -&gt;</span>
+<span class="nc bnc" id="L634" title="All 2 branches missed.">        while (change.next()) {</span>
+<span class="nc bnc" id="L635" title="All 2 branches missed.">            if (change.wasAdded())</span>
+<span class="nc" id="L636">                change.addedSubList.forEach(::addEventHandlerForColumn)</span>
+        }
+<span class="nc" id="L638">    })</span>
+<span class="nc" id="L639">}</span>
+
+/**
+ * Add a global edit start handler to the TableView. You can use this callback
+ * to cancel the edit request by calling cancel()
+ */
+fun &lt;S&gt; TableView&lt;S&gt;.onEditStart(onEditStart: TableColumn.CellEditEvent&lt;S, Any?&gt;.(S) -&gt; Unit) {
+<span class="nc" id="L646">    fun addEventHandlerForColumn(column: TableColumn&lt;S, *&gt;) {</span>
+<span class="nc" id="L647">        column.addEventHandler(TableColumn.editStartEvent&lt;S, Any?&gt;()) { event -&gt;</span>
+<span class="nc" id="L648">            onEditStart(event, event.rowValue)</span>
+<span class="nc" id="L649">        }</span>
+<span class="nc" id="L650">        column.columns.forEach(::addEventHandlerForColumn)</span>
+<span class="nc" id="L651">    }</span>
+
+<span class="nc" id="L653">    columns.forEach(::addEventHandlerForColumn)</span>
+
+<span class="nc" id="L655">    columns.addListener({ change: ListChangeListener.Change&lt;out TableColumn&lt;S, *&gt;&gt; -&gt;</span>
+<span class="nc bnc" id="L656" title="All 2 branches missed.">        while (change.next()) {</span>
+<span class="nc bnc" id="L657" title="All 2 branches missed.">            if (change.wasAdded())</span>
+<span class="nc" id="L658">                change.addedSubList.forEach(::addEventHandlerForColumn)</span>
+        }
+<span class="nc" id="L660">    })</span>
+<span class="nc" id="L661">}</span>
+
+/**
+ * Used to cancel an edit event, typically from `onEditStart`
+ */
+fun &lt;S, T&gt; TableColumn.CellEditEvent&lt;S, T&gt;.cancel() {
+<span class="nc" id="L667">    tableView.edit(-1, tableColumn);</span>
+<span class="nc" id="L668">}</span>
+
+/**
+ * Create a column with a title specified cell type and operate on it. Inside the code block you can call
+ * `value { it.value.someProperty }` to set up a cellValueFactory that must return T or ObservableValue&lt;T&gt;
+ */
+@Suppress(&quot;UNUSED_PARAMETER&quot;)
+<span class="fc" id="L675">fun &lt;S, T : Any&gt; TableView&lt;S&gt;.column(title: String, cellType: KClass&lt;T&gt;, op: TableColumn&lt;S, T&gt;.() -&gt; Unit = {}): TableColumn&lt;S, T&gt; {</span>
+<span class="fc" id="L676">    val column = TableColumn&lt;S, T&gt;(title)</span>
+<span class="fc" id="L677">    addColumnInternal(column)</span>
+<span class="fc" id="L678">    return column.also(op)</span>
+}
+
+/**
+ * Create a column with a value factory that extracts the value from the given callback.
+ */
+fun &lt;S, T&gt; TableView&lt;S&gt;.column(title: String, valueProvider: (TableColumn.CellDataFeatures&lt;S, T&gt;) -&gt; ObservableValue&lt;T&gt;): TableColumn&lt;S, T&gt; {
+<span class="nc" id="L685">    val column = TableColumn&lt;S, T&gt;(title)</span>
+<span class="nc" id="L686">    column.cellValueFactory = Callback { valueProvider(it) }</span>
+<span class="nc" id="L687">    addColumnInternal(column)</span>
+<span class="nc" id="L688">    return column</span>
+}
+
+/**
+ * Configure a cellValueFactory for the column. If the returned value is not observable, it is automatically
+ * wrapped in a SimpleObjectProperty for convenience.
+ */
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="fc" id="L696">infix fun &lt;S&gt; TableColumn&lt;S, *&gt;.value(cellValueFactory: (TableColumn.CellDataFeatures&lt;S, Any&gt;) -&gt; Any?) = apply {</span>
+<span class="fc" id="L697">    this.cellValueFactory = Callback {</span>
+<span class="pc bpc" id="L698" title="1 of 2 branches missed.">        val createdValue = cellValueFactory(it as TableColumn.CellDataFeatures&lt;S, Any&gt;)</span>
+<span class="pc bpc" id="L699" title="2 of 4 branches missed.">        (createdValue as? ObservableValue&lt;Any&gt;) ?: SimpleObjectProperty(createdValue)</span>
+    }
+<span class="fc" id="L701">}</span>
+
+@JvmName(name = &quot;columnForObservableProperty&quot;)
+inline fun &lt;reified S, T&gt; TreeTableView&lt;S&gt;.column(title: String, prop: KProperty1&lt;S, ObservableValue&lt;T&gt;&gt;): TreeTableColumn&lt;S, T&gt; {
+    val column = TreeTableColumn&lt;S, T&gt;(title)
+<span class="nc" id="L706">    column.cellValueFactory = Callback { prop.call(it.value.value) }</span>
+    addColumnInternal(column)
+    return column
+}
+
+/**
+ * Create a column with a value factory that extracts the observable value from the given function reference.
+ * This method requires that you have kotlin-reflect on your classpath.
+ */
+inline fun &lt;S, reified T&gt; TableView&lt;S&gt;.column(title: String, observableFn: KFunction&lt;ObservableValue&lt;T&gt;&gt;): TableColumn&lt;S, T&gt; {
+    val column = TableColumn&lt;S, T&gt;(title)
+<span class="nc" id="L717">    column.cellValueFactory = Callback { observableFn.call(it.value) }</span>
+    addColumnInternal(column)
+    return column
+}
+
+inline fun &lt;S, reified T&gt; TreeTableView&lt;S&gt;.column(title: String, observableFn: KFunction&lt;ObservableValue&lt;T&gt;&gt;): TreeTableColumn&lt;S, T&gt; {
+    val column = TreeTableColumn&lt;S, T&gt;(title)
+<span class="nc" id="L724">    column.cellValueFactory = Callback { observableFn.call(it.value) }</span>
+    addColumnInternal(column)
+    return column
+}
+
+/**
+ * Create a column with a value factory that extracts the value from the given callback.
+ */
+inline fun &lt;reified S, T&gt; TreeTableView&lt;S&gt;.column(title: String, noinline valueProvider: (TreeTableColumn.CellDataFeatures&lt;S, T&gt;) -&gt; ObservableValue&lt;T&gt;): TreeTableColumn&lt;S, T&gt; {
+    val column = TreeTableColumn&lt;S, T&gt;(title)
+<span class="nc" id="L734">    column.cellValueFactory = Callback { valueProvider(it) }</span>
+    addColumnInternal(column)
+    return column
+}
+
+
+<span class="nc" id="L740">fun &lt;S&gt; TableView&lt;S&gt;.rowExpander(expandOnDoubleClick: Boolean = false, expandedNodeCallback: RowExpanderPane.(S) -&gt; Unit): ExpanderColumn&lt;S&gt; {</span>
+<span class="nc" id="L741">    val expander = ExpanderColumn(expandedNodeCallback)</span>
+<span class="nc" id="L742">    addColumnInternal(expander, 0)</span>
+<span class="nc" id="L743">    setRowFactory {</span>
+<span class="nc" id="L744">        object : TableRow&lt;S&gt;() {</span>
+            override fun createDefaultSkin(): Skin&lt;*&gt; {
+<span class="nc" id="L746">                return ExpandableTableRowSkin(this, expander)</span>
+            }
+        }
+    }
+<span class="nc bnc" id="L750" title="All 2 branches missed.">    if (expandOnDoubleClick) onUserSelect(2) {</span>
+<span class="nc" id="L751">        expander.toggleExpanded(selectionModel.selectedIndex)</span>
+<span class="nc" id="L752">    }</span>
+<span class="nc" id="L753">    return expander</span>
+}
+
+<span class="nc" id="L756">class RowExpanderPane(val tableRow: TableRow&lt;*&gt;, val expanderColumn: ExpanderColumn&lt;*&gt;) : StackPane() {</span>
+<span class="nc" id="L757">    init {</span>
+<span class="nc" id="L758">        addClass(&quot;expander-pane&quot;)</span>
+<span class="nc" id="L759">    }</span>
+
+    fun toggleExpanded() {
+<span class="nc" id="L762">        expanderColumn.toggleExpanded(tableRow.index)</span>
+<span class="nc" id="L763">    }</span>
+
+<span class="nc bnc" id="L765" title="All 2 branches missed.">    fun expandedProperty() = expanderColumn.getCellObservableValue(tableRow.index) as SimpleBooleanProperty</span>
+    var expanded: Boolean
+<span class="nc" id="L767">        get() = expandedProperty().value</span>
+        set(value) {
+<span class="nc" id="L769">            expandedProperty().value = value</span>
+<span class="nc" id="L770">        }</span>
+
+<span class="nc" id="L772">    override fun getUserAgentStylesheet() = RowExpanderPane::class.java.getResource(&quot;rowexpanderpane.css&quot;).toExternalForm()</span>
+}
+
+<span class="nc" id="L775">class ExpanderColumn&lt;S&gt;(private val expandedNodeCallback: RowExpanderPane.(S) -&gt; Unit) : TableColumn&lt;S, Boolean&gt;() {</span>
+<span class="nc" id="L776">    private val expandedNodeCache = HashMap&lt;S, Node&gt;()</span>
+<span class="nc" id="L777">    private val expansionState = mutableMapOf&lt;S, BooleanProperty&gt;()</span>
+
+<span class="nc" id="L779">    init {</span>
+<span class="nc" id="L780">        addClass(&quot;expander-column&quot;)</span>
+
+<span class="nc" id="L782">        cellValueFactory = Callback {</span>
+<span class="nc" id="L783">            expansionState.getOrPut(it.value, { getExpandedProperty(it.value) })</span>
+        }
+
+<span class="nc" id="L786">        cellFactory = Callback { ToggleCell() }</span>
+<span class="nc" id="L787">    }</span>
+
+    fun toggleExpanded(index: Int) {
+<span class="nc bnc" id="L790" title="All 2 branches missed.">        val expanded = getCellObservableValue(index) as SimpleBooleanProperty</span>
+<span class="nc bnc" id="L791" title="All 2 branches missed.">        expanded.value = !expanded.value</span>
+<span class="nc" id="L792">        tableView.refresh()</span>
+<span class="nc" id="L793">    }</span>
+
+    fun getOrCreateExpandedNode(tableRow: TableRow&lt;S&gt;): Node? {
+<span class="nc" id="L796">        val index = tableRow.index</span>
+<span class="nc bnc" id="L797" title="All 4 branches missed.">        if (index in tableView.items.indices) {</span>
+<span class="nc" id="L798">            val item = tableView.items[index]!!</span>
+<span class="nc" id="L799">            var node: Node? = expandedNodeCache[item]</span>
+<span class="nc bnc" id="L800" title="All 2 branches missed.">            if (node == null) {</span>
+<span class="nc" id="L801">                node = RowExpanderPane(tableRow, this)</span>
+<span class="nc" id="L802">                expandedNodeCallback(node, item)</span>
+<span class="nc" id="L803">                expandedNodeCache.put(item, node)</span>
+            }
+<span class="nc" id="L805">            return node</span>
+        }
+<span class="nc" id="L807">        return null</span>
+    }
+
+<span class="nc" id="L810">    fun getExpandedNode(item: S): Node? = expandedNodeCache[item]</span>
+
+    fun getExpandedProperty(item: S): BooleanProperty {
+<span class="nc" id="L813">        var value: BooleanProperty? = expansionState[item]</span>
+<span class="nc bnc" id="L814" title="All 2 branches missed.">        if (value == null) {</span>
+<span class="nc" id="L815">            value = object : SimpleBooleanProperty(item, &quot;expanded&quot;, false) {</span>
+                /**
+                 * When the expanded state change we refresh the tableview.
+                 * If the expanded state changes to false we remove the cached expanded node.
+                 */
+                override fun invalidated() {
+<span class="nc" id="L821">                    tableView.refresh()</span>
+<span class="nc bnc" id="L822" title="All 4 branches missed.">                    if (!getValue()) expandedNodeCache.remove(bean)</span>
+<span class="nc" id="L823">                }</span>
+            }
+<span class="nc" id="L825">            expansionState[item] = value</span>
+        }
+<span class="nc" id="L827">        return value</span>
+    }
+
+<span class="nc" id="L830">    private inner class ToggleCell : TableCell&lt;S, Boolean&gt;() {</span>
+<span class="nc" id="L831">        private val button = Button()</span>
+
+<span class="nc" id="L833">        init {</span>
+<span class="nc" id="L834">            button.isFocusTraversable = false</span>
+<span class="nc" id="L835">            button.styleClass.add(&quot;expander-button&quot;)</span>
+<span class="nc" id="L836">            button.setPrefSize(16.0, 16.0)</span>
+<span class="nc" id="L837">            button.padding = Insets(0.0)</span>
+<span class="nc" id="L838">            button.setOnAction { toggleExpanded(index) }</span>
+<span class="nc" id="L839">        }</span>
+
+        override fun updateItem(expanded: Boolean?, empty: Boolean) {
+<span class="nc" id="L842">            super.updateItem(expanded, empty)</span>
+<span class="nc bnc" id="L843" title="All 4 branches missed.">            if (item == null || empty) {</span>
+<span class="nc" id="L844">                graphic = null</span>
+            } else {
+<span class="nc bnc" id="L846" title="All 2 branches missed.">                button.text = if (expanded == true) &quot;-&quot; else &quot;+&quot;</span>
+<span class="nc" id="L847">                graphic = button</span>
+            }
+<span class="nc" id="L849">        }</span>
+    }
+}
+
+fun &lt;T&gt; TableView&lt;T&gt;.enableCellEditing() {
+<span class="nc" id="L854">    selectionModel.isCellSelectionEnabled = true</span>
+<span class="nc" id="L855">    isEditable = true</span>
+<span class="nc" id="L856">}</span>
+
+fun &lt;T&gt; TableView&lt;T&gt;.selectOnDrag() {
+<span class="nc" id="L859">    var startRow = 0</span>
+<span class="nc" id="L860">    var startColumn = columns.first()</span>
+
+    // Record start position and clear selection unless Control is down
+<span class="nc" id="L863">    addEventFilter(MouseEvent.MOUSE_PRESSED) {</span>
+<span class="nc" id="L864">        startRow = 0</span>
+
+<span class="nc bnc" id="L866" title="All 4 branches missed.">        (it.pickResult.intersectedNode as? TableCell&lt;*, *&gt;)?.apply {</span>
+<span class="nc" id="L867">            startRow = index</span>
+<span class="nc" id="L868">            startColumn = tableColumn as TableColumn&lt;T, *&gt;?</span>
+
+<span class="nc bnc" id="L870" title="All 2 branches missed.">            if (selectionModel.isCellSelectionEnabled) {</span>
+<span class="nc" id="L871">                selectionModel.clearAndSelect(startRow, startColumn)</span>
+            } else {
+<span class="nc" id="L873">                selectionModel.clearAndSelect(startRow)</span>
+            }
+<span class="nc" id="L875">        }</span>
+<span class="nc" id="L876">    }</span>
+
+    // Select items while dragging
+<span class="nc" id="L879">    addEventFilter(MouseEvent.MOUSE_DRAGGED) {</span>
+<span class="nc bnc" id="L880" title="All 4 branches missed.">        (it.pickResult.intersectedNode as? TableCell&lt;*, *&gt;)?.apply {</span>
+<span class="nc bnc" id="L881" title="All 2 branches missed.">            if (items.size &gt; index) {</span>
+<span class="nc bnc" id="L882" title="All 2 branches missed.">                if (selectionModel.isCellSelectionEnabled) {</span>
+<span class="nc" id="L883">                    selectionModel.selectRange(startRow, startColumn, index, tableColumn as TableColumn&lt;T, *&gt;?)</span>
+                } else {
+<span class="nc" id="L885">                    selectionModel.selectRange(startRow, index)</span>
+                }
+            }
+<span class="nc" id="L888">        }</span>
+<span class="nc" id="L889">    }</span>
+<span class="nc" id="L890">}</span>
+
+<span class="nc" id="L892">fun &lt;S&gt; TableView&lt;S&gt;.enableDirtyTracking() = editModel.enableDirtyTracking()</span>
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+val &lt;S&gt; TableView&lt;S&gt;.editModel: TableViewEditModel&lt;S&gt;
+<span class="nc" id="L896">    get() = properties.getOrPut(&quot;tornadofx.editModel&quot;) { TableViewEditModel(this) } as TableViewEditModel&lt;S&gt;</span>
+
+<span class="nc" id="L898">class TableViewEditModel&lt;S&gt;(val tableView: TableView&lt;S&gt;) {</span>
+<span class="nc" id="L899">    val items = FXCollections.observableHashMap&lt;S, TableColumnDirtyState&lt;S&gt;&gt;()</span>
+
+<span class="nc" id="L901">    val selectedItemDirtyState: ObjectBinding&lt;TableColumnDirtyState&lt;S&gt;?&gt; by lazy {</span>
+<span class="nc" id="L902">        objectBinding(tableView.selectionModel.selectedItemProperty()) { getDirtyState(value) }</span>
+    }
+
+<span class="nc" id="L905">    val selectedItemDirty: BooleanBinding by lazy {</span>
+<span class="nc bnc" id="L906" title="All 6 branches missed.">        booleanBinding(selectedItemDirtyState) { value?.dirty?.value ?: false }</span>
+    }
+
+<span class="nc" id="L909">    fun getDirtyState(item: S): TableColumnDirtyState&lt;S&gt; = items.getOrPut(item) { TableColumnDirtyState(this, item) }</span>
+
+<span class="nc" id="L911">    fun enableDirtyTracking(dirtyDecorator: Boolean = true) {</span>
+<span class="nc bnc" id="L912" title="All 2 branches missed.">        if (dirtyDecorator) {</span>
+<span class="nc" id="L913">            tableView.setRowFactory {</span>
+<span class="nc" id="L914">                object : TableRow&lt;S&gt;() {</span>
+<span class="nc" id="L915">                    override fun createDefaultSkin() = DirtyDecoratingTableRowSkin(this, this@TableViewEditModel)</span>
+                }
+            }
+        }
+
+<span class="nc" id="L920">        fun addEventHandlerForColumn(column: TableColumn&lt;S, *&gt;) {</span>
+<span class="nc" id="L921">            column.addEventHandler(TableColumn.editCommitEvent&lt;S, Any&gt;()) { event -&gt;</span>
+                // This fires before the column value is changed (else we would use onEditCommit)
+<span class="nc" id="L923">                val item = event.rowValue</span>
+<span class="nc" id="L924">                val itemTracker = items.getOrPut(item) { TableColumnDirtyState(this, item) }</span>
+<span class="nc" id="L925">                val initialValue = itemTracker.dirtyColumns.getOrPut(event.tableColumn) {</span>
+<span class="nc" id="L926">                    event.tableColumn.getValue(item)</span>
+                }
+<span class="nc bnc" id="L928" title="All 2 branches missed.">                if (initialValue == event.newValue) {</span>
+<span class="nc" id="L929">                    itemTracker.dirtyColumns.remove(event.tableColumn)</span>
+                } else {
+<span class="nc" id="L931">                    itemTracker.dirtyColumns[event.tableColumn] = initialValue</span>
+                }
+<span class="nc" id="L933">                selectedItemDirty.invalidate()</span>
+<span class="nc" id="L934">            }</span>
+<span class="nc" id="L935">        }</span>
+
+        // Add columns and track changes to columns
+<span class="nc" id="L938">        tableView.columns.forEach(::addEventHandlerForColumn)</span>
+<span class="nc" id="L939">        tableView.columns.addListener({ change: ListChangeListener.Change&lt;out TableColumn&lt;S, *&gt;&gt; -&gt;</span>
+<span class="nc bnc" id="L940" title="All 2 branches missed.">            while (change.next()) {</span>
+<span class="nc bnc" id="L941" title="All 2 branches missed.">                if (change.wasAdded())</span>
+<span class="nc" id="L942">                    change.addedSubList.forEach(::addEventHandlerForColumn)</span>
+            }
+<span class="nc" id="L944">        })</span>
+
+        // Remove dirty state for items removed from the TableView
+<span class="nc" id="L947">        val listenForRemovals = ListChangeListener&lt;S&gt; {</span>
+<span class="nc bnc" id="L948" title="All 2 branches missed.">            while (it.next()) {</span>
+<span class="nc bnc" id="L949" title="All 2 branches missed.">                if (it.wasRemoved()) {</span>
+<span class="nc" id="L950">                    it.removed.forEach {</span>
+<span class="nc" id="L951">                        items.remove(it)</span>
+<span class="nc" id="L952">                    }</span>
+                }
+            }
+<span class="nc" id="L955">        }</span>
+
+        // Track removals on current items list
+<span class="nc bnc" id="L958" title="All 2 branches missed.">        tableView.items?.addListener(listenForRemovals)</span>
+
+        // Clear items if item list changes and track removals in new list
+<span class="nc" id="L961">        tableView.itemsProperty().addListener { observableValue, oldValue, newValue -&gt;</span>
+<span class="nc" id="L962">            items.clear()</span>
+<span class="nc bnc" id="L963" title="All 2 branches missed.">            oldValue?.removeListener(listenForRemovals)</span>
+<span class="nc bnc" id="L964" title="All 2 branches missed.">            newValue?.addListener(listenForRemovals)</span>
+<span class="nc" id="L965">        }</span>
+<span class="nc" id="L966">    }</span>
+
+    /**
+     * Commit the current item, or just the given column for this item if a column is supplied
+     */
+<span class="nc" id="L971">    fun commit(item: S, column: TableColumn&lt;*, *&gt;? = null) {</span>
+<span class="nc" id="L972">        val dirtyState = getDirtyState(item)</span>
+<span class="nc bnc" id="L973" title="All 2 branches missed.">        if (column == null) dirtyState.commit() else dirtyState.commit(column)</span>
+<span class="nc" id="L974">    }</span>
+
+    fun commit() {
+<span class="nc" id="L977">        items.values.forEach { it.commit() }</span>
+<span class="nc" id="L978">    }</span>
+
+    fun rollback() {
+<span class="nc" id="L981">        items.values.forEach { it.rollback() }</span>
+<span class="nc" id="L982">    }</span>
+
+    /**
+     * Rollback the current item, or just the given column for this item if a column is supplied
+     */
+<span class="nc" id="L987">    fun rollback(item: S, column: TableColumn&lt;*, *&gt;? = null) {</span>
+<span class="nc" id="L988">        val dirtyState = getDirtyState(item)</span>
+<span class="nc bnc" id="L989" title="All 2 branches missed.">        if (column == null) dirtyState.rollback() else dirtyState.rollback(column)</span>
+<span class="nc" id="L990">    }</span>
+
+    fun commitSelected() {
+<span class="nc bnc" id="L993" title="All 2 branches missed.">        val selected = selectedItemDirtyState.value?.item</span>
+<span class="nc bnc" id="L994" title="All 2 branches missed.">        if (selected != null) commit(selected)</span>
+<span class="nc" id="L995">    }</span>
+
+    fun rollbackSelected() {
+<span class="nc bnc" id="L998" title="All 2 branches missed.">        val selected = selectedItemDirtyState.value?.item</span>
+<span class="nc bnc" id="L999" title="All 2 branches missed.">        if (selected != null) rollback(selected)</span>
+<span class="nc" id="L1000">    }</span>
+
+<span class="nc" id="L1002">    fun isDirty(item: S): Boolean = getDirtyState(item).dirty.value</span>
+}
+
+<span class="nc" id="L1005">class TableColumnDirtyState&lt;S&gt;(val editModel: TableViewEditModel&lt;S&gt;, val item: S) : Observable {</span>
+<span class="nc" id="L1006">    val invalidationListeners = ArrayList&lt;InvalidationListener&gt;()</span>
+
+    // Dirty columns and initial value
+    private var _dirtyColumns: ObservableMap&lt;TableColumn&lt;S, Any?&gt;, Any?&gt;? = null
+    val dirtyColumns: ObservableMap&lt;TableColumn&lt;S, Any?&gt;, Any?&gt;
+        get() {
+<span class="nc bnc" id="L1012" title="All 2 branches missed.">            if (_dirtyColumns == null)</span>
+<span class="nc" id="L1013">                _dirtyColumns = FXCollections.observableHashMap&lt;TableColumn&lt;S, Any?&gt;, Any?&gt;()</span>
+<span class="nc" id="L1014">            return _dirtyColumns!!</span>
+        }
+
+<span class="nc bnc" id="L1017" title="All 2 branches missed.">    val dirty: BooleanBinding by lazy { booleanBinding(dirtyColumns) { isNotEmpty() } }</span>
+<span class="nc" id="L1018">    val isDirty: Boolean get() = dirty.value</span>
+
+<span class="nc bnc" id="L1020" title="All 2 branches missed.">    fun getDirtyColumnProperty(column: TableColumn&lt;*, *&gt;) = booleanBinding(dirtyColumns) { containsKey(column as TableColumn&lt;S, Any?&gt;) }</span>
+
+<span class="nc" id="L1022">    fun isDirtyColumn(column: TableColumn&lt;*, *&gt;) = dirtyColumns.containsKey(column as TableColumn&lt;S, Any?&gt;)</span>
+
+<span class="nc" id="L1024">    init {</span>
+<span class="nc" id="L1025">        dirtyColumns.addListener(InvalidationListener {</span>
+<span class="nc" id="L1026">            invalidationListeners.forEach { it.invalidated(this) }</span>
+<span class="nc" id="L1027">        })</span>
+<span class="nc" id="L1028">    }</span>
+
+    override fun removeListener(listener: InvalidationListener) {
+<span class="nc" id="L1031">        invalidationListeners.remove(listener)</span>
+<span class="nc" id="L1032">    }</span>
+
+    override fun addListener(listener: InvalidationListener) {
+<span class="nc" id="L1035">        invalidationListeners.add(listener)</span>
+<span class="nc" id="L1036">    }</span>
+
+<span class="nc bnc" id="L1038" title="All 4 branches missed.">    override fun equals(other: Any?) = other is TableColumnDirtyState&lt;*&gt; &amp;&amp; other.item == item</span>
+<span class="nc bnc" id="L1039" title="All 2 branches missed.">    override fun hashCode() = item?.hashCode() ?: throw IllegalStateException(&quot;Item must be present&quot;)</span>
+
+    fun rollback(column: TableColumn&lt;*, *&gt;) {
+<span class="nc" id="L1042">        val initialValue = dirtyColumns[column as TableColumn&lt;S, Any?&gt;]</span>
+<span class="nc bnc" id="L1043" title="All 2 branches missed.">        if (initialValue != null) {</span>
+<span class="nc" id="L1044">            column.setValue(item, initialValue)</span>
+<span class="nc" id="L1045">            dirtyColumns.remove(column)</span>
+        }
+<span class="nc" id="L1047">        editModel.tableView.refresh()</span>
+<span class="nc" id="L1048">    }</span>
+
+    fun commit(column: TableColumn&lt;*, *&gt;) {
+<span class="nc" id="L1051">        val initialValue = dirtyColumns[column as TableColumn&lt;S, Any?&gt;]</span>
+<span class="nc bnc" id="L1052" title="All 2 branches missed.">        if (initialValue != null) {</span>
+<span class="nc" id="L1053">            dirtyColumns.remove(column)</span>
+        }
+<span class="nc" id="L1055">        editModel.tableView.refresh()</span>
+<span class="nc" id="L1056">    }</span>
+
+    fun rollback() {
+<span class="nc" id="L1059">        dirtyColumns.forEach {</span>
+<span class="nc" id="L1060">            it.key.setValue(item, it.value)</span>
+<span class="nc" id="L1061">        }</span>
+<span class="nc" id="L1062">        dirtyColumns.clear()</span>
+<span class="nc" id="L1063">        editModel.selectedItemDirtyState.invalidate()</span>
+<span class="nc" id="L1064">        editModel.tableView.refresh()</span>
+<span class="nc" id="L1065">    }</span>
+
+    fun commit() {
+<span class="nc" id="L1068">        dirtyColumns.clear()</span>
+<span class="nc" id="L1069">        editModel.selectedItemDirtyState.invalidate()</span>
+<span class="nc" id="L1070">        editModel.tableView.refresh()</span>
+<span class="nc" id="L1071">    }</span>
+
+}
+
+/**
+ * Write a value into the property representing this TableColumn, provided
+ * the property is writable.
+ */
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.setValue(item: S, value: T?) {
+<span class="nc" id="L1081">    val property = getTableColumnProperty(item)</span>
+<span class="nc bnc" id="L1082" title="All 4 branches missed.">    (property as? WritableValue&lt;T&gt;)?.value = value</span>
+<span class="nc" id="L1083">}</span>
+
+/**
+ * Get the value from the property representing this TableColumn.
+ */
+<span class="nc" id="L1088">fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.getValue(item: S) = getTableColumnProperty(item).value</span>
+
+/**
+ * Get the property representing this TableColumn for the given item.
+ */
+fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.getTableColumnProperty(item: S): ObservableValue&lt;T?&gt; {
+<span class="nc" id="L1094">    val param = TableColumn.CellDataFeatures&lt;S, T&gt;(tableView, this, item)</span>
+<span class="nc" id="L1095">    val property = cellValueFactory.call(param)</span>
+<span class="nc" id="L1096">    return property</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

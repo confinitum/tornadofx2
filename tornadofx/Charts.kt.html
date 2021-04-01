@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Charts.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Charts.kt</span></div><h1>Charts.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.collections.ObservableList
+import javafx.event.EventTarget
+import javafx.scene.chart.*
+
+/**
+ * Create a PieChart with optional title data and add to the parent pane. The optional op will be performed on the new instance.
+ */
+<span class="nc" id="L10">fun EventTarget.piechart(title: String? = null, data: ObservableList&lt;PieChart.Data&gt;? = null, op: PieChart.() -&gt; Unit = {}): PieChart {</span>
+<span class="nc bnc" id="L11" title="All 2 branches missed.">    val chart = if (data != null) PieChart(data) else PieChart()</span>
+<span class="nc" id="L12">    chart.title = title</span>
+<span class="nc" id="L13">    return opcr(this, chart, op)</span>
+}
+
+/**
+ * Add and create a PieChart.Data entry. The optional op will be performed on the data instance,
+ * a good place to add event handlers to the PieChart.Data.node for example.
+ *
+ * @return The new Data entry
+ */
+<span class="nc" id="L22">fun PieChart.data(name: String, value: Double, op: PieChart.Data.() -&gt; Unit = {}) = PieChart.Data(name, value).apply {</span>
+<span class="nc" id="L23">    data.add(this)</span>
+<span class="nc" id="L24">    op(this)</span>
+<span class="nc" id="L25">}</span>
+
+/**
+ * Add and create multiple PieChart.Data entries from the given map.
+ */
+<span class="nc" id="L30">fun PieChart.data(value: Map&lt;String, Double&gt;) = value.forEach { data(it.key, it.value) }</span>
+
+
+/**
+ * Create a LineChart with optional title, axis and add to the parent pane. The optional op will be performed on the new instance.
+ */
+<span class="nc" id="L36">fun &lt;X, Y&gt; EventTarget.linechart(title: String? = null, x: Axis&lt;X&gt;, y: Axis&lt;Y&gt;, op: LineChart&lt;X, Y&gt;.() -&gt; Unit = {}) =</span>
+<span class="nc" id="L37">        LineChart&lt;X, Y&gt;(x, y).attachTo(this, op) { it.title = title }</span>
+
+/**
+ * Create an AreaChart with optional title, axis and add to the parent pane. The optional op will be performed on the new instance.
+ */
+<span class="nc" id="L42">fun &lt;X, Y&gt; EventTarget.areachart(title: String? = null, x: Axis&lt;X&gt;, y: Axis&lt;Y&gt;, op: AreaChart&lt;X, Y&gt;.() -&gt; Unit = {}) =</span>
+<span class="nc" id="L43">        AreaChart&lt;X,Y&gt;(x, y).attachTo(this, op){ it.title = title }</span>
+
+/**
+ * Create a BubbleChart with optional title, axis and add to the parent pane. The optional op will be performed on the new instance.
+ */
+<span class="nc" id="L48">fun &lt;X, Y&gt; EventTarget.bubblechart(title: String? = null, x: Axis&lt;X&gt;, y: Axis&lt;Y&gt;, op: BubbleChart&lt;X, Y&gt;.() -&gt; Unit = {}) =</span>
+<span class="nc" id="L49">        BubbleChart&lt;X, Y&gt;(x, y).attachTo(this,op){ it.title = title }</span>
+
+/**
+ * Create a ScatterChart with optional title, axis and add to the parent pane. The optional op will be performed on the new instance.
+ */
+<span class="nc" id="L54">fun &lt;X, Y&gt; EventTarget.scatterchart(title: String? = null, x: Axis&lt;X&gt;, y: Axis&lt;Y&gt;, op: ScatterChart&lt;X, Y&gt;.() -&gt; Unit = {}) =</span>
+<span class="nc" id="L55">        ScatterChart(x, y).attachTo(this,op){ it.title = title }</span>
+
+/**
+ * Create a BarChart with optional title, axis and add to the parent pane. The optional op will be performed on the new instance.
+ */
+<span class="nc" id="L60">fun &lt;X, Y&gt; EventTarget.barchart(title: String? = null, x: Axis&lt;X&gt;, y: Axis&lt;Y&gt;, op: BarChart&lt;X, Y&gt;.() -&gt; Unit = {}) =</span>
+<span class="nc" id="L61">        BarChart&lt;X, Y&gt;(x, y).attachTo(this, op){ it.title = title }</span>
+
+/**
+ * Create a BarChart with optional title, axis and add to the parent pane. The optional op will be performed on the new instance.
+ */
+<span class="nc" id="L66">fun &lt;X, Y&gt; EventTarget.stackedbarchart(title: String? = null, x: Axis&lt;X&gt;, y: Axis&lt;Y&gt;, op: StackedBarChart&lt;X, Y&gt;.() -&gt; Unit = {}) =</span>
+<span class="nc" id="L67">        StackedBarChart&lt;X, Y&gt;(x, y).attachTo(this, op) { it.title = title }</span>
+
+/**
+ * Add a new XYChart.Series with the given name to the given Chart. Optionally specify a list data for the new series or
+ * add data with the optional op that will be performed on the created series object.
+ */
+fun &lt;X, Y, ChartType : XYChart&lt;X, Y&gt;&gt; ChartType.series(
+        name: String,
+<span class="nc" id="L75">        elements: ObservableList&lt;XYChart.Data&lt;X, Y&gt;&gt;? = null,</span>
+<span class="nc" id="L76">        op: (XYChart.Series&lt;X, Y&gt;).() -&gt; Unit = {}</span>
+<span class="nc" id="L77">) = XYChart.Series&lt;X, Y&gt;().also {</span>
+<span class="nc" id="L78">    it.name = name</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">    elements?.let (it::setData)</span>
+<span class="nc" id="L80">    op(it)</span>
+<span class="nc" id="L81">    data.add(it)</span>
+<span class="nc" id="L82">}</span>
+
+/**
+ * Add and create a XYChart.Data entry with x, y and optional extra value. The optional op will be performed on the data instance,
+ * a good place to add event handlers to the Data.node for example.
+ *
+ * @return The new Data entry
+ */
+<span class="nc" id="L90">fun &lt;X, Y&gt; XYChart.Series&lt;X, Y&gt;.data(x: X, y: Y, extra: Any? = null, op: (XYChart.Data&lt;X, Y&gt;).() -&gt; Unit = {}) = XYChart.Data&lt;X, Y&gt;(x, y).apply {</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">    if (extra != null) extraValue = extra</span>
+<span class="nc" id="L92">    data.add(this)</span>
+<span class="nc" id="L93">    op(this)</span>
+<span class="nc" id="L94">}</span>
+
+/**
+ * Helper class for the multiseries support
+ */
+<span class="nc" id="L99">class MultiSeries&lt;X, Y&gt;(val series: List&lt;XYChart.Series&lt;X, Y&gt;&gt;, val chart: XYChart&lt;X, Y&gt;) {</span>
+<span class="nc" id="L100">    fun data(x: X, vararg y: Y) = y.forEachIndexed { index, value -&gt; series[index].data(x, value) }</span>
+}
+
+/**
+ * Add multiple series XYChart.Series with data in one go. Specify a list of names for the series
+ * and then add values in the op. Example:
+ *
+ *     multiseries(&quot;Portfolio 1&quot;, &quot;Portfolio 2&quot;) {
+ *         data(1, 23, 10)
+ *         data(2, 14, 5)
+ *         data(3, 15, 8)
+ *         ...
+ *     }
+ *
+ */
+<span class="nc" id="L115">fun &lt;X, Y, ChartType : XYChart&lt;X, Y&gt;&gt; ChartType.multiseries(vararg names: String, op: (MultiSeries&lt;X, Y&gt;).() -&gt; Unit = {}): MultiSeries&lt;X, Y&gt; {</span>
+<span class="nc" id="L116">    val series = names.map { XYChart.Series&lt;X, Y&gt;().apply { name = it } }</span>
+<span class="nc" id="L117">    val multiSeries = MultiSeries(series, this).also(op)</span>
+<span class="nc" id="L118">    data.addAll(series)</span>
+<span class="nc" id="L119">    return multiSeries</span>
+}
+
+<span class="nc" id="L122">operator fun &lt;X, Y&gt; XYChart.Data&lt;X, Y&gt;.component1(): X = xValue;</span>
+<span class="nc" id="L123">operator fun &lt;X, Y&gt; XYChart.Data&lt;X, Y&gt;.component2(): Y = yValue;</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

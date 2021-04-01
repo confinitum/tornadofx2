@@ -1,0 +1,1377 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Component.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Component.kt</span></div><h1>Component.kt</h1><pre class="source lang-java linenums">@file:Suppress(&quot;UNCHECKED_CAST&quot;)
+
+package tornadofx
+
+import javafx.application.HostServices
+import javafx.beans.binding.BooleanExpression
+import javafx.beans.property.*
+import javafx.beans.value.ChangeListener
+import javafx.collections.FXCollections
+import javafx.concurrent.Task
+import javafx.event.EventDispatchChain
+import javafx.event.EventHandler
+import javafx.event.EventTarget
+import javafx.fxml.FXMLLoader
+import javafx.geometry.Orientation
+import javafx.scene.Node
+import javafx.scene.Parent
+import javafx.scene.Scene
+import javafx.scene.control.*
+import javafx.scene.image.Image
+import javafx.scene.image.ImageView
+import javafx.scene.input.Clipboard
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyCombination
+import javafx.scene.input.KeyEvent
+import javafx.scene.input.KeyEvent.KEY_PRESSED
+import javafx.scene.layout.BorderPane
+import javafx.scene.layout.Pane
+import javafx.scene.layout.StackPane
+import javafx.scene.media.Media
+import javafx.scene.paint.Paint
+import javafx.stage.Modality
+import javafx.stage.Stage
+import javafx.stage.StageStyle
+import javafx.stage.Window
+import javafx.util.Duration
+import java.io.Closeable
+import java.io.InputStream
+import java.io.InputStreamReader
+import java.io.StringReader
+import java.net.URL
+import java.nio.charset.Charset
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.logging.Logger
+import java.util.prefs.Preferences
+import javax.json.Json
+import javax.json.JsonObject
+import kotlin.properties.ReadOnlyProperty
+import kotlin.reflect.*
+
+@Deprecated(&quot;Injectable was a misnomer&quot;, ReplaceWith(&quot;ScopedInstance&quot;))
+interface Injectable : ScopedInstance
+
+interface ScopedInstance
+
+interface Configurable {
+    val config: ConfigProperties
+    val configPath: Path
+    val configCharset: Charset
+
+<span class="nc" id="L64">    fun loadConfig() = ConfigProperties(this).apply {</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        if (Files.exists(configPath)) {</span>
+<span class="nc" id="L66">            Files.newInputStream(configPath).use { load(InputStreamReader(it, configCharset)) }</span>
+        }
+<span class="nc" id="L68">    }</span>
+}
+
+<span class="nc" id="L71">class ConfigProperties(val configurable: Configurable) : Properties(), Closeable {</span>
+    fun set(pair: Pair&lt;String, Any?&gt;) {
+<span class="nc bnc" id="L73" title="All 2 branches missed.">        if (pair.second == null) {</span>
+<span class="nc" id="L74">            remove(pair.first)</span>
+        } else {
+<span class="nc" id="L76">            val value = pair.second.let {</span>
+<span class="nc bnc" id="L77" title="All 8 branches missed.">                (it as? JsonModel)?.toJSON()?.toString() ?: it.toString()</span>
+            }
+<span class="nc" id="L79">            setProperty(pair.first, value)</span>
+        }
+<span class="nc" id="L81">    }</span>
+
+    operator fun set(key: String, value: String) {
+<span class="nc" id="L84">        setProperty(key, value)</span>
+<span class="nc" id="L85">    }</span>
+
+    operator fun set(key: String, value: Boolean) {
+<span class="nc" id="L88">        setProperty(key, value.toString())</span>
+<span class="nc" id="L89">    }</span>
+
+    operator fun set(key: String, value: Double) {
+<span class="nc" id="L92">        setProperty(key, value.toString())</span>
+<span class="nc" id="L93">    }</span>
+
+    operator fun set(key: String, value: Int) {
+<span class="nc" id="L96">        setProperty(key, value.toString())</span>
+<span class="nc" id="L97">    }</span>
+
+    operator fun set(key: String, value: Any?) {
+<span class="nc bnc" id="L100" title="All 2 branches missed.">        if (value == null) remove(key)</span>
+<span class="nc bnc" id="L101" title="All 8 branches missed.">        else setProperty(key, (value as? JsonModel)?.toJSON()?.toString() ?: value.toString())</span>
+<span class="nc" id="L102">    }</span>
+
+<span class="nc" id="L104">    fun string(key: String): String? = getProperty(key)</span>
+<span class="nc" id="L105">    fun string(key: String, defaultValue: String): String = getProperty(key, defaultValue)</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">    fun boolean(key: String): Boolean? = getProperty(key)?.toBoolean()</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">    fun boolean(key: String, defaultValue: Boolean): Boolean = boolean(key) ?: defaultValue</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">    fun double(key: String): Double? = getProperty(key)?.toDouble()</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">    fun double(key: String, defaultValue: Double): Double = double(key) ?: defaultValue</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">    fun int(key: String) = getProperty(key)?.toInt()</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">    fun int(key: String, defaultValue: Int): Int = int(key) ?: defaultValue</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">    fun jsonObject(key: String) = getProperty(key)?.let { Json.createReader(StringReader(it)).readObject() }</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">    fun jsonArray(key: String) = getProperty(key)?.let { Json.createReader(StringReader(it)).readArray() }</span>
+    inline fun &lt;reified M : JsonModel&gt; jsonModel(key: String) = jsonObject(key)?.toModel&lt;M&gt;()
+    inline fun &lt;reified M : JsonModel&gt; jsonModels(key: String) = jsonArray(key)?.toModel&lt;M&gt;()
+
+    fun save() {
+<span class="nc bnc" id="L118" title="All 2 branches missed.">        val path = configurable.configPath.apply { if (!Files.exists(parent)) Files.createDirectories(parent) }</span>
+<span class="nc" id="L119">        Files.newOutputStream(path).use { output -&gt; store(output, &quot;&quot;) }</span>
+<span class="nc" id="L120">    }</span>
+
+    override fun close() {
+<span class="nc" id="L123">        save()</span>
+<span class="nc" id="L124">    }</span>
+}
+
+<span class="fc" id="L127">abstract class Component : Configurable {</span>
+<span class="fc" id="L128">    open val scope: Scope = FX.inheritScopeHolder.get()</span>
+<span class="nc" id="L129">    val workspace: Workspace get() = scope.workspace</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">    val paramsProperty = SimpleObjectProperty&lt;Map&lt;String, Any?&gt;&gt;(FX.inheritParamHolder.get() ?: mapOf())</span>
+<span class="fc" id="L131">    val params: Map&lt;String, Any?&gt; get() = paramsProperty.value</span>
+<span class="fc" id="L132">    val subscribedEvents = ConcurrentHashMap&lt;KClass&lt;out FXEvent&gt;, List&lt;FXEventRegistration&gt;&gt;()</span>
+
+    /**
+     * Path to component specific configuration settings. Defaults to javaClass.properties inside
+     * the configured configBasePath of the application (By default conf in the current directory).
+     */
+<span class="nc" id="L138">    override val configPath: Path get() = app.configBasePath.resolve(&quot;${javaClass.name}.properties&quot;)</span>
+<span class="pc" id="L139">    override val config: ConfigProperties by lazy { loadConfig() }</span>
+<span class="nc" id="L140">    override val configCharset: Charset get() = Charsets.UTF_8</span>
+
+<span class="fc" id="L142">    val clipboard: Clipboard by lazy { Clipboard.getSystemClipboard() }</span>
+<span class="pc" id="L143">    val hostServices: HostServices by lazy { FX.application.hostServices }</span>
+
+<span class="nc" id="L145">    inline fun &lt;reified T : Component&gt; find(vararg params: Pair&lt;*, Any?&gt;, noinline op: T.() -&gt; Unit = {}): T = find(T::class, scope, params.toMap()).apply(op)</span>
+<span class="nc bnc" id="L146" title="All 2 branches missed.">    inline fun &lt;reified T : Component&gt; find(params: Map&lt;*, Any?&gt;? = null, noinline op: T.() -&gt; Unit = {}): T = find(T::class, scope, params).apply(op)</span>
+
+<span class="nc" id="L148">    fun &lt;T : Component&gt; find(type: KClass&lt;T&gt;, params: Map&lt;*, Any?&gt;? = null, op: T.() -&gt; Unit = {}) = find(type, scope, params).apply(op)</span>
+<span class="nc" id="L149">    fun &lt;T : Component&gt; find(type: KClass&lt;T&gt;, vararg params: Pair&lt;*, Any?&gt;, op: T.() -&gt; Unit = {}) = find(type, scope, params.toMap()).apply(op)</span>
+
+    @JvmOverloads
+<span class="nc" id="L152">    fun &lt;T : Component&gt; find(componentType: Class&lt;T&gt;, params: Map&lt;*, Any?&gt;? = null, scope: Scope = this@Component.scope): T = find(componentType.kotlin, scope, params)</span>
+
+<span class="nc" id="L154">    fun &lt;T : Any&gt; k(javaClass: Class&lt;T&gt;): KClass&lt;T&gt; = javaClass.kotlin</span>
+
+    /**
+     * Store and retrieve preferences.
+     *
+     * Preferences are stored automatically in a OS specific way.
+     * &lt;ul&gt;
+     *     &lt;li&gt;Windows stores it in the registry at HKEY_CURRENT_USER/Software/JavaSoft/....&lt;/li&gt;
+     *     &lt;li&gt;Mac OS stores it at ~/Library/Preferences/com.apple.java.util.prefs.plist&lt;/li&gt;
+     *     &lt;li&gt;Linux stores it at ~/.java&lt;/li&gt;
+     * &lt;/ul&gt;
+     */
+<span class="nc" id="L166">    fun preferences(nodename: String? = null, op: Preferences.() -&gt; Unit) {</span>
+<span class="pc bpc" id="L167" title="1 of 2 branches missed.">        val node = if (nodename != null) Preferences.userRoot().node(nodename) else Preferences.userNodeForPackage(FX.getApplication(scope)!!.javaClass)</span>
+<span class="fc" id="L168">        op(node)</span>
+<span class="fc" id="L169">    }</span>
+
+<span class="fc" id="L171">    val properties by lazy { FXCollections.observableHashMap&lt;Any, Any&gt;() }</span>
+<span class="fc" id="L172">    val log by lazy { Logger.getLogger(this@Component.javaClass.name) }</span>
+
+<span class="nc bnc" id="L174" title="All 2 branches missed.">    val app: App get() = FX.application as App</span>
+
+<span class="fc" id="L176">    private val _messages: SimpleObjectProperty&lt;ResourceBundle&gt; = object : SimpleObjectProperty&lt;ResourceBundle&gt;() {</span>
+        override fun get(): ResourceBundle? {
+<span class="pc bpc" id="L178" title="1 of 2 branches missed.">            if (super.get() == null) {</span>
+<span class="fc" id="L179">                try {</span>
+<span class="pc bpc" id="L180" title="1 of 2 branches missed.">                    val bundle = if (this@Component.javaClass.module.isNamed) {</span>
+<span class="nc" id="L181">                        ResourceBundle.getBundle(</span>
+<span class="nc" id="L182">                                FX.messagesNameProvider(this@Component.javaClass),</span>
+<span class="nc" id="L183">                                FX.locale,</span>
+<span class="nc" id="L184">                                this@Component.javaClass.module</span>
+                        )
+                    } else {
+<span class="nc" id="L187">                        ResourceBundle.getBundle(</span>
+<span class="fc" id="L188">                                FX.messagesNameProvider(this@Component.javaClass),</span>
+<span class="fc" id="L189">                                FX.locale,</span>
+<span class="fc" id="L190">                                this@Component.javaClass.classLoader,</span>
+<span class="fc" id="L191">                                FXResourceBundleControl</span>
+                        )
+                    }
+<span class="nc bnc" id="L194" title="All 4 branches missed.">                    (bundle as? FXPropertyResourceBundle)?.inheritFromGlobal()</span>
+<span class="nc" id="L195">                    set(bundle)</span>
+<span class="fc" id="L196">                } catch (ex: Exception) {</span>
+<span class="fc" id="L197">                    FX.log.fine(&quot;No Messages found for ${javaClass.name} in locale ${FX.locale}, using global bundle&quot;)</span>
+<span class="fc" id="L198">                    set(FX.messages)</span>
+                }
+            }
+<span class="fc" id="L201">            return super.get()</span>
+        }
+    }
+
+    var messages: ResourceBundle
+<span class="fc" id="L206">        get() = _messages.get()</span>
+<span class="nc" id="L207">        set(value) = _messages.set(value)</span>
+
+<span class="fc" id="L209">    val resources: ResourceLookup by lazy {</span>
+<span class="fc" id="L210">        ResourceLookup(this)</span>
+    }
+
+    inline fun &lt;reified T&gt; inject(
+<span class="nc" id="L214">            overrideScope: Scope = scope,</span>
+            vararg params: Pair&lt;String, Any?&gt;
+    ): ReadOnlyProperty&lt;Component, T&gt;
+<span class="nc" id="L217">            where T : Component, T : ScopedInstance = inject(overrideScope, params.toMap())</span>
+
+    inline fun &lt;reified T&gt; inject(
+<span class="nc bnc" id="L220" title="All 2 branches missed.">            overrideScope: Scope = scope,</span>
+<span class="nc" id="L221">            params: Map&lt;String, Any?&gt;? = null</span>
+    ): ReadOnlyProperty&lt;Component, T&gt;
+            where T : Component,
+                  T : ScopedInstance =
+<span class="nc" id="L225">            object : ReadOnlyProperty&lt;Component, T&gt; {</span>
+<span class="nc" id="L226">                override fun getValue(thisRef: Component, property: KProperty&lt;*&gt;) = find&lt;T&gt;(overrideScope, params)</span>
+<span class="nc" id="L227">            }</span>
+
+<span class="nc" id="L229">    inline fun &lt;reified T&gt; param(defaultValue: T? = null): ReadOnlyProperty&lt;Component, T&gt; = object : ReadOnlyProperty&lt;Component, T&gt; {</span>
+        override fun getValue(thisRef: Component, property: KProperty&lt;*&gt;): T {
+<span class="nc" id="L231">            val param = thisRef.params[property.name] as? T</span>
+<span class="nc bnc" id="L232" title="All 6 branches missed.">            if (param == null) {</span>
+<span class="nc bnc" id="L233" title="All 6 branches missed.">                if (defaultValue != null) return defaultValue</span>
+                @Suppress(&quot;ALWAYS_NULL&quot;)
+<span class="nc bnc" id="L235" title="All 6 branches missed.">                if (property.returnType.isMarkedNullable) return defaultValue as T</span>
+<span class="nc" id="L236">                throw IllegalStateException(&quot;param for name [$property.name] has not been set&quot;)</span>
+            } else {
+<span class="nc" id="L238">                return param</span>
+            }
+        }
+<span class="nc" id="L241">    }</span>
+
+<span class="nc" id="L243">    fun &lt;T : ScopedInstance&gt; setInScope(value: T, scope: Scope = this.scope) = FX.getComponents(scope).put(value.javaClass.kotlin, value)</span>
+
+    @Deprecated(&quot;No need to use the nullableParam anymore, use param instead&quot;, ReplaceWith(&quot;param(defaultValue)&quot;))
+<span class="nc" id="L246">    inline fun &lt;reified T&gt; nullableParam(defaultValue: T? = null) = param(defaultValue)</span>
+
+<span class="nc" id="L248">    inline fun &lt;reified T : Fragment&gt; fragment(overrideScope: Scope = scope, vararg params: Pair&lt;String, Any?&gt;): ReadOnlyProperty&lt;Component, T&gt; = fragment(overrideScope, params.toMap())</span>
+<span class="nc" id="L249">    inline fun &lt;reified T : Fragment&gt; fragment(overrideScope: Scope = scope, params: Map&lt;String, Any?&gt;): ReadOnlyProperty&lt;Component, T&gt; = object : ReadOnlyProperty&lt;Component, T&gt; {</span>
+<span class="nc" id="L250">        val fragment: T by lazy { find&lt;T&gt;(overrideScope, params) }</span>
+<span class="nc" id="L251">        override fun getValue(thisRef: Component, property: KProperty&lt;*&gt;): T = fragment</span>
+<span class="nc" id="L252">    }</span>
+
+<span class="nc" id="L254">    inline fun &lt;reified T : Any&gt; di(name: String? = null): ReadOnlyProperty&lt;Component, T&gt; = object : ReadOnlyProperty&lt;Component, T&gt; {</span>
+<span class="nc" id="L255">        var injected: T? = null</span>
+        override fun getValue(thisRef: Component, property: KProperty&lt;*&gt;): T {
+<span class="nc bnc" id="L257" title="All 2 branches missed.">            val dicontainer = FX.dicontainer ?: throw AssertionError(</span>
+<span class="nc" id="L258">                    &quot;Injector is not configured, so bean of type ${T::class} cannot be resolved&quot;)</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">            if (injected == null) {</span>
+<span class="nc" id="L260">                injected = dicontainer.let {</span>
+<span class="nc bnc" id="L261" title="All 2 branches missed.">                    if (name != null) {</span>
+<span class="nc" id="L262">                        it.getInstance&lt;T&gt;(name)</span>
+                    } else {
+<span class="nc" id="L264">                        it.getInstance()</span>
+                    }
+                }
+            }
+<span class="nc" id="L268">            return injected!!</span>
+        }
+<span class="nc" id="L270">    }</span>
+
+<span class="nc" id="L272">    val primaryStage: Stage get() = FX.getPrimaryStage(scope)!!</span>
+
+    // This is here for backwards compatibility. Removing it would require an import for the tornadofx.ui version
+<span class="fc" id="L275">    infix fun &lt;T&gt; Task&lt;T&gt;.ui(func: (T) -&gt; Unit) = success(func)</span>
+
+    @Deprecated(&quot;Clashes with Region.background, so runAsync is a better name&quot;, ReplaceWith(&quot;runAsync&quot;), DeprecationLevel.WARNING)
+<span class="nc" id="L278">    fun &lt;T&gt; background(func: FXTask&lt;*&gt;.() -&gt; T) = task(func = func)</span>
+
+    /**
+     * Perform the given operation on an ScopedInstance of the specified type asynchronousyly.
+     *
+     * MyController::class.runAsync { functionOnMyController() } ui { processResultOnUiThread(it) }
+     */
+<span class="nc" id="L285">    inline fun &lt;reified T, R&gt; KClass&lt;T&gt;.runAsync(noinline op: T.() -&gt; R) where T : Component, T : ScopedInstance = task { op(find(scope)) }</span>
+
+    /**
+     * Perform the given operation on an ScopedInstance class function member asynchronousyly.
+     *
+     * CustomerController::listContacts.runAsync(customerId) { processResultOnUiThread(it) }
+     */
+<span class="nc" id="L292">    inline fun &lt;reified InjectableType, reified ReturnType&gt; KFunction1&lt;InjectableType, ReturnType&gt;.runAsync(noinline doOnUi: (ReturnType) -&gt; Unit = {}): Task&lt;ReturnType&gt;</span>
+<span class="nc" id="L293">            where InjectableType : Component, InjectableType : ScopedInstance = task { invoke(find(scope)) }.apply { ui(doOnUi) }</span>
+
+    /**
+     * Perform the given operation on an ScopedInstance class function member asynchronousyly.
+     *
+     * CustomerController::listCustomers.runAsync { processResultOnUiThread(it) }
+     */
+<span class="nc" id="L300">    inline fun &lt;reified InjectableType, reified P1, reified ReturnType&gt; KFunction2&lt;InjectableType, P1, ReturnType&gt;.runAsync(p1: P1, noinline doOnUi: (ReturnType) -&gt; Unit = {})</span>
+<span class="nc" id="L301">            where InjectableType : Component, InjectableType : ScopedInstance = task { invoke(find(scope), p1) }.apply { ui(doOnUi) }</span>
+
+<span class="nc" id="L303">    inline fun &lt;reified InjectableType, reified P1, reified P2, reified ReturnType&gt; KFunction3&lt;InjectableType, P1, P2, ReturnType&gt;.runAsync(p1: P1, p2: P2, noinline doOnUi: (ReturnType) -&gt; Unit = {})</span>
+<span class="nc" id="L304">            where InjectableType : Component, InjectableType : ScopedInstance = task { invoke(find(scope), p1, p2) }.apply { ui(doOnUi) }</span>
+
+<span class="nc" id="L306">    inline fun &lt;reified InjectableType, reified P1, reified P2, reified P3, reified ReturnType&gt; KFunction4&lt;InjectableType, P1, P2, P3, ReturnType&gt;.runAsync(p1: P1, p2: P2, p3: P3, noinline doOnUi: (ReturnType) -&gt; Unit = {})</span>
+<span class="nc" id="L307">            where InjectableType : Component, InjectableType : ScopedInstance = task { invoke(find(scope), p1, p2, p3) }.apply { ui(doOnUi) }</span>
+
+<span class="nc" id="L309">    inline fun &lt;reified InjectableType, reified P1, reified P2, reified P3, reified P4, reified ReturnType&gt; KFunction5&lt;InjectableType, P1, P2, P3, P4, ReturnType&gt;.runAsync(p1: P1, p2: P2, p3: P3, p4: P4, noinline doOnUi: (ReturnType) -&gt; Unit = {})</span>
+<span class="nc" id="L310">            where InjectableType : Component, InjectableType : ScopedInstance = task { invoke(find(scope), p1, p2, p3, p4) }.apply { ui(doOnUi) }</span>
+
+    /**
+     * Find the given property inside the given ScopedInstance. Useful for assigning a property from a View or Controller
+     * in any Component. Example:
+     *
+     * val person = find(UserController::currentPerson)
+     */
+    inline fun &lt;reified InjectableType, T&gt; get(prop: KProperty1&lt;InjectableType, T&gt;): T
+            where InjectableType : Component, InjectableType : ScopedInstance {
+        val injectable = find&lt;InjectableType&gt;(scope)
+        return prop.get(injectable)
+    }
+
+    inline fun &lt;reified InjectableType, T&gt; set(prop: KMutableProperty1&lt;InjectableType, T&gt;, value: T)
+            where InjectableType : Component, InjectableType : ScopedInstance {
+        val injectable = find&lt;InjectableType&gt;(scope)
+        return prop.set(injectable, value)
+    }
+
+    /**
+     * Runs task in background. If not set directly, looks for `TaskStatus` instance in current scope.
+     */
+<span class="nc" id="L333">    fun &lt;T&gt; runAsync(status: TaskStatus? = find(scope), func: FXTask&lt;*&gt;.() -&gt; T) = task(status, func)</span>
+
+<span class="nc" id="L335">    fun &lt;T&gt; runAsync(daemon: Boolean = false, status: TaskStatus? = find(scope), func: FXTask&lt;*&gt;.() -&gt; T) = task(daemon, status, func)</span>
+
+    @Suppress(&quot;UNCHECKED_CAST&quot;)
+<span class="nc" id="L338">    inline fun &lt;reified T : FXEvent&gt; subscribe(times: Number? = null, noinline action: EventContext.(T) -&gt; Unit): EventRegistration {</span>
+<span class="nc bnc" id="L339" title="All 2 branches missed.">        val registration = FXEventRegistration(T::class, this, times?.toLong(), action as EventContext.(FXEvent) -&gt; Unit)</span>
+<span class="nc" id="L340">        subscribedEvents.compute(T::class) { _, list -&gt;</span>
+<span class="nc bnc" id="L341" title="All 2 branches missed.">            val newList = if (list != null) ArrayList(list) else ArrayList()</span>
+<span class="nc" id="L342">            newList.add(registration)</span>
+<span class="nc" id="L343">            newList</span>
+        }
+<span class="nc bnc" id="L345" title="All 4 branches missed.">        val fireNow = (this as? UIComponent)?.isDocked ?: true</span>
+<span class="nc bnc" id="L346" title="All 2 branches missed.">        if (fireNow) FX.eventbus.subscribe&lt;T&gt;(scope, registration)</span>
+<span class="nc" id="L347">        return registration</span>
+    }
+
+    @Suppress(&quot;UNCHECKED_CAST&quot;)
+    inline fun &lt;reified T : FXEvent&gt; unsubscribe(noinline action: EventContext.(T) -&gt; Unit) {
+<span class="nc bnc" id="L352" title="All 2 branches missed.">        subscribedEvents.computeIfPresent(T::class) { _, list -&gt; list.filter { it.action == action } }</span>
+        FX.eventbus.unsubscribe(action)
+    }
+
+    fun &lt;T : FXEvent&gt; fire(event: T) {
+<span class="fc" id="L357">        FX.eventbus.fire(event)</span>
+<span class="fc" id="L358">    }</span>
+
+}
+
+<span class="fc" id="L362">abstract class Controller : Component(), ScopedInstance</span>
+
+const val UI_COMPONENT_PROPERTY = &quot;tornadofx.uicomponent&quot;
+
+<span class="pc" id="L366">abstract class UIComponent(viewTitle: String? = &quot;&quot;, icon: Node? = null) : Component(), EventTarget {</span>
+    override fun buildEventDispatchChain(tail: EventDispatchChain?): EventDispatchChain {
+<span class="nc" id="L368">        throw UnsupportedOperationException(&quot;not implemented&quot;)</span>
+    }
+
+<span class="pc" id="L371">    val iconProperty: ObjectProperty&lt;Node&gt; = SimpleObjectProperty(icon)</span>
+<span class="fc" id="L372">    var icon by iconProperty</span>
+
+<span class="pc" id="L374">    val isDockedProperty: ReadOnlyBooleanProperty = SimpleBooleanProperty()</span>
+<span class="fc" id="L375">    val isDocked by isDockedProperty</span>
+
+<span class="pc" id="L377">    lateinit var fxmlLoader: FXMLLoader</span>
+<span class="pc" id="L378">    var modalStage: Stage? = null</span>
+<span class="pc" id="L379">    internal var muteDocking = false</span>
+    abstract val root: Parent
+<span class="pc" id="L381">    internal val wrapperProperty = SimpleObjectProperty&lt;Parent&gt;()</span>
+<span class="pc bpc" id="L382" title="1 of 2 branches missed.">    internal fun getRootWrapper(): Parent = wrapperProperty.value ?: root</span>
+
+    private var isInitialized = false
+<span class="nc bnc" id="L385" title="All 6 branches missed.">    val currentWindow: Window? get() = modalStage ?: root.scene?.window ?: FX.primaryStage</span>
+
+<span class="nc" id="L387">    open val refreshable: BooleanExpression get() = properties.getOrPut(&quot;tornadofx.refreshable&quot;) { SimpleBooleanProperty(Workspace.defaultRefreshable) } as BooleanExpression</span>
+<span class="nc" id="L388">    open val savable: BooleanExpression get() = properties.getOrPut(&quot;tornadofx.savable&quot;) { SimpleBooleanProperty(Workspace.defaultSavable) } as BooleanExpression</span>
+<span class="nc" id="L389">    open val closeable: BooleanExpression get() = properties.getOrPut(&quot;tornadofx.closeable&quot;) { SimpleBooleanProperty(Workspace.defaultCloseable) } as BooleanExpression</span>
+<span class="nc" id="L390">    open val deletable: BooleanExpression get() = properties.getOrPut(&quot;tornadofx.deletable&quot;) { SimpleBooleanProperty(Workspace.defaultDeletable) } as BooleanExpression</span>
+<span class="nc" id="L391">    open val creatable: BooleanExpression get() = properties.getOrPut(&quot;tornadofx.creatable&quot;) { SimpleBooleanProperty(Workspace.defaultCreatable) } as BooleanExpression</span>
+<span class="nc" id="L392">    open val complete: BooleanExpression get() = properties.getOrPut(&quot;tornadofx.complete&quot;) { SimpleBooleanProperty(Workspace.defaultComplete) } as BooleanExpression</span>
+
+    var isComplete: Boolean
+<span class="nc" id="L395">        get() = complete.value</span>
+        set(value) {
+<span class="nc bnc" id="L397" title="All 4 branches missed.">            (complete as? BooleanProperty)?.value = value</span>
+<span class="nc" id="L398">        }</span>
+
+    fun wrapper(op: () -&gt; Parent) {
+<span class="nc" id="L401">        FX.ignoreParentBuilder = FX.IgnoreParentBuilder.Once</span>
+<span class="nc" id="L402">        wrapperProperty.value = op()</span>
+<span class="nc" id="L403">    }</span>
+
+    fun savableWhen(savable: () -&gt; BooleanExpression) {
+<span class="nc" id="L406">        properties[&quot;tornadofx.savable&quot;] = savable()</span>
+<span class="nc" id="L407">    }</span>
+
+    fun completeWhen(complete: () -&gt; BooleanExpression) {
+<span class="nc" id="L410">        properties[&quot;tornadofx.complete&quot;] = complete()</span>
+<span class="nc" id="L411">    }</span>
+
+    fun deletableWhen(deletable: () -&gt; BooleanExpression) {
+<span class="nc" id="L414">        properties[&quot;tornadofx.deletable&quot;] = deletable()</span>
+<span class="nc" id="L415">    }</span>
+
+    fun creatableWhen(creatable: () -&gt; BooleanExpression) {
+<span class="nc" id="L418">        properties[&quot;tornadofx.creatable&quot;] = creatable()</span>
+<span class="nc" id="L419">    }</span>
+
+    fun closeableWhen(closeable: () -&gt; BooleanExpression) {
+<span class="nc" id="L422">        properties[&quot;tornadofx.closeable&quot;] = closeable()</span>
+<span class="nc" id="L423">    }</span>
+
+    fun refreshableWhen(refreshable: () -&gt; BooleanExpression) {
+<span class="nc" id="L426">        properties[&quot;tornadofx.refreshable&quot;] = refreshable()</span>
+<span class="nc" id="L427">    }</span>
+
+    fun whenSaved(onSave: () -&gt; Unit) {
+<span class="nc" id="L430">        properties[&quot;tornadofx.onSave&quot;] = onSave</span>
+<span class="nc" id="L431">    }</span>
+
+    fun whenCreated(onCreate: () -&gt; Unit) {
+<span class="nc" id="L434">        properties[&quot;tornadofx.onCreate&quot;] = onCreate</span>
+<span class="nc" id="L435">    }</span>
+
+    fun whenDeleted(onDelete: () -&gt; Unit) {
+<span class="nc" id="L438">        properties[&quot;tornadofx.onDelete&quot;] = onDelete</span>
+<span class="nc" id="L439">    }</span>
+
+    fun whenRefreshed(onRefresh: () -&gt; Unit) {
+<span class="nc" id="L442">        properties[&quot;tornadofx.onRefresh&quot;] = onRefresh</span>
+<span class="nc" id="L443">    }</span>
+
+    /**
+     * Forward the Workspace button states and actions to the TabPane, which
+     * in turn will forward these states and actions to whatever View is represented
+     * by the currently active Tab.
+     */
+    fun TabPane.connectWorkspaceActions() {
+<span class="nc" id="L451">        savableWhen { savable }</span>
+<span class="nc" id="L452">        whenSaved { onSave() }</span>
+
+<span class="nc" id="L454">        creatableWhen { creatable }</span>
+<span class="nc" id="L455">        whenCreated { onCreate() }</span>
+
+<span class="nc" id="L457">        deletableWhen { deletable }</span>
+<span class="nc" id="L458">        whenDeleted { onDelete() }</span>
+
+<span class="nc" id="L460">        refreshableWhen { refreshable }</span>
+<span class="nc" id="L461">        whenRefreshed { onRefresh() }</span>
+<span class="nc" id="L462">    }</span>
+
+    // If the UIComponent property is set, prefer this to the property. This makes it possible to do subdelegation
+    // using forwardWorkspaceActions inside other components like TabPane(https://github.com/edvin/tornadofx/issues/894)
+<span class="nc bnc" id="L466" title="All 6 branches missed.">    internal val effectiveSavable: BooleanExpression get() = booleanBinding(savable, properties) { (properties[&quot;tornadofx.savable&quot;] as? BooleanExpression)?.value ?: this.value }</span>
+<span class="nc bnc" id="L467" title="All 6 branches missed.">    internal val effectiveRefreshable: BooleanExpression get() = booleanBinding(refreshable, properties) { (properties[&quot;tornadofx.refreshable&quot;] as? BooleanExpression)?.value ?: this.value }</span>
+<span class="nc bnc" id="L468" title="All 6 branches missed.">    internal val effectiveCreatable: BooleanExpression get() = booleanBinding(creatable, properties) { (properties[&quot;tornadofx.creatable&quot;] as? BooleanExpression)?.value ?: this.value }</span>
+<span class="nc bnc" id="L469" title="All 6 branches missed.">    internal val effectiveDeletable: BooleanExpression get() = booleanBinding(deletable, properties) { (properties[&quot;tornadofx.deletable&quot;] as? BooleanExpression)?.value ?: this.value }</span>
+
+    /**
+     * Forward the Workspace button states and actions to the TabPane, which
+     * in turn will forward these states and actions to whatever View is represented
+     * by the currently active Tab.
+     */
+    fun StackPane.connectWorkspaceActions() {
+<span class="nc" id="L477">        savableWhen { effectiveSavable }</span>
+<span class="nc" id="L478">        whenSaved { onSave() }</span>
+
+<span class="nc" id="L480">        creatableWhen { effectiveCreatable }</span>
+<span class="nc" id="L481">        whenCreated { onCreate() }</span>
+
+<span class="nc" id="L483">        deletableWhen { effectiveDeletable }</span>
+<span class="nc" id="L484">        whenDeleted { onDelete() }</span>
+
+<span class="nc" id="L486">        refreshableWhen { effectiveRefreshable }</span>
+<span class="nc" id="L487">        whenRefreshed { onRefresh() }</span>
+<span class="nc" id="L488">    }</span>
+
+    /**
+     * Forward the Workspace button states and actions to the given UIComponent.
+     * This will override the currently active forwarding to the docked UIComponent.
+     *
+     * When another UIComponent is docked, that UIComponent will be the new receiver for the
+     * Workspace states and actions, hence voiding this call.
+     */
+    fun forwardWorkspaceActions(uiComponent: UIComponent) {
+<span class="nc" id="L498">        savableWhen { uiComponent.effectiveSavable }</span>
+<span class="nc" id="L499">        whenSaved { uiComponent.onSave() }</span>
+
+<span class="nc" id="L501">        deletableWhen { uiComponent.effectiveDeletable }</span>
+<span class="nc" id="L502">        whenDeleted { uiComponent.onDelete() }</span>
+
+<span class="nc" id="L504">        creatableWhen { uiComponent.effectiveCreatable }</span>
+<span class="nc" id="L505">        whenCreated { uiComponent.onCreate() }</span>
+
+<span class="nc" id="L507">        refreshableWhen { uiComponent.effectiveRefreshable }</span>
+<span class="nc" id="L508">        whenRefreshed { uiComponent.onRefresh() }</span>
+<span class="nc" id="L509">    }</span>
+
+    /**
+     * Callback that runs before the Workspace navigates back in the View stack. Return false to veto the navigation.
+     */
+<span class="nc" id="L514">    open fun onNavigateBack() = true</span>
+
+    /**
+     * Callback that runs before the Workspace navigates forward in the View stack. Return false to veto the navigation.
+     */
+<span class="nc" id="L519">    open fun onNavigateForward() = true</span>
+
+<span class="nc" id="L521">    var onDockListeners: MutableList&lt;(UIComponent) -&gt; Unit&gt;? = null</span>
+<span class="nc" id="L522">    var onUndockListeners: MutableList&lt;(UIComponent) -&gt; Unit&gt;? = null</span>
+<span class="pc" id="L523">    val accelerators = HashMap&lt;KeyCombination, () -&gt; Unit&gt;()</span>
+
+    fun disableSave() {
+<span class="nc" id="L526">        properties[&quot;tornadofx.savable&quot;] = SimpleBooleanProperty(false)</span>
+<span class="nc" id="L527">    }</span>
+
+    fun disableRefresh() {
+<span class="nc" id="L530">        properties[&quot;tornadofx.refreshable&quot;] = SimpleBooleanProperty(false)</span>
+<span class="nc" id="L531">    }</span>
+
+    fun disableCreate() {
+<span class="nc" id="L534">        properties[&quot;tornadofx.creatable&quot;] = SimpleBooleanProperty(false)</span>
+<span class="nc" id="L535">    }</span>
+
+    fun disableDelete() {
+<span class="nc" id="L538">        properties[&quot;tornadofx.deletable&quot;] = SimpleBooleanProperty(false)</span>
+<span class="nc" id="L539">    }</span>
+
+    fun disableClose() {
+<span class="nc" id="L542">        properties[&quot;tornadofx.closeable&quot;] = SimpleBooleanProperty(false)</span>
+<span class="nc" id="L543">    }</span>
+
+    private val rootParentChangeListener: ChangeListener&lt;Parent&gt;
+        get() {
+<span class="fc" id="L547">            val key = &quot;tornadofx.rootParentChangeListener&quot;</span>
+<span class="fc bfc" id="L548" title="All 2 branches covered.">            if (properties[key] == null) {</span>
+<span class="fc" id="L549">                properties[key] = ChangeListener&lt;Parent&gt; { _, oldParent, newParent -&gt;</span>
+<span class="pc bpc" id="L550" title="1 of 2 branches missed.">                    if (modalStage != null) return@ChangeListener</span>
+<span class="pc bpc" id="L551" title="2 of 6 branches missed.">                    if (newParent == null &amp;&amp; oldParent != null &amp;&amp; isDocked) callOnUndock()</span>
+<span class="pc bpc" id="L552" title="2 of 6 branches missed.">                    if (newParent != null &amp;&amp; newParent != oldParent &amp;&amp; !isDocked) {</span>
+<span class="fc" id="L553">                        callOnDock()</span>
+                        // Call `onTabSelected` if/when we are connected to a Tab and it's selected
+                        // Note that this only works for builder constructed tabpanes
+<span class="pc bpc" id="L556" title="1 of 2 branches missed.">                        owningTab?.let {</span>
+<span class="nc bnc" id="L557" title="All 4 branches missed.">                            it.selectedProperty()?.onChange { if (it) onTabSelected() }</span>
+<span class="nc bnc" id="L558" title="All 2 branches missed.">                            if (it.isSelected) onTabSelected()</span>
+<span class="nc" id="L559">                        }</span>
+                    }
+<span class="fc" id="L561">                }</span>
+            }
+<span class="pc bpc" id="L563" title="1 of 2 branches missed.">            return properties[key] as ChangeListener&lt;Parent&gt;</span>
+        }
+
+    private val rootSceneChangeListener: ChangeListener&lt;Scene&gt;
+        get() {
+<span class="fc" id="L568">            val key = &quot;tornadofx.rootSceneChangeListener&quot;</span>
+<span class="fc bfc" id="L569" title="All 2 branches covered.">            if (properties[key] == null) {</span>
+<span class="fc" id="L570">                properties[key] = ChangeListener&lt;Scene&gt; { _, oldParent, newParent -&gt;</span>
+<span class="pc bpc" id="L571" title="1 of 4 branches missed.">                    if (modalStage != null || root.parent != null) return@ChangeListener</span>
+<span class="pc bpc" id="L572" title="2 of 6 branches missed.">                    if (newParent == null &amp;&amp; oldParent != null &amp;&amp; isDocked) callOnUndock()</span>
+<span class="pc bpc" id="L573" title="2 of 6 branches missed.">                    if (newParent != null &amp;&amp; newParent != oldParent &amp;&amp; !isDocked) {</span>
+                        // Calls dock or undock when window opens or closes
+<span class="fc" id="L575">                        newParent.windowProperty().onChangeOnce {</span>
+<span class="pc bpc" id="L576" title="2 of 4 branches missed.">                            it?.showingProperty()?.addListener(rootSceneWindowShowingPropertyChangeListener)</span>
+<span class="fc" id="L577">                        }</span>
+<span class="fc" id="L578">                        callOnDock()</span>
+                    }
+<span class="fc" id="L580">                }</span>
+            }
+<span class="pc bpc" id="L582" title="1 of 2 branches missed.">            return properties[key] as ChangeListener&lt;Scene&gt;</span>
+        }
+
+    private val rootSceneWindowShowingPropertyChangeListener: ChangeListener&lt;Boolean&gt;
+        get() {
+<span class="fc" id="L587">            val key = &quot;tornadofx.rootSceneWindowShowingPropertyChangeListener&quot;</span>
+<span class="fc bfc" id="L588" title="All 2 branches covered.">            if (properties[key] == null) {</span>
+<span class="fc" id="L589">                properties[key] = ChangeListener&lt;Boolean&gt; { property, oldValue, newValue -&gt;</span>
+<span class="fc bfc" id="L590" title="All 2 branches covered.">                    if (!isInitialized) {</span>
+<span class="fc" id="L591">                        property.removeListener(rootSceneWindowShowingPropertyChangeListener)</span>
+<span class="fc" id="L592">                        return@ChangeListener</span>
+                    }
+<span class="fc bfc" id="L594" title="All 4 branches covered.">                    if (!newValue &amp;&amp; isDocked) callOnUndock()</span>
+<span class="fc bfc" id="L595" title="All 4 branches covered.">                    if (newValue &amp;&amp; !isDocked) callOnDock()</span>
+<span class="fc" id="L596">                }</span>
+            }
+<span class="pc bpc" id="L598" title="1 of 2 branches missed.">            return properties[key] as ChangeListener&lt;Boolean&gt;</span>
+        }
+
+    internal fun init() {
+<span class="pc bpc" id="L602" title="1 of 2 branches missed.">        if (isInitialized) return</span>
+<span class="fc" id="L603">        root.properties[UI_COMPONENT_PROPERTY] = this</span>
+<span class="fc" id="L604">        root.parentProperty().addListener(rootParentChangeListener)</span>
+<span class="fc" id="L605">        root.sceneProperty().addListener(rootSceneChangeListener)</span>
+<span class="fc" id="L606">        isInitialized = true</span>
+<span class="fc" id="L607">    }</span>
+
+    internal fun unInit() {
+<span class="pc bpc" id="L610" title="1 of 2 branches missed.">        if (!isInitialized) return</span>
+<span class="fc" id="L611">        root.properties.remove(UI_COMPONENT_PROPERTY)</span>
+<span class="fc" id="L612">        root.parentProperty().removeListener(rootParentChangeListener)</span>
+<span class="fc" id="L613">        root.sceneProperty().removeListener(rootSceneChangeListener)</span>
+<span class="pc bpc" id="L614" title="2 of 6 branches missed.">        root.scene?.window?.showingProperty()?.removeListener(rootSceneWindowShowingPropertyChangeListener)</span>
+<span class="fc" id="L615">        isInitialized = false</span>
+<span class="fc" id="L616">    }</span>
+
+    val currentStage: Stage?
+        get() {
+<span class="nc bnc" id="L620" title="All 2 branches missed.">            val stage = (currentWindow as? Stage)</span>
+<span class="nc bnc" id="L621" title="All 2 branches missed.">            if (stage == null) FX.log.warning { &quot;CurrentStage not available for $this&quot; }</span>
+<span class="nc" id="L622">            return stage</span>
+        }
+
+<span class="nc bnc" id="L625" title="All 2 branches missed.">    fun setWindowMinSize(width: Number, height: Number) = currentStage?.apply {</span>
+<span class="nc" id="L626">        minWidth = width.toDouble()</span>
+<span class="nc" id="L627">        minHeight = height.toDouble()</span>
+<span class="nc" id="L628">    }</span>
+
+<span class="nc bnc" id="L630" title="All 2 branches missed.">    fun setWindowMaxSize(width: Number, height: Number) = currentStage?.apply {</span>
+<span class="nc" id="L631">        maxWidth = width.toDouble()</span>
+<span class="nc" id="L632">        maxHeight = height.toDouble()</span>
+<span class="nc" id="L633">    }</span>
+
+<span class="fc" id="L635">    private val acceleratorListener: EventHandler&lt;KeyEvent&gt; by lazy {</span>
+<span class="fc" id="L636">        EventHandler&lt;KeyEvent&gt; { event -&gt;</span>
+<span class="nc bnc" id="L637" title="All 6 branches missed.">            accelerators.keys.asSequence().find { it.match(event) }?.apply {</span>
+<span class="nc bnc" id="L638" title="All 2 branches missed.">                accelerators[this]?.invoke()</span>
+<span class="nc" id="L639">                event.consume()</span>
+<span class="nc" id="L640">            }</span>
+<span class="nc" id="L641">        }</span>
+    }
+
+    /**
+     * Add a key listener to the current scene and look for matches against the
+     * `accelerators` map in this UIComponent.
+     */
+    private fun enableAccelerators() {
+<span class="fc bfc" id="L649" title="All 2 branches covered.">        root.scene?.addEventFilter(KEY_PRESSED, acceleratorListener)</span>
+<span class="fc" id="L650">        root.sceneProperty().addListener { obs, old, new -&gt;</span>
+<span class="fc bfc" id="L651" title="All 2 branches covered.">            old?.removeEventFilter(KEY_PRESSED, acceleratorListener)</span>
+<span class="fc bfc" id="L652" title="All 2 branches covered.">            new?.addEventFilter(KEY_PRESSED, acceleratorListener)</span>
+<span class="fc" id="L653">        }</span>
+<span class="fc" id="L654">    }</span>
+
+    private fun disableAccelerators() {
+<span class="fc bfc" id="L657" title="All 2 branches covered.">        root.scene?.removeEventFilter(KEY_PRESSED, acceleratorListener)</span>
+<span class="fc" id="L658">    }</span>
+
+    /**
+     * Called when a Component is detached from the Scene
+     */
+    open fun onUndock() {
+<span class="fc" id="L664">    }</span>
+
+    /**
+     * Called when a Component becomes the Scene root or
+     * when its root node is attached to another Component.
+     * @see UIComponent.add
+     */
+    open fun onDock() {
+<span class="fc" id="L672">    }</span>
+
+    /**
+     * Called right before the stage for this view is shown. You can access
+     * the `currentWindow` property at this stage. This callback is only available
+     * to top level UIComponents
+     */
+    open fun onBeforeShow() {
+
+<span class="fc" id="L681">    }</span>
+
+    /**
+     * Called when this Component is hosted by a Tab and the corresponding tab is selected
+     */
+    open fun onTabSelected() {
+
+<span class="nc" id="L688">    }</span>
+
+    open fun onRefresh() {
+<span class="nc bnc" id="L691" title="All 4 branches missed.">        (properties[&quot;tornadofx.onRefresh&quot;] as? () -&gt; Unit)?.invoke()</span>
+<span class="nc" id="L692">    }</span>
+
+    /**
+     * Save callback which is triggered when the Save button in the Workspace
+     * is clicked, or when the Next button in a Wizard is clicked.
+     *
+     * For Wizard pages, you should set the complete state of the Page after save
+     * to signal whether the Wizard can move to the next page or finish.
+     *
+     * For Wizards, you should set the complete state of the Wizard
+     * after save to signal whether the Wizard can be closed.
+     */
+    open fun onSave() {
+<span class="nc bnc" id="L705" title="All 4 branches missed.">        (properties[&quot;tornadofx.onSave&quot;] as? () -&gt; Unit)?.invoke()</span>
+<span class="nc" id="L706">    }</span>
+
+    /**
+     * Create callback which is triggered when the Create button in the Workspace
+     * is clicked.
+     */
+    open fun onCreate() {
+<span class="nc bnc" id="L713" title="All 4 branches missed.">        (properties[&quot;tornadofx.onCreate&quot;] as? () -&gt; Unit)?.invoke()</span>
+<span class="nc" id="L714">    }</span>
+
+    open fun onDelete() {
+<span class="nc bnc" id="L717" title="All 4 branches missed.">        (properties[&quot;tornadofx.onDelete&quot;] as? () -&gt; Unit)?.invoke()</span>
+<span class="nc" id="L718">    }</span>
+
+    open fun onGoto(source: UIComponent) {
+<span class="nc" id="L721">        source.replaceWith(this)</span>
+<span class="nc" id="L722">    }</span>
+
+    fun goto(target: UIComponent) {
+<span class="nc" id="L725">        target.onGoto(this)</span>
+<span class="nc" id="L726">    }</span>
+
+<span class="nc" id="L728">    inline fun &lt;reified T : UIComponent&gt; goto(params: Map&lt;String, Any?&gt;? = null) = find&lt;T&gt;(params).onGoto(this)</span>
+    inline fun &lt;reified T : UIComponent&gt; goto(vararg params: Pair&lt;String, Any?&gt;) {
+        goto&lt;T&gt;(params.toMap())
+    }
+
+    internal fun callOnDock() {
+<span class="fc bfc" id="L734" title="All 2 branches covered.">        if (!isInitialized) init()</span>
+<span class="fc bfc" id="L735" title="All 2 branches covered.">        if (!isDocked) {</span>
+<span class="fc" id="L736">            attachLocalEventBusListeners()</span>
+<span class="fc" id="L737">            enableAccelerators()</span>
+        }
+<span class="fc bfc" id="L739" title="All 2 branches covered.">        if (muteDocking) return</span>
+<span class="pc bpc" id="L740" title="1 of 2 branches missed.">        (isDockedProperty as SimpleBooleanProperty).value = true</span>
+<span class="fc" id="L741">        onDock()</span>
+<span class="pc bpc" id="L742" title="1 of 2 branches missed.">        onDockListeners?.forEach { it.invoke(this) }</span>
+<span class="fc" id="L743">    }</span>
+
+    private fun attachLocalEventBusListeners() {
+<span class="fc" id="L746">        subscribedEvents.forEach { (event, registrations) -&gt;</span>
+<span class="fc" id="L747">            registrations.forEach {</span>
+<span class="fc" id="L748">                FX.eventbus.subscribe(event, scope, it)</span>
+<span class="fc" id="L749">            }</span>
+<span class="fc" id="L750">        }</span>
+<span class="fc" id="L751">    }</span>
+
+    private fun detachLocalEventBusListeners() {
+<span class="fc" id="L754">        subscribedEvents.forEach { (event, registrations) -&gt;</span>
+<span class="fc" id="L755">            registrations.forEach {</span>
+<span class="fc" id="L756">                FX.eventbus.unsubscribe(event, it.action)</span>
+<span class="fc" id="L757">            }</span>
+<span class="fc" id="L758">        }</span>
+<span class="fc" id="L759">    }</span>
+
+    internal fun callOnUndock() {
+<span class="pc bpc" id="L762" title="1 of 2 branches missed.">        if (muteDocking) return</span>
+<span class="fc" id="L763">        detachLocalEventBusListeners()</span>
+<span class="pc bpc" id="L764" title="1 of 2 branches missed.">        (isDockedProperty as SimpleBooleanProperty).value = false</span>
+<span class="fc" id="L765">        disableAccelerators()</span>
+<span class="fc" id="L766">        onUndock()</span>
+<span class="pc bpc" id="L767" title="1 of 2 branches missed.">        onUndockListeners?.forEach { it.invoke(this) }</span>
+<span class="fc" id="L768">    }</span>
+
+
+<span class="nc" id="L771">    fun Button.shortcut(combo: String) = shortcut(KeyCombination.valueOf(combo))</span>
+
+    @Deprecated(&quot;Use shortcut instead&quot;, ReplaceWith(&quot;shortcut(combo)&quot;))
+<span class="nc" id="L774">    fun Button.accelerator(combo: KeyCombination) = shortcut(combo)</span>
+
+    /**
+     * Add the key combination as a shortcut for this Button's action.
+     */
+    fun Button.shortcut(combo: KeyCombination) {
+<span class="nc" id="L780">        accelerators[combo] = { fire() }</span>
+<span class="nc" id="L781">    }</span>
+
+    /**
+     * Configure an action for a key combination.
+     */
+    fun shortcut(combo: KeyCombination, action: () -&gt; Unit) {
+<span class="nc" id="L787">        accelerators[combo] = action</span>
+<span class="nc" id="L788">    }</span>
+
+<span class="nc" id="L790">    fun &lt;T&gt; shortcut(combo: KeyCombination, command: Command&lt;T&gt;, param: T? = null) {</span>
+<span class="nc" id="L791">        accelerators[combo] = { command.execute(param) }</span>
+<span class="nc" id="L792">    }</span>
+
+    /**
+     * Configure an action for a key combination.
+     */
+<span class="nc" id="L797">    fun shortcut(combo: String, action: () -&gt; Unit) = shortcut(KeyCombination.valueOf(combo), action)</span>
+
+<span class="nc bnc" id="L799" title="All 2 branches missed.">    inline fun &lt;reified T : UIComponent&gt; TabPane.tab(scope: Scope = this@UIComponent.scope, noinline op: Tab.() -&gt; Unit = {}) = tab(find&lt;T&gt;(scope), op)</span>
+
+    inline fun &lt;reified C : UIComponent&gt; BorderPane.top() = top(C::class)
+<span class="nc" id="L802">    fun &lt;C : UIComponent&gt; BorderPane.top(nodeType: KClass&lt;C&gt;) = setRegion(scope, BorderPane::topProperty, nodeType)</span>
+    inline fun &lt;reified C : UIComponent&gt; BorderPane.right() = right(C::class)
+<span class="nc" id="L804">    fun &lt;C : UIComponent&gt; BorderPane.right(nodeType: KClass&lt;C&gt;) = setRegion(scope, BorderPane::rightProperty, nodeType)</span>
+    inline fun &lt;reified C : UIComponent&gt; BorderPane.bottom() = bottom(C::class)
+<span class="nc" id="L806">    fun &lt;C : UIComponent&gt; BorderPane.bottom(nodeType: KClass&lt;C&gt;) = setRegion(scope, BorderPane::bottomProperty, nodeType)</span>
+    inline fun &lt;reified C : UIComponent&gt; BorderPane.left() = left(C::class)
+<span class="nc" id="L808">    fun &lt;C : UIComponent&gt; BorderPane.left(nodeType: KClass&lt;C&gt;) = setRegion(scope, BorderPane::leftProperty, nodeType)</span>
+    inline fun &lt;reified C : UIComponent&gt; BorderPane.center() = center(C::class)
+<span class="nc" id="L810">    fun &lt;C : UIComponent&gt; BorderPane.center(nodeType: KClass&lt;C&gt;) = setRegion(scope, BorderPane::centerProperty, nodeType)</span>
+
+<span class="nc" id="L812">    fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.cellFormat(formatter: TableCell&lt;S, T&gt;.(T) -&gt; Unit) = cellFormat(scope, formatter)</span>
+
+<span class="nc" id="L814">    fun &lt;S, T, F : TableCellFragment&lt;S, T&gt;&gt; TableColumn&lt;S, T&gt;.cellFragment(fragment: KClass&lt;F&gt;) = cellFragment(scope, fragment)</span>
+
+<span class="nc" id="L816">    fun &lt;T, F : TreeCellFragment&lt;T&gt;&gt; TreeView&lt;T&gt;.cellFragment(fragment: KClass&lt;F&gt;) = cellFragment(scope, fragment)</span>
+    /**
+     * Calculate a unique Node per item and set this Node as the graphic of the TableCell.
+     *
+     * To support this feature, a custom cellFactory is automatically installed, unless an already
+     * compatible cellFactory is found. The cellFactories installed via #cellFormat already knows
+     * how to retrieve cached values.
+     */
+<span class="nc" id="L824">    fun &lt;S, T&gt; TableColumn&lt;S, T&gt;.cellCache(cachedGraphicProvider: (T) -&gt; Node) = cellCache(scope, cachedGraphicProvider)</span>
+
+
+<span class="nc" id="L827">    fun EventTarget.slideshow(defaultTimeout: Duration? = null, scope: Scope = this@UIComponent.scope, op: Slideshow.() -&gt; Unit) = opcr(this, Slideshow(scope, defaultTimeout), op)</span>
+
+<span class="nc" id="L829">    fun &lt;T, F : ListCellFragment&lt;T&gt;&gt; ListView&lt;T&gt;.cellFragment(fragment: KClass&lt;F&gt;) = cellFragment(scope, fragment)</span>
+
+<span class="nc" id="L831">    fun &lt;T&gt; ListView&lt;T&gt;.cellFormat(formatter: (ListCell&lt;T&gt;.(T) -&gt; Unit)) = cellFormat(scope, formatter)</span>
+
+<span class="nc" id="L833">    fun &lt;T&gt; ListView&lt;T&gt;.onEdit(eventListener: ListCell&lt;T&gt;.(EditEventType, T?) -&gt; Unit) = onEdit(scope, eventListener)</span>
+
+<span class="nc" id="L835">    fun &lt;T&gt; ListView&lt;T&gt;.cellCache(cachedGraphicProvider: (T) -&gt; Node) = cellCache(scope, cachedGraphicProvider)</span>
+
+<span class="nc" id="L837">    fun &lt;S&gt; TableColumn&lt;S, out Number?&gt;.useProgressBar(afterCommit: (TableColumn.CellEditEvent&lt;S, Number?&gt;) -&gt; Unit = {}) = useProgressBar(scope, afterCommit)</span>
+
+<span class="nc" id="L839">    fun &lt;T&gt; ComboBox&lt;T&gt;.cellFormat(formatButtonCell: Boolean = true, formatter: ListCell&lt;T&gt;.(T) -&gt; Unit) = cellFormat(scope, formatButtonCell, formatter)</span>
+
+    inline fun &lt;reified T : UIComponent&gt; Drawer.item(
+<span class="nc bnc" id="L842" title="All 2 branches missed.">            scope: Scope = this@UIComponent.scope,</span>
+            vararg params: Pair&lt;*, Any?&gt;,
+<span class="nc bnc" id="L844" title="All 2 branches missed.">            expanded: Boolean = false,</span>
+<span class="nc bnc" id="L845" title="All 2 branches missed.">            showHeader: Boolean = false,</span>
+<span class="nc" id="L846">            noinline op: DrawerItem.() -&gt; Unit = {}</span>
+<span class="nc" id="L847">    ) = item(T::class, scope, params.toMap(), expanded, showHeader, op)</span>
+
+    inline fun &lt;reified T : UIComponent&gt; Drawer.item(
+<span class="nc bnc" id="L850" title="All 2 branches missed.">            scope: Scope = this@UIComponent.scope,</span>
+<span class="nc bnc" id="L851" title="All 2 branches missed.">            params: Map&lt;*, Any?&gt;? = null,</span>
+<span class="nc bnc" id="L852" title="All 2 branches missed.">            expanded: Boolean = false,</span>
+<span class="nc bnc" id="L853" title="All 2 branches missed.">            showHeader: Boolean = false,</span>
+<span class="nc" id="L854">            noinline op: DrawerItem.() -&gt; Unit = {}</span>
+<span class="nc" id="L855">    ) = item(T::class, scope, params, expanded, showHeader, op)</span>
+
+    inline fun &lt;reified T : UIComponent&gt; TableView&lt;*&gt;.placeholder(
+<span class="nc bnc" id="L858" title="All 2 branches missed.">            scope: Scope = this@UIComponent.scope,</span>
+<span class="nc bnc" id="L859" title="All 2 branches missed.">            params: Map&lt;*, Any?&gt;? = null,</span>
+<span class="nc" id="L860">            noinline op: T.() -&gt; Unit = {}</span>
+    ) {
+<span class="nc" id="L862">        placeholder = find(T::class, scope, params).apply(op).root</span>
+<span class="nc" id="L863">    }</span>
+
+    inline fun &lt;reified T : UIComponent&gt; TableView&lt;*&gt;.placeholder(
+<span class="nc bnc" id="L866" title="All 2 branches missed.">            scope: Scope = this@UIComponent.scope,</span>
+            vararg params: Pair&lt;*, Any?&gt;,
+<span class="nc" id="L868">            noinline op: T.() -&gt; Unit = {}</span>
+    ) {
+<span class="nc" id="L870">        placeholder(scope, params.toMap(), op)</span>
+<span class="nc" id="L871">    }</span>
+
+
+    inline fun &lt;reified T : UIComponent&gt; ListView&lt;*&gt;.placeholder(
+<span class="nc bnc" id="L875" title="All 2 branches missed.">            scope: Scope = this@UIComponent.scope,</span>
+<span class="nc bnc" id="L876" title="All 2 branches missed.">            params: Map&lt;*, Any?&gt;? = null,</span>
+<span class="nc" id="L877">            noinline op: T.() -&gt; Unit = {}</span>
+    ) {
+<span class="nc" id="L879">        placeholder = find(T::class, scope, params).apply(op).root</span>
+<span class="nc" id="L880">    }</span>
+
+    inline fun &lt;reified T : UIComponent&gt; ListView&lt;*&gt;.placeholder(
+<span class="nc bnc" id="L883" title="All 2 branches missed.">            scope: Scope = this@UIComponent.scope,</span>
+            vararg params: Pair&lt;*, Any?&gt;,
+<span class="nc" id="L885">            noinline op: T.() -&gt; Unit = {}</span>
+    ) {
+<span class="nc" id="L887">        placeholder(scope, params.toMap(), op)</span>
+<span class="nc" id="L888">    }</span>
+
+    inline fun &lt;reified T : UIComponent&gt; TreeTableView&lt;*&gt;.placeholder(
+<span class="nc bnc" id="L891" title="All 2 branches missed.">            scope: Scope = this@UIComponent.scope,</span>
+<span class="nc bnc" id="L892" title="All 2 branches missed.">            params: Map&lt;*, Any?&gt;? = null,</span>
+<span class="nc" id="L893">            noinline op: T.() -&gt; Unit = {}</span>
+    ) {
+<span class="nc" id="L895">        placeholder = find(T::class, scope, params).apply(op).root</span>
+<span class="nc" id="L896">    }</span>
+
+    inline fun &lt;reified T : UIComponent&gt; TreeTableView&lt;*&gt;.placeholder(
+<span class="nc bnc" id="L899" title="All 2 branches missed.">            scope: Scope = this@UIComponent.scope,</span>
+            vararg params: Pair&lt;*, Any?&gt;,
+<span class="nc" id="L901">            noinline op: T.() -&gt; Unit = {}</span>
+    ) {
+<span class="nc" id="L903">        placeholder(scope, params.toMap(), op)</span>
+<span class="nc" id="L904">    }</span>
+
+    fun Drawer.item(
+            uiComponent: KClass&lt;out UIComponent&gt;,
+<span class="nc" id="L908">            scope: Scope = this@UIComponent.scope,</span>
+<span class="nc" id="L909">            params: Map&lt;*, Any?&gt;? = null,</span>
+<span class="nc" id="L910">            expanded: Boolean = false,</span>
+<span class="nc" id="L911">            showHeader: Boolean = false,</span>
+<span class="nc" id="L912">            op: DrawerItem.() -&gt; Unit = {}</span>
+<span class="nc" id="L913">    ) = item(find(uiComponent, scope, params), expanded, showHeader, op)</span>
+
+    fun Drawer.item(
+            uiComponent: KClass&lt;out UIComponent&gt;,
+<span class="nc" id="L917">            scope: Scope = this@UIComponent.scope,</span>
+            vararg params: Pair&lt;*, Any?&gt;,
+<span class="nc" id="L919">            expanded: Boolean = false,</span>
+<span class="nc" id="L920">            showHeader: Boolean = false,</span>
+<span class="nc" id="L921">            op: DrawerItem.() -&gt; Unit = {}</span>
+    ) {
+<span class="nc" id="L923">        item(uiComponent, scope, params.toMap(), expanded, showHeader, op)</span>
+<span class="nc" id="L924">    }</span>
+
+<span class="nc" id="L926">    fun &lt;T : UIComponent&gt; EventTarget.add(type: KClass&lt;T&gt;, params: Map&lt;*, Any?&gt;? = null, op: T.() -&gt; Unit = {}) {</span>
+<span class="fc" id="L927">        val view = find(type, scope, params)</span>
+<span class="fc" id="L928">        plusAssign(view.root)</span>
+<span class="fc" id="L929">        op(view)</span>
+<span class="fc" id="L930">    }</span>
+
+<span class="nc" id="L932">    inline fun &lt;reified T : UIComponent&gt; EventTarget.add(vararg params: Pair&lt;*, Any?&gt;, noinline op: T.() -&gt; Unit = {}) = add(T::class, params.toMap(), op)</span>
+<span class="nc" id="L933">    fun &lt;T : UIComponent&gt; EventTarget.add(uiComponent: Class&lt;T&gt;) = add(find(uiComponent))</span>
+
+<span class="nc" id="L935">    fun EventTarget.add(uiComponent: UIComponent) = plusAssign(uiComponent.root)</span>
+<span class="nc" id="L936">    fun EventTarget.add(child: Node) = plusAssign(child)</span>
+
+<span class="nc" id="L938">    operator fun &lt;T : UIComponent&gt; EventTarget.plusAssign(type: KClass&lt;T&gt;) = plusAssign(find(type, scope).root)</span>
+
+    inline fun &lt;reified T : UIComponent&gt; openInternalWindow(
+<span class="nc bnc" id="L941" title="All 2 branches missed.">            scope: Scope = this@UIComponent.scope,</span>
+<span class="nc bnc" id="L942" title="All 2 branches missed.">            icon: Node? = null,</span>
+<span class="nc bnc" id="L943" title="All 2 branches missed.">            modal: Boolean = true,</span>
+<span class="nc bnc" id="L944" title="All 2 branches missed.">            owner: Node = root,</span>
+<span class="nc bnc" id="L945" title="All 2 branches missed.">            escapeClosesWindow: Boolean = true,</span>
+<span class="nc bnc" id="L946" title="All 2 branches missed.">            closeButton: Boolean = true,</span>
+<span class="nc bnc" id="L947" title="All 2 branches missed.">            movable: Boolean = true,</span>
+<span class="nc bnc" id="L948" title="All 2 branches missed.">            overlayPaint: Paint = c(&quot;#000&quot;, 0.4),</span>
+<span class="nc" id="L949">            params: Map&lt;*, Any?&gt;? = null</span>
+<span class="nc" id="L950">    ) = openInternalWindow(T::class, scope, icon, modal, owner, escapeClosesWindow, closeButton, movable, overlayPaint, params)</span>
+
+    inline fun &lt;reified T : UIComponent&gt; openInternalWindow(
+<span class="nc bnc" id="L953" title="All 2 branches missed.">            scope: Scope = this@UIComponent.scope,</span>
+<span class="nc bnc" id="L954" title="All 2 branches missed.">            icon: Node? = null,</span>
+<span class="nc bnc" id="L955" title="All 2 branches missed.">            modal: Boolean = true,</span>
+<span class="nc bnc" id="L956" title="All 2 branches missed.">            owner: Node = root,</span>
+<span class="nc bnc" id="L957" title="All 2 branches missed.">            escapeClosesWindow: Boolean = true,</span>
+<span class="nc bnc" id="L958" title="All 2 branches missed.">            closeButton: Boolean = true,</span>
+<span class="nc bnc" id="L959" title="All 2 branches missed.">            movable: Boolean = true,</span>
+<span class="nc" id="L960">            overlayPaint: Paint = c(&quot;#000&quot;, 0.4),</span>
+            vararg params: Pair&lt;*, Any?&gt;
+    ) {
+<span class="nc" id="L963">        openInternalWindow&lt;T&gt;(scope, icon, modal, owner, escapeClosesWindow, closeButton, movable, overlayPaint, params.toMap())</span>
+<span class="nc" id="L964">    }</span>
+
+    fun openInternalWindow(
+            view: KClass&lt;out UIComponent&gt;,
+<span class="nc" id="L968">            scope: Scope = this@UIComponent.scope,</span>
+<span class="nc" id="L969">            icon: Node? = null,</span>
+<span class="nc" id="L970">            modal: Boolean = true,</span>
+<span class="nc" id="L971">            owner: Node = root,</span>
+<span class="nc" id="L972">            escapeClosesWindow: Boolean = true,</span>
+<span class="nc" id="L973">            closeButton: Boolean = true,</span>
+<span class="nc" id="L974">            movable: Boolean = true,</span>
+<span class="nc" id="L975">            overlayPaint: Paint = c(&quot;#000&quot;, 0.4),</span>
+<span class="nc" id="L976">            params: Map&lt;*, Any?&gt;? = null</span>
+<span class="nc" id="L977">    ) = InternalWindow(icon, modal, escapeClosesWindow, closeButton, movable, overlayPaint).open(find(view, scope, params), owner)</span>
+
+    fun openInternalWindow(
+            view: KClass&lt;out UIComponent&gt;,
+<span class="nc" id="L981">            scope: Scope = this@UIComponent.scope,</span>
+<span class="nc" id="L982">            icon: Node? = null,</span>
+<span class="nc" id="L983">            modal: Boolean = true,</span>
+<span class="nc" id="L984">            owner: Node = root,</span>
+<span class="nc" id="L985">            escapeClosesWindow: Boolean = true,</span>
+<span class="nc" id="L986">            closeButton: Boolean = true,</span>
+<span class="nc" id="L987">            movable: Boolean = true,</span>
+<span class="nc" id="L988">            overlayPaint: Paint = c(&quot;#000&quot;, 0.4),</span>
+            vararg params: Pair&lt;*, Any?&gt;
+    ) {
+<span class="nc" id="L991">        openInternalWindow(view, scope, icon, modal, owner, escapeClosesWindow, closeButton, movable, overlayPaint, params.toMap())</span>
+<span class="nc" id="L992">    }</span>
+
+    fun openInternalWindow(
+            view: UIComponent,
+<span class="nc" id="L996">            icon: Node? = null,</span>
+<span class="nc" id="L997">            modal: Boolean = true,</span>
+<span class="nc" id="L998">            owner: Node = root,</span>
+<span class="nc" id="L999">            escapeClosesWindow: Boolean = true,</span>
+<span class="nc" id="L1000">            closeButton: Boolean = true,</span>
+<span class="nc" id="L1001">            movable: Boolean = true,</span>
+<span class="nc" id="L1002">            overlayPaint: Paint = c(&quot;#000&quot;, 0.4)</span>
+<span class="nc" id="L1003">    ) = InternalWindow(icon, modal, escapeClosesWindow, closeButton, movable, overlayPaint).open(view, owner)</span>
+
+    fun openInternalBuilderWindow(
+            title: String,
+<span class="nc" id="L1007">            scope: Scope = this@UIComponent.scope,</span>
+<span class="nc" id="L1008">            icon: Node? = null,</span>
+<span class="nc" id="L1009">            modal: Boolean = true,</span>
+<span class="nc" id="L1010">            owner: Node = root,</span>
+<span class="nc" id="L1011">            escapeClosesWindow: Boolean = true,</span>
+<span class="nc" id="L1012">            closeButton: Boolean = true,</span>
+<span class="nc" id="L1013">            movable: Boolean = true,</span>
+<span class="nc" id="L1014">            overlayPaint: Paint = c(&quot;#000&quot;, 0.4),</span>
+            rootBuilder: UIComponent.() -&gt; Parent
+<span class="nc" id="L1016">    ) = InternalWindow(icon, modal, escapeClosesWindow, closeButton, movable, overlayPaint).open(BuilderFragment(scope, title, rootBuilder), owner)</span>
+
+    @JvmOverloads
+    fun openWindow(
+<span class="nc" id="L1020">            stageStyle: StageStyle = StageStyle.DECORATED,</span>
+<span class="nc" id="L1021">            modality: Modality = Modality.NONE,</span>
+<span class="nc" id="L1022">            escapeClosesWindow: Boolean = true,</span>
+<span class="nc" id="L1023">            owner: Window? = currentWindow,</span>
+<span class="nc" id="L1024">            block: Boolean = false,</span>
+<span class="nc" id="L1025">            resizable: Boolean? = null) = openModal(stageStyle, modality, escapeClosesWindow, owner, block, resizable)</span>
+
+    @JvmOverloads
+<span class="nc" id="L1028">    fun openModal(stageStyle: StageStyle = StageStyle.DECORATED, modality: Modality = Modality.APPLICATION_MODAL, escapeClosesWindow: Boolean = true, owner: Window? = currentWindow, block: Boolean = false, resizable: Boolean? = null): Stage? {</span>
+<span class="nc bnc" id="L1029" title="All 2 branches missed.">        if (modalStage == null) {</span>
+<span class="nc" id="L1030">            modalStage = Stage(stageStyle)</span>
+            // modalStage needs to be set before this code to make close() work in blocking mode
+<span class="nc" id="L1032">            with(modalStage!!) {</span>
+<span class="nc" id="L1033">                aboutToBeShown = true</span>
+<span class="nc bnc" id="L1034" title="All 2 branches missed.">                if (resizable != null) isResizable = resizable</span>
+<span class="nc" id="L1035">                titleProperty().bind(titleProperty)</span>
+<span class="nc" id="L1036">                initModality(modality)</span>
+<span class="nc bnc" id="L1037" title="All 2 branches missed.">                if (owner != null) initOwner(owner)</span>
+
+<span class="nc bnc" id="L1039" title="All 2 branches missed.">                if (escapeClosesWindow) {</span>
+<span class="nc" id="L1040">                    addEventFilter(KeyEvent.KEY_PRESSED) {</span>
+<span class="nc bnc" id="L1041" title="All 2 branches missed.">                        if (it.code == KeyCode.ESCAPE)</span>
+<span class="nc" id="L1042">                            close()</span>
+<span class="nc" id="L1043">                    }</span>
+                }
+
+<span class="nc bnc" id="L1046" title="All 2 branches missed.">                if (getRootWrapper().scene != null) {</span>
+<span class="nc" id="L1047">                    scene = getRootWrapper().scene</span>
+<span class="nc" id="L1048">                    this@UIComponent.properties[&quot;tornadofx.scene&quot;] = getRootWrapper().scene</span>
+                } else {
+<span class="nc" id="L1050">                    Scene(getRootWrapper()).apply {</span>
+<span class="nc" id="L1051">                        FX.applyStylesheetsTo(this)</span>
+<span class="nc" id="L1052">                        scene = this</span>
+<span class="nc" id="L1053">                        this@UIComponent.properties[&quot;tornadofx.scene&quot;] = this</span>
+<span class="nc" id="L1054">                    }</span>
+                }
+
+<span class="nc" id="L1057">                val primaryStage = FX.getPrimaryStage(scope)</span>
+<span class="nc bnc" id="L1058" title="All 2 branches missed.">                if (primaryStage != null) icons += primaryStage.icons</span>
+
+<span class="nc" id="L1060">                hookGlobalShortcuts()</span>
+
+<span class="nc" id="L1062">                onBeforeShow()</span>
+
+<span class="nc" id="L1064">                setOnShown {</span>
+<span class="nc bnc" id="L1065" title="All 2 branches missed.">                    if (owner != null) {</span>
+<span class="nc" id="L1066">                        x = owner.x + (owner.width / 2) - (scene.width / 2)</span>
+<span class="nc" id="L1067">                        y = owner.y + (owner.height / 2) - (scene.height / 2)</span>
+                    }
+<span class="nc" id="L1069">                    callOnDock()</span>
+<span class="nc bnc" id="L1070" title="All 4 branches missed.">                    if (FX.reloadStylesheetsOnFocus || FX.reloadViewsOnFocus) {</span>
+<span class="nc" id="L1071">                        configureReloading()</span>
+                    }
+<span class="nc" id="L1073">                    aboutToBeShown = false</span>
+<span class="nc" id="L1074">                }</span>
+
+<span class="nc" id="L1076">                setOnHidden {</span>
+<span class="nc" id="L1077">                    modalStage = null</span>
+<span class="nc" id="L1078">                    callOnUndock()</span>
+<span class="nc" id="L1079">                }</span>
+
+<span class="nc bnc" id="L1081" title="All 2 branches missed.">                if (block) showAndWait() else show()</span>
+<span class="nc" id="L1082">            }</span>
+        } else {
+<span class="nc bnc" id="L1084" title="All 2 branches missed.">            if (!modalStage!!.isShowing)</span>
+<span class="nc" id="L1085">                modalStage!!.show()</span>
+        }
+
+<span class="nc" id="L1088">        return modalStage</span>
+    }
+
+    private fun Stage.configureReloading() {
+<span class="nc bnc" id="L1092" title="All 2 branches missed.">        if (FX.reloadStylesheetsOnFocus) reloadStylesheetsOnFocus()</span>
+<span class="nc bnc" id="L1093" title="All 2 branches missed.">        if (FX.reloadViewsOnFocus) reloadViewsOnFocus()</span>
+<span class="nc" id="L1094">    }</span>
+
+    @Deprecated(&quot;Use close() instead&quot;, replaceWith = ReplaceWith(&quot;close()&quot;))
+<span class="nc" id="L1097">    fun closeModal() = close()</span>
+
+    fun close() {
+<span class="nc" id="L1100">        val internalWindow = root.findParent&lt;InternalWindow&gt;()</span>
+<span class="nc bnc" id="L1101" title="All 2 branches missed.">        if (internalWindow != null) {</span>
+<span class="nc" id="L1102">            internalWindow.close()</span>
+<span class="nc" id="L1103">            return</span>
+        }
+
+<span class="nc bnc" id="L1106" title="All 4 branches missed.">        (modalStage ?: currentStage)?.apply {</span>
+<span class="nc" id="L1107">            close()</span>
+<span class="nc" id="L1108">            modalStage = null</span>
+<span class="nc" id="L1109">        }</span>
+<span class="nc bnc" id="L1110" title="All 2 branches missed.">        owningTab?.apply {</span>
+<span class="nc bnc" id="L1111" title="All 4 branches missed.">            tabPane?.tabs?.remove(this)</span>
+<span class="nc" id="L1112">        }</span>
+<span class="nc" id="L1113">    }</span>
+
+<span class="pc bpc" id="L1115" title="1 of 2 branches missed.">    val owningTab: Tab? get() = properties[&quot;tornadofx.tab&quot;] as? Tab</span>
+
+<span class="fc" id="L1117">    open val titleProperty: StringProperty = SimpleStringProperty(viewTitle)</span>
+    var title: String
+<span class="nc bnc" id="L1119" title="All 2 branches missed.">        get() = titleProperty.get() ?: &quot;&quot;</span>
+        set(value) {
+<span class="nc bnc" id="L1121" title="All 2 branches missed.">            if (titleProperty.isBound)</span>
+<span class="nc" id="L1122">                titleProperty.unbind()</span>
+<span class="nc" id="L1123">            titleProperty.set(value)</span>
+<span class="nc" id="L1124">        }</span>
+
+<span class="pc" id="L1126">    open val headingProperty: StringProperty = SimpleStringProperty().apply {</span>
+<span class="fc" id="L1127">        bind(titleProperty)</span>
+<span class="fc" id="L1128">    }</span>
+
+    var heading: String
+<span class="nc bnc" id="L1131" title="All 2 branches missed.">        get() = headingProperty.get() ?: &quot;&quot;</span>
+        set(value) {
+<span class="nc bnc" id="L1133" title="All 2 branches missed.">            if (headingProperty.isBound) headingProperty.unbind()</span>
+<span class="nc" id="L1134">            headingProperty.set(value)</span>
+<span class="nc" id="L1135">        }</span>
+
+    /**
+     * Load an FXML file from the specified location, or from a file with the same package and name as this UIComponent
+     * if not specified. If the FXML file specifies a controller (handy for content completion in FXML editors)
+     * set the `hasControllerAttribute` parameter to true. This ensures that the `fx:controller` attribute is ignored
+     * by the loader so that this UIComponent can still be the controller for the FXML file.
+     *
+     * Important: If you specify `hasControllerAttribute = true` when infact no `fx:controller` attribute is present,
+     * no controller will be set at all. Make sure to only specify this parameter if you actually have the `fx:controller`
+     * attribute in your FXML.
+     */
+<span class="pc" id="L1147">    fun &lt;T : Node&gt; fxml(location: String? = null, hasControllerAttribute: Boolean = false, root: Any? = null): ReadOnlyProperty&lt;UIComponent, T&gt; = object : ReadOnlyProperty&lt;UIComponent, T&gt; {</span>
+<span class="pc" id="L1148">        val value: T = loadFXML(location, hasControllerAttribute, root)</span>
+<span class="fc" id="L1149">        override fun getValue(thisRef: UIComponent, property: KProperty&lt;*&gt;) = value</span>
+<span class="fc" id="L1150">    }</span>
+
+    @JvmOverloads
+<span class="nc" id="L1153">    fun &lt;T : Node&gt; loadFXML(location: String? = null, hasControllerAttribute: Boolean = false, root: Any? = null): T {</span>
+<span class="fc" id="L1154">        val fxml = FX.fxmlLocator(this, location)</span>
+
+<span class="fc" id="L1156">        fxmlLoader = FXMLLoader(fxml).apply {</span>
+<span class="fc" id="L1157">            resources = this@UIComponent.messages</span>
+<span class="pc bpc" id="L1158" title="1 of 2 branches missed.">            if (root != null) setRoot(root)</span>
+<span class="pc bpc" id="L1159" title="1 of 2 branches missed.">            if (hasControllerAttribute) {</span>
+<span class="nc" id="L1160">                setControllerFactory { this@UIComponent }</span>
+            } else {
+<span class="fc" id="L1162">                setController(this@UIComponent)</span>
+            }
+<span class="fc" id="L1164">        }</span>
+
+<span class="fc" id="L1166">        return fxmlLoader.load()</span>
+    }
+
+    /**
+     * Load an FXML file from the specified InputStream. If the FXML file specifies a controller (handy for content completion in FXML editors)
+     * set the `hasControllerAttribute` parameter to true. This ensures that the `fx:controller` attribute is ignored
+     * by the loader so that this UIComponent can still be the controller for the FXML file.
+     *
+     * Important: If you specify `hasControllerAttribute = true` when infact no `fx:controller` attribute is present,
+     * no controller will be set at all. Make sure to only specify this parameter if you actually have the `fx:controller`
+     * attribute in your FXML.
+     */
+<span class="nc" id="L1178">    fun &lt;T : Node&gt; fxml(content: InputStream, hasControllerAttribute: Boolean = false, root: Any? = null): ReadOnlyProperty&lt;UIComponent, T&gt; = object : ReadOnlyProperty&lt;UIComponent, T&gt; {</span>
+<span class="nc" id="L1179">        val value: T = loadFXML(content, hasControllerAttribute, root)</span>
+<span class="nc" id="L1180">        override fun getValue(thisRef: UIComponent, property: KProperty&lt;*&gt;) = value</span>
+<span class="nc" id="L1181">    }</span>
+
+    @JvmOverloads
+<span class="nc" id="L1184">    fun &lt;T : Node&gt; loadFXML(content: InputStream, hasControllerAttribute: Boolean = false, root: Any? = null): T {</span>
+<span class="nc" id="L1185">        fxmlLoader = FXMLLoader().apply {</span>
+<span class="nc" id="L1186">            resources = this@UIComponent.messages</span>
+<span class="nc bnc" id="L1187" title="All 2 branches missed.">            if (root != null) setRoot(root)</span>
+<span class="nc bnc" id="L1188" title="All 2 branches missed.">            if (hasControllerAttribute) {</span>
+<span class="nc" id="L1189">                setControllerFactory { this@UIComponent }</span>
+            } else {
+<span class="nc" id="L1191">                setController(this@UIComponent)</span>
+            }
+<span class="nc" id="L1193">        }</span>
+
+<span class="nc" id="L1195">        return fxmlLoader.load(content)</span>
+    }
+
+<span class="fc" id="L1198">    fun &lt;T : Any&gt; fxid(propName: String? = null) = object : ReadOnlyProperty&lt;UIComponent, T&gt; {</span>
+        override fun getValue(thisRef: UIComponent, property: KProperty&lt;*&gt;): T {
+<span class="pc bpc" id="L1200" title="1 of 2 branches missed.">            val key = propName ?: property.name</span>
+<span class="fc" id="L1201">            val value = thisRef.fxmlLoader.namespace[key]</span>
+<span class="fc bfc" id="L1202" title="All 2 branches covered.">            if (value == null) {</span>
+<span class="fc" id="L1203">                log.warning(&quot;Property $key of $thisRef was not resolved because there is no matching fx:id in ${thisRef.fxmlLoader.location}&quot;)</span>
+            } else {
+<span class="fc" id="L1205">                return value as T</span>
+            }
+
+<span class="fc" id="L1208">            throw IllegalArgumentException(&quot;Property $key does not match fx:id declaration&quot;)</span>
+        }
+<span class="fc" id="L1210">    }</span>
+
+<span class="nc bnc" id="L1212" title="All 2 branches missed.">    inline fun &lt;reified T : Parent&gt; EventTarget.include(scope: Scope = this@UIComponent.scope, hasControllerAttribute: Boolean = false, location: String): T {</span>
+<span class="nc" id="L1213">        val loader = object : Fragment() {</span>
+<span class="nc" id="L1214">            override val scope = scope</span>
+<span class="nc" id="L1215">            override val root: T by fxml(location, hasControllerAttribute)</span>
+        }
+<span class="nc" id="L1217">        addChildIfPossible(loader.root)</span>
+<span class="nc" id="L1218">        return loader.root</span>
+    }
+
+    /**
+     * Create an fragment by supplying an inline builder expression and optionally open it if the openModality is specified. A fragment can also be assigned
+     * to an existing node hierarchy using `add()` or `this += inlineFragment {}`, or you can specify the behavior inside it using `Platform.runLater {}` before
+     * you return the root node for the builder fragment.
+     */
+    fun builderFragment(
+<span class="nc" id="L1227">            title: String = &quot;&quot;,</span>
+<span class="nc" id="L1228">            scope: Scope = this@UIComponent.scope,</span>
+            rootBuilder: UIComponent.() -&gt; Parent
+<span class="nc" id="L1230">    ) = BuilderFragment(scope, title, rootBuilder)</span>
+
+    fun builderWindow(
+<span class="nc" id="L1233">            title: String = &quot;&quot;,</span>
+<span class="nc" id="L1234">            modality: Modality = Modality.APPLICATION_MODAL,</span>
+<span class="nc" id="L1235">            stageStyle: StageStyle = StageStyle.DECORATED,</span>
+<span class="nc" id="L1236">            scope: Scope = this@UIComponent.scope,</span>
+<span class="nc" id="L1237">            owner: Window? = currentWindow,</span>
+            rootBuilder: UIComponent.() -&gt; Parent
+<span class="nc" id="L1239">    ) = builderFragment(title, scope, rootBuilder).apply {</span>
+<span class="nc" id="L1240">        openWindow(modality = modality, stageStyle = stageStyle, owner = owner)</span>
+<span class="nc" id="L1241">    }</span>
+
+    fun dialog(
+<span class="nc" id="L1244">            title: String = &quot;&quot;,</span>
+<span class="nc" id="L1245">            modality: Modality = Modality.APPLICATION_MODAL,</span>
+<span class="nc" id="L1246">            stageStyle: StageStyle = StageStyle.DECORATED,</span>
+<span class="nc" id="L1247">            scope: Scope = this@UIComponent.scope,</span>
+<span class="nc" id="L1248">            owner: Window? = currentWindow,</span>
+<span class="nc" id="L1249">            labelPosition: Orientation = Orientation.HORIZONTAL,</span>
+            builder: StageAwareFieldset.() -&gt; Unit
+    ): Stage? {
+<span class="nc" id="L1252">        val fragment = builderFragment(title, scope) { form() }</span>
+<span class="nc" id="L1253">        val fieldset = StageAwareFieldset(title, labelPosition)</span>
+<span class="nc" id="L1254">        fragment.root.add(fieldset)</span>
+<span class="nc" id="L1255">        fieldset.stage = fragment.openWindow(modality = modality, stageStyle = stageStyle, owner = owner)!!</span>
+<span class="nc" id="L1256">        builder(fieldset)</span>
+<span class="nc" id="L1257">        fieldset.stage.sizeToScene()</span>
+<span class="nc" id="L1258">        return fieldset.stage</span>
+    }
+
+    inline fun &lt;reified T : UIComponent&gt; replaceWith(
+<span class="nc bnc" id="L1262" title="All 2 branches missed.">            transition: ViewTransition? = null,</span>
+<span class="nc bnc" id="L1263" title="All 2 branches missed.">            sizeToScene: Boolean = false,</span>
+<span class="nc" id="L1264">            centerOnScreen: Boolean = false</span>
+<span class="nc" id="L1265">    ) = replaceWith(T::class, transition, sizeToScene, centerOnScreen)</span>
+
+    fun &lt;T : UIComponent&gt; replaceWith(
+            component: KClass&lt;T&gt;,
+<span class="nc" id="L1269">            transition: ViewTransition? = null,</span>
+<span class="nc" id="L1270">            sizeToScene: Boolean = false,</span>
+<span class="nc" id="L1271">            centerOnScreen: Boolean = false</span>
+<span class="nc" id="L1272">    ) = replaceWith(find(component, scope), transition, sizeToScene, centerOnScreen)</span>
+
+    /**
+     * Replace this component with another, optionally using a transition animation.
+     *
+     * @param replacement The component that will replace this one
+     * @param transition The [ViewTransition] used to animate the transition
+     * @return Whether or not the transition will run
+     */
+    fun replaceWith(
+            replacement: UIComponent,
+<span class="nc" id="L1283">            transition: ViewTransition? = null,</span>
+<span class="nc" id="L1284">            sizeToScene: Boolean = false,</span>
+<span class="nc" id="L1285">            centerOnScreen: Boolean = false,</span>
+<span class="nc" id="L1286">            clip: Boolean = true</span>
+<span class="nc" id="L1287">    ) = root.replaceWith(replacement.root, transition, sizeToScene, centerOnScreen, clip) {</span>
+<span class="nc bnc" id="L1288" title="All 10 branches missed.">        if (root == root.scene?.root) (root.scene.window as? Stage)?.titleProperty()?.cleanBind(replacement.titleProperty)</span>
+<span class="nc" id="L1289">    }</span>
+
+    private fun undockFromParent(replacement: UIComponent) {
+<span class="nc bnc" id="L1292" title="All 6 branches missed.">        (replacement.root.parent as? Pane)?.children?.remove(replacement.root)</span>
+<span class="nc" id="L1293">    }</span>
+}
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+fun &lt;U : UIComponent&gt; U.whenDocked(listener: (U) -&gt; Unit) {
+<span class="nc bnc" id="L1298" title="All 2 branches missed.">    if (onDockListeners == null) onDockListeners = mutableListOf()</span>
+<span class="nc" id="L1299">    onDockListeners!!.add(listener as (UIComponent) -&gt; Unit)</span>
+<span class="nc" id="L1300">}</span>
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+fun &lt;U : UIComponent&gt; U.whenDockedOnce(listener: (U) -&gt; Unit) {
+<span class="nc bnc" id="L1304" title="All 2 branches missed.">    if (onDockListeners == null) onDockListeners = mutableListOf()</span>
+<span class="nc" id="L1305">    var wrapped: (U) -&gt; Unit = {}</span>
+<span class="nc" id="L1306">    wrapped = {</span>
+<span class="nc" id="L1307">        runLater {</span>
+<span class="nc bnc" id="L1308" title="All 2 branches missed.">            onDockListeners!!.remove(wrapped)</span>
+<span class="nc" id="L1309">        }</span>
+<span class="nc" id="L1310">        listener(it)</span>
+<span class="nc" id="L1311">    }</span>
+<span class="nc" id="L1312">    whenDocked(wrapped)</span>
+<span class="nc" id="L1313">}</span>
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+fun &lt;U : UIComponent&gt; U.whenUndocked(listener: (U) -&gt; Unit) {
+<span class="nc bnc" id="L1317" title="All 2 branches missed.">    if (onUndockListeners == null) onUndockListeners = mutableListOf()</span>
+<span class="nc" id="L1318">    onUndockListeners!!.add(listener as (UIComponent) -&gt; Unit)</span>
+<span class="nc" id="L1319">}</span>
+
+@Suppress(&quot;UNCHECKED_CAST&quot;)
+fun &lt;U : UIComponent&gt; U.whenUndockedOnce(listener: (U) -&gt; Unit) {
+<span class="nc bnc" id="L1323" title="All 2 branches missed.">    if (onUndockListeners == null) onUndockListeners = mutableListOf()</span>
+<span class="nc" id="L1324">    var wrapped: (U) -&gt; Unit = {}</span>
+<span class="nc" id="L1325">    wrapped = {</span>
+<span class="nc" id="L1326">        runLater {</span>
+<span class="nc bnc" id="L1327" title="All 2 branches missed.">            onUndockListeners!!.remove(wrapped)</span>
+<span class="nc" id="L1328">        }</span>
+<span class="nc" id="L1329">        listener(it)</span>
+<span class="nc" id="L1330">    }</span>
+<span class="nc" id="L1331">    whenUndocked(wrapped)</span>
+<span class="nc" id="L1332">}</span>
+
+<span class="fc" id="L1334">abstract class Fragment @JvmOverloads constructor(title: String? = null, icon: Node? = null) : UIComponent(title, icon)</span>
+
+<span class="fc" id="L1336">abstract class View @JvmOverloads constructor(title: String? = null, icon: Node? = null) : UIComponent(title, icon), ScopedInstance</span>
+
+<span class="pc" id="L1338">class ResourceLookup(val component: Any) {</span>
+<span class="nc" id="L1339">    operator fun get(resource: String): String = component.javaClass.getResource(resource).toExternalForm()</span>
+<span class="fc" id="L1340">    fun url(resource: String): URL = component.javaClass.getResource(resource)</span>
+<span class="nc" id="L1341">    fun media(resource: String): Media = Media(url(resource).toExternalForm())</span>
+<span class="nc" id="L1342">    fun stream(resource: String): InputStream = component.javaClass.getResourceAsStream(resource)</span>
+<span class="nc" id="L1343">    fun image(resource: String): Image = Image(stream(resource))</span>
+<span class="nc" id="L1344">    fun imageview(resource: String, lazyload: Boolean = false): ImageView = ImageView(Image(url(resource).toExternalForm(), lazyload))</span>
+<span class="nc" id="L1345">    fun json(resource: String) = stream(resource).toJSON()</span>
+<span class="nc" id="L1346">    fun jsonArray(resource: String) = stream(resource).toJSONArray()</span>
+<span class="nc bnc" id="L1347" title="All 2 branches missed.">    fun text(resource: String): String = stream(resource).use { it.bufferedReader().readText() }</span>
+}
+
+<span class="nc" id="L1350">class BuilderFragment(overrideScope: Scope, title: String, rootBuilder: Fragment.() -&gt; Parent) : Fragment(title) {</span>
+<span class="nc" id="L1351">    override val scope = overrideScope</span>
+<span class="nc" id="L1352">    override val root = rootBuilder(this)</span>
+}
+
+enum class BorderPaneContainer {
+    TOP, RIGHT, BOTTOM, LEFT, CENTER;
+}
+
+fun BorderPane.getContainerForChild(child: Node): BorderPaneContainer? {
+<span class="nc bnc" id="L1360" title="All 2 branches missed.">    if (top == child) return BorderPaneContainer.TOP</span>
+<span class="nc bnc" id="L1361" title="All 2 branches missed.">    if (right == child) return BorderPaneContainer.RIGHT</span>
+<span class="nc bnc" id="L1362" title="All 2 branches missed.">    if (bottom == child) return BorderPaneContainer.BOTTOM</span>
+<span class="nc bnc" id="L1363" title="All 2 branches missed.">    if (left == child) return BorderPaneContainer.LEFT</span>
+<span class="nc bnc" id="L1364" title="All 2 branches missed.">    if (center == child) return BorderPaneContainer.CENTER</span>
+<span class="nc" id="L1365">    return null</span>
+}
+
+fun BorderPane.placeChild(child: Node, container: BorderPaneContainer) {
+<span class="nc bnc" id="L1369" title="All 6 branches missed.">    when (container) {</span>
+<span class="nc" id="L1370">        BorderPaneContainer.TOP -&gt; top = child</span>
+<span class="nc" id="L1371">        BorderPaneContainer.RIGHT -&gt; right = child</span>
+<span class="nc" id="L1372">        BorderPaneContainer.BOTTOM -&gt; bottom = child</span>
+<span class="nc" id="L1373">        BorderPaneContainer.LEFT -&gt; left = child</span>
+<span class="nc" id="L1374">        BorderPaneContainer.CENTER -&gt; center = child</span>
+    }
+<span class="nc" id="L1376">}</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

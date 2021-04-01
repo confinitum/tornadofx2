@@ -1,0 +1,584 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Collections.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">Collections.kt</span></div><h1>Collections.kt</h1><pre class="source lang-java linenums">@file:Suppress(&quot;unused&quot;)
+
+package tornadofx
+
+import javafx.beans.Observable
+import javafx.beans.WeakListener
+import javafx.collections.*
+import tornadofx.FX.IgnoreParentBuilder.No
+import tornadofx.FX.IgnoreParentBuilder.Once
+import java.lang.ref.WeakReference
+import java.util.*
+
+/**
+ * Returns an empty new [ObservableIntegerArray].
+ */
+<span class="nc" id="L16">fun observableIntArrayOf(): ObservableIntegerArray = FXCollections.observableIntegerArray()</span>
+
+/**
+ * Returns a new [ObservableIntegerArray] with the given [elements].
+ */
+<span class="nc" id="L21">fun observableIntArrayOf(vararg elements: Int): ObservableIntegerArray = FXCollections.observableIntegerArray(*elements)</span>
+
+/**
+ * Returns an empty new [ObservableFloatArray].
+ */
+<span class="nc" id="L26">fun observableFloatArrayOf(): ObservableFloatArray = FXCollections.observableFloatArray()</span>
+
+/**
+ * Returns a new [ObservableFloatArray] with the given [elements].
+ */
+<span class="nc" id="L31">fun observableFloatArrayOf(vararg elements: Float): ObservableFloatArray = FXCollections.observableFloatArray(*elements)</span>
+
+
+/**
+ * Returns an empty new [ObservableList].
+ */
+<span class="fc" id="L37">fun &lt;T&gt; observableListOf(): ObservableList&lt;T&gt; = FXCollections.observableArrayList()</span>
+
+/**
+ * Returns a new [ObservableList] with the given [elements].
+ */
+<span class="fc" id="L42">fun &lt;T&gt; observableListOf(vararg elements: T): ObservableList&lt;T&gt; = FXCollections.observableArrayList(*elements)</span>
+
+/**
+ * Returns a new [ObservableList] containing all elements from the given [collection].
+ */
+<span class="nc" id="L47">fun &lt;T&gt; observableListOf(collection: Collection&lt;T&gt;): ObservableList&lt;T&gt; = FXCollections.observableArrayList(collection)</span>
+
+/**
+ * Returns an empty new [ObservableList] with the given [extractor]. This list reports element updates.
+ */
+<span class="nc" id="L52">fun &lt;T&gt; observableListOf(extractor: (T)-&gt;Array&lt;Observable&gt;): ObservableList&lt;T&gt; = FXCollections.observableArrayList(extractor)</span>
+
+/**
+ * Returns an empty new [ObservableSet]
+ */
+<span class="nc" id="L57">fun &lt;T&gt; observableSetOf(): ObservableSet&lt;T&gt; = FXCollections.observableSet()</span>
+
+/**
+ * Returns a new [ObservableSet] with the given elements.
+ */
+<span class="nc" id="L62">fun &lt;T&gt; observableSetOf(vararg elements: T): ObservableSet&lt;T&gt; = FXCollections.observableSet(*elements)</span>
+
+/**
+ * Returns an empty new [ObservableMap]
+ */
+<span class="nc" id="L67">fun &lt;K, V&gt; observableMapOf(): ObservableMap&lt;K, V&gt; = FXCollections.observableHashMap()</span>
+
+/**
+ * Returns a new [ObservableMap] with the specified contents, given as a list of pairs
+ * where the first component is the key and the second is the value.
+ */
+<span class="nc" id="L73">fun &lt;K, V&gt; observableMapOf(vararg pairs: Pair&lt;K, V&gt;): ObservableMap&lt;K, V&gt; = FXCollections.observableMap(pairs.toMap(hashMapOf()))</span>
+
+
+/**
+ * Returns a new [ObservableIntegerArray] with the elements from the original array.
+ */
+<span class="nc" id="L79">fun IntArray.toObservable(): ObservableIntegerArray = FXCollections.observableIntegerArray(*this)</span>
+
+/**
+ * Returns a new [ObservableIntegerArray] with the elements from the original array.
+ */
+<span class="nc" id="L84">fun Array&lt;Int&gt;.toObservable(): ObservableIntegerArray = FXCollections.observableIntegerArray(*this.toIntArray())</span>
+
+/**
+ * Returns a new [ObservableFloatArray] with the elements from the original array.
+ */
+<span class="nc" id="L89">fun FloatArray.toObservable(): ObservableFloatArray = FXCollections.observableFloatArray(*this)</span>
+
+/**
+ * Returns a new [ObservableFloatArray] with the elements from the original array.
+ */
+<span class="nc" id="L94">fun Array&lt;Float&gt;.toObservable(): ObservableFloatArray = FXCollections.observableFloatArray(*this.toFloatArray())</span>
+
+
+/**
+ * Returns a new [ObservableList] with the elements from the original list.
+ */
+<span class="nc" id="L100">fun &lt;T&gt; List&lt;T&gt;.toObservable(): ObservableList&lt;T&gt; = FXCollections.observableList(toMutableList())</span>
+
+/**
+ * Returns a new [ObservableSet] with the elements from the original set.
+ */
+<span class="nc" id="L105">fun &lt;T&gt; Set&lt;T&gt;.toObservable(): ObservableSet&lt;T&gt; = FXCollections.observableSet(toMutableSet())</span>
+
+/**
+ * Returns a new [ObservableMap] with the elements from the original map.
+ */
+<span class="nc" id="L110">fun &lt;K, V&gt; Map&lt;K, V&gt;.toObservable(): ObservableMap&lt;K, V&gt; = FXCollections.observableMap(toMutableMap())</span>
+
+
+/**
+ * Returns a new [ObservableList] that is backed by the original list.
+ *
+ * **Note:** If the original list is read-only, attempting to modify the returned list will result in an [UnsupportedOperationException]
+ */
+<span class="nc" id="L118">fun &lt;T&gt; List&lt;T&gt;.asObservable(): ObservableList&lt;T&gt; = FXCollections.observableList(this)</span>
+
+/**
+ * Returns a new [ObservableSet] that is backed by the original set.
+ *
+ * **Note:** If the original set is read-only, attempting to modify the returned set will result in an [UnsupportedOperationException]
+ */
+<span class="nc" id="L125">fun &lt;T&gt; Set&lt;T&gt;.asObservable(): ObservableSet&lt;T&gt; = FXCollections.observableSet(this)</span>
+
+/**
+ * Returns a new [ObservableMap] that is backed by the original map.
+ *
+ * **Note:** If the original map is read-only, attempting to modify the returned map will result in an [UnsupportedOperationException]
+ */
+<span class="nc" id="L132">fun &lt;K, V&gt; Map&lt;K, V&gt;.asObservable(): ObservableMap&lt;K, V&gt; = FXCollections.observableMap(this)</span>
+
+
+/**
+ * Returns an unmodifiable [ObservableList] that wraps the original list.
+ */
+<span class="nc" id="L138">fun &lt;T&gt; ObservableList&lt;T&gt;.asUnmodifiable(): ObservableList&lt;T&gt; = FXCollections.unmodifiableObservableList(this)</span>
+
+/**
+ * Returns an unmodifiable [ObservableSet] that wraps the original set.
+ */
+<span class="nc" id="L143">fun &lt;T&gt; ObservableSet&lt;T&gt;.asUnmodifiable(): ObservableSet&lt;T&gt; = FXCollections.unmodifiableObservableSet(this)</span>
+
+/**
+ * Returns an unmodifiable [ObservableMap] that wraps the original map.
+ */
+<span class="nc" id="L148">fun &lt;K, V&gt; ObservableMap&lt;K, V&gt;.asUnmodifiable(): ObservableMap&lt;K, V&gt; = FXCollections.unmodifiableObservableMap(this)</span>
+
+
+/**
+ * Fills the observable list with the provided [value].
+ * Fires only **one** change notification on the list.
+ */
+<span class="nc" id="L155">fun &lt;T&gt; ObservableList&lt;T&gt;.fill(value: T): Unit = FXCollections.fill(this, value)</span>
+
+/**
+ * Reverse the order in the observable list.
+ * Fires only **one** change notification on the list.
+ */
+<span class="nc" id="L161">fun &lt;T&gt; ObservableList&lt;T&gt;.reverse(): Unit = FXCollections.reverse(this)</span>
+
+/**
+ * Randomly shuffles elements in this observable list.
+ * Fires only **one** change notification on the list.
+ */
+<span class="nc" id="L167">fun &lt;T&gt; ObservableList&lt;T&gt;.shuffle(): Unit = FXCollections.shuffle(this)</span>
+
+/**
+ * Randomly shuffles elements in this observable list using the specified [random] instance as the source of randomness.
+ * Fires only **one** change notification on the list.
+ */
+<span class="nc" id="L173">fun &lt;T&gt; ObservableList&lt;T&gt;.shuffle(random: Random): Unit = FXCollections.shuffle(this, random)</span>
+
+/**
+ * Sorts elements in the observable list according to their natural sort order.
+ * Fires only **one** change notification on the list.
+ */
+fun &lt;T : Comparable&lt;T&gt;&gt; ObservableList&lt;T&gt;.sort() {
+<span class="nc bnc" id="L180" title="All 2 branches missed.">    if (size &gt; 1) FXCollections.sort(this)</span>
+<span class="nc" id="L181">}</span>
+
+/**
+ * Sorts elements in the observable list according to the order specified with [comparator].
+ * Fires only **one** change notification on the list.
+ */
+fun &lt;T&gt; ObservableList&lt;T&gt;.sortWith(comparator: Comparator&lt;in T&gt;) {
+<span class="nc bnc" id="L188" title="All 2 branches missed.">    if (size &gt; 1) FXCollections.sort(this, comparator)</span>
+<span class="nc" id="L189">}</span>
+
+/**
+ * Sorts elements in the observable list according to natural sort order of the value returned by specified [selector] function.
+ * Fires only **one** change notification on the list.
+ */
+inline fun &lt;T, R : Comparable&lt;R&gt;&gt; ObservableList&lt;T&gt;.sortBy(crossinline selector: (T) -&gt; R?) {
+<span class="nc bnc" id="L196" title="All 2 branches missed.">    if (size &gt; 1) sortWith(compareBy(selector))</span>
+<span class="nc" id="L197">}</span>
+
+/**
+ * Sorts elements in the observable list descending according to natural sort order of the value returned by specified [selector] function.
+ * Fires only **one** change notification on the list.
+ */
+inline fun &lt;T, R : Comparable&lt;R&gt;&gt; ObservableList&lt;T&gt;.sortByDescending(crossinline selector: (T) -&gt; R?) {
+<span class="nc bnc" id="L204" title="All 2 branches missed.">    if (size &gt; 1) sortWith(compareByDescending(selector))</span>
+<span class="nc" id="L205">}</span>
+
+
+/**
+ * Moves the given **T** item to the specified index
+ */
+fun &lt;T&gt; MutableList&lt;T&gt;.move(item: T, newIndex: Int) {
+<span class="pc bpc" id="L212" title="1 of 6 branches missed.">    check(newIndex in 0 until size)</span>
+<span class="fc" id="L213">    val currentIndex = indexOf(item)</span>
+<span class="fc bfc" id="L214" title="All 2 branches covered.">    if (currentIndex &lt; 0) return</span>
+<span class="fc" id="L215">    removeAt(currentIndex)</span>
+<span class="fc" id="L216">    add(newIndex, item)</span>
+<span class="fc" id="L217">}</span>
+
+/**
+ * Moves the given item at the `oldIndex` to the `newIndex`
+ */
+fun &lt;T&gt; MutableList&lt;T&gt;.moveAt(oldIndex: Int, newIndex: Int) {
+<span class="pc bpc" id="L223" title="3 of 6 branches missed.">    check(oldIndex in 0 until size)</span>
+<span class="pc bpc" id="L224" title="1 of 6 branches missed.">    check(newIndex in 0 until size)</span>
+<span class="fc" id="L225">    val item = this[oldIndex]</span>
+<span class="fc" id="L226">    removeAt(oldIndex)</span>
+<span class="fc" id="L227">    add(newIndex, item)</span>
+<span class="fc" id="L228">}</span>
+
+/**
+ * Moves all items meeting a predicate to the given index
+ */
+fun &lt;T&gt; MutableList&lt;T&gt;.moveAll(newIndex: Int, predicate: (T) -&gt; Boolean) {
+<span class="pc bpc" id="L234" title="1 of 6 branches missed.">    check(newIndex in 0 until size)</span>
+<span class="fc" id="L235">    val split = partition(predicate)</span>
+<span class="fc" id="L236">    clear()</span>
+<span class="fc" id="L237">    addAll(split.second)</span>
+<span class="pc bpc" id="L238" title="1 of 2 branches missed.">    addAll(if (newIndex &gt;= size) size else newIndex, split.first)</span>
+<span class="fc" id="L239">}</span>
+
+/**
+ * Moves the given element at specified index up the **MutableList** by one increment
+ * unless it is at the top already which will result in no movement
+ */
+fun &lt;T&gt; MutableList&lt;T&gt;.moveUpAt(index: Int) {
+<span class="pc bpc" id="L246" title="1 of 2 branches missed.">    if (index == 0) return</span>
+<span class="pc bpc" id="L247" title="1 of 6 branches missed.">    check(index in indices, { &quot;Invalid index $index for MutableList of size $size&quot; })</span>
+<span class="fc" id="L248">    val newIndex = index - 1</span>
+<span class="fc" id="L249">    val item = this[index]</span>
+<span class="fc" id="L250">    removeAt(index)</span>
+<span class="fc" id="L251">    add(newIndex, item)</span>
+<span class="fc" id="L252">}</span>
+
+/**
+ * Moves the given element **T** up the **MutableList** by one increment
+ * unless it is at the bottom already which will result in no movement
+ */
+fun &lt;T&gt; MutableList&lt;T&gt;.moveDownAt(index: Int) {
+<span class="pc bpc" id="L259" title="1 of 2 branches missed.">    if (index == size - 1) return</span>
+<span class="pc bpc" id="L260" title="1 of 6 branches missed.">    check(index in indices, { &quot;Invalid index $index for MutableList of size $size&quot; })</span>
+<span class="fc" id="L261">    val newIndex = index + 1</span>
+<span class="fc" id="L262">    val item = this[index]</span>
+<span class="fc" id="L263">    removeAt(index)</span>
+<span class="fc" id="L264">    add(newIndex, item)</span>
+<span class="fc" id="L265">}</span>
+
+/**
+ * Moves the given element **T** up the **MutableList** by an index increment
+ * unless it is at the top already which will result in no movement.
+ * Returns a `Boolean` indicating if move was successful
+ */
+fun &lt;T&gt; MutableList&lt;T&gt;.moveUp(item: T): Boolean {
+<span class="fc" id="L273">    val currentIndex = indexOf(item)</span>
+<span class="fc bfc" id="L274" title="All 2 branches covered.">    if (currentIndex == -1) return false</span>
+<span class="fc" id="L275">    val newIndex = (currentIndex - 1)</span>
+<span class="pc bpc" id="L276" title="1 of 2 branches missed.">    if (currentIndex &lt;= 0) return false</span>
+<span class="fc" id="L277">    remove(item)</span>
+<span class="fc" id="L278">    add(newIndex, item)</span>
+<span class="fc" id="L279">    return true</span>
+}
+
+/**
+ * Moves the given element **T** up the **MutableList** by an index increment
+ * unless it is at the bottom already which will result in no movement.
+ * Returns a `Boolean` indicating if move was successful
+ */
+fun &lt;T&gt; MutableList&lt;T&gt;.moveDown(item: T): Boolean {
+<span class="fc" id="L288">    val currentIndex = indexOf(item)</span>
+<span class="fc bfc" id="L289" title="All 2 branches covered.">    if (currentIndex == -1) return false</span>
+<span class="fc" id="L290">    val newIndex = (currentIndex + 1)</span>
+<span class="pc bpc" id="L291" title="1 of 2 branches missed.">    if (newIndex &gt;= size) return false</span>
+<span class="fc" id="L292">    remove(item)</span>
+<span class="fc" id="L293">    add(newIndex, item)</span>
+<span class="fc" id="L294">    return true</span>
+}
+
+
+/**
+ * Moves first element **T** up an index that satisfies the given **predicate**, unless its already at the top
+ */
+<span class="nc bnc" id="L301" title="All 6 branches missed.">inline fun &lt;T&gt; MutableList&lt;T&gt;.moveUp(crossinline predicate: (T) -&gt; Boolean) = find(predicate)?.let { moveUp(it) }</span>
+
+/**
+ * Moves first element **T** down an index that satisfies the given **predicate**, unless its already at the bottom
+ */
+<span class="nc bnc" id="L306" title="All 6 branches missed.">inline fun &lt;T&gt; MutableList&lt;T&gt;.moveDown(crossinline predicate: (T) -&gt; Boolean) = find(predicate)?.let { moveDown(it) }</span>
+
+/**
+ * Moves all **T** elements up an index that satisfy the given **predicate**, unless they are already at the top
+ */
+<span class="nc" id="L311">inline fun &lt;T&gt; MutableList&lt;T&gt;.moveUpAll(crossinline predicate: (T) -&gt; Boolean) = asSequence().withIndex()</span>
+<span class="nc" id="L312">        .filter { predicate.invoke(it.value) }</span>
+<span class="nc" id="L313">        .forEach { moveUpAt(it.index) }</span>
+
+/**
+ * Moves all **T** elements down an index that satisfy the given **predicate**, unless they are already at the bottom
+ */
+<span class="nc" id="L318">inline fun &lt;T&gt; MutableList&lt;T&gt;.moveDownAll(crossinline predicate: (T) -&gt; Boolean) = asSequence().withIndex()</span>
+<span class="nc" id="L319">        .filter { predicate.invoke(it.value) }</span>
+<span class="nc" id="L320">        .forEach { moveDownAt(it.index) }</span>
+
+
+fun &lt;T&gt; MutableList&lt;T&gt;.moveToTopWhere(predicate: (T) -&gt; Boolean) {
+<span class="nc" id="L324">    asSequence().filter(predicate).toList().asSequence().forEach {</span>
+<span class="nc" id="L325">        remove(it)</span>
+<span class="nc" id="L326">        add(0, it)</span>
+<span class="nc" id="L327">    }</span>
+<span class="nc" id="L328">}</span>
+
+fun &lt;T&gt; MutableList&lt;T&gt;.moveToBottomWhere(predicate: (T) -&gt; Boolean) {
+<span class="nc" id="L331">    val end = size - 1</span>
+<span class="nc" id="L332">    asSequence().filter(predicate).toList().asSequence().forEach {</span>
+<span class="nc" id="L333">        remove(it)</span>
+<span class="nc" id="L334">        add(end, it)</span>
+<span class="nc" id="L335">    }</span>
+<span class="nc" id="L336">}</span>
+
+
+/**
+ * Swaps the position of two items at two respective indices
+ */
+fun &lt;T&gt; MutableList&lt;T&gt;.swap(indexOne: Int, indexTwo: Int) {
+<span class="nc bnc" id="L343" title="All 2 branches missed.">    if (this is ObservableList&lt;*&gt;) {</span>
+<span class="nc bnc" id="L344" title="All 2 branches missed.">        if (indexOne == indexTwo) return</span>
+<span class="nc" id="L345">        val min = Math.min(indexOne, indexTwo)</span>
+<span class="nc" id="L346">        val max = Math.max(indexOne, indexTwo)</span>
+<span class="nc" id="L347">        val o2 = removeAt(max)</span>
+<span class="nc" id="L348">        val o1 = removeAt(min)</span>
+<span class="nc" id="L349">        add(min, o2)</span>
+<span class="nc" id="L350">        add(max, o1)</span>
+    } else {
+<span class="nc" id="L352">        Collections.swap(this, indexOne, indexTwo)</span>
+    }
+<span class="nc" id="L354">}</span>
+
+/**
+ * Swaps the index position of two items
+ */
+<span class="nc" id="L359">fun &lt;T&gt; MutableList&lt;T&gt;.swap(itemOne: T, itemTwo: T) = swap(indexOf(itemOne), indexOf(itemTwo))</span>
+
+/**
+ * Bind this list to the given observable list by converting them into the correct type via the given converter.
+ * Changes to the observable list are synced.
+ */
+fun &lt;SourceType, TargetType&gt; MutableList&lt;TargetType&gt;.bind(sourceList: ObservableList&lt;SourceType&gt;, converter: (SourceType) -&gt; TargetType): ListConversionListener&lt;SourceType, TargetType&gt; {
+<span class="nc" id="L366">    val ignoringParentConverter: (SourceType) -&gt; TargetType = {</span>
+<span class="nc" id="L367">        FX.ignoreParentBuilder = Once</span>
+<span class="nc" id="L368">        try {</span>
+<span class="nc" id="L369">            converter(it)</span>
+        } finally {
+<span class="nc" id="L371">            FX.ignoreParentBuilder = No</span>
+        }
+    }
+<span class="nc" id="L374">    val listener = ListConversionListener(this, ignoringParentConverter)</span>
+<span class="nc bnc" id="L375" title="All 4 branches missed.">    (this as?  ObservableList&lt;TargetType&gt;)?.setAll(sourceList.map(ignoringParentConverter)) ?: run {</span>
+<span class="nc" id="L376">        clear()</span>
+<span class="nc" id="L377">        addAll(sourceList.map(ignoringParentConverter))</span>
+    }
+<span class="nc" id="L379">    sourceList.removeListener(listener)</span>
+<span class="nc" id="L380">    sourceList.addListener(listener)</span>
+<span class="nc" id="L381">    return listener</span>
+}
+
+/**
+ * Bind this list to the given observable list by converting them into the correct type via the given converter.
+ * Changes to the observable list are synced.
+ */
+fun &lt;SourceType, TargetType&gt; MutableList&lt;TargetType&gt;.bind(sourceSet: ObservableSet&lt;SourceType&gt;, converter: (SourceType) -&gt; TargetType): SetConversionListener&lt;SourceType, TargetType&gt; {
+<span class="nc" id="L389">    val ignoringParentConverter: (SourceType) -&gt; TargetType = {</span>
+<span class="nc" id="L390">        FX.ignoreParentBuilder = Once</span>
+<span class="nc" id="L391">        try {</span>
+<span class="nc" id="L392">            converter(it)</span>
+        } finally {
+<span class="nc" id="L394">            FX.ignoreParentBuilder = No</span>
+        }
+    }
+<span class="nc" id="L397">    val listener = SetConversionListener(this, ignoringParentConverter)</span>
+<span class="nc bnc" id="L398" title="All 2 branches missed.">    if (this is ObservableList&lt;*&gt;) {</span>
+<span class="nc" id="L399">        sourceSet.forEach { source -&gt;</span>
+<span class="nc" id="L400">            val converted = ignoringParentConverter(source)</span>
+<span class="nc" id="L401">            listener.sourceToTarget[source] = converted</span>
+<span class="nc" id="L402">        }</span>
+<span class="nc" id="L403">        (this as ObservableList&lt;TargetType&gt;).setAll(listener.sourceToTarget.values)</span>
+    } else {
+<span class="nc" id="L405">        clear()</span>
+<span class="nc" id="L406">        addAll(sourceSet.map(ignoringParentConverter))</span>
+    }
+<span class="nc" id="L408">    sourceSet.removeListener(listener)</span>
+<span class="nc" id="L409">    sourceSet.addListener(listener)</span>
+<span class="nc" id="L410">    return listener</span>
+}
+
+fun &lt;SourceTypeKey, SourceTypeValue, TargetType&gt; MutableList&lt;TargetType&gt;.bind(
+        sourceMap: ObservableMap&lt;SourceTypeKey, SourceTypeValue&gt;,
+        converter: (SourceTypeKey, SourceTypeValue) -&gt; TargetType
+): MapConversionListener&lt;SourceTypeKey, SourceTypeValue, TargetType&gt; {
+<span class="fc" id="L417">    val ignoringParentConverter: (SourceTypeKey, SourceTypeValue) -&gt; TargetType = { key, value -&gt;</span>
+<span class="fc" id="L418">        FX.ignoreParentBuilder = FX.IgnoreParentBuilder.Once</span>
+<span class="fc" id="L419">        try {</span>
+<span class="fc" id="L420">            converter(key, value)</span>
+        } finally {
+<span class="fc" id="L422">            FX.ignoreParentBuilder = FX.IgnoreParentBuilder.No</span>
+        }
+    }
+<span class="fc" id="L425">    val listener = MapConversionListener(this, ignoringParentConverter)</span>
+<span class="pc bpc" id="L426" title="1 of 2 branches missed.">    if (this is ObservableList&lt;*&gt;) {</span>
+<span class="fc" id="L427">        sourceMap.forEach { source -&gt;</span>
+<span class="fc" id="L428">            val converted = ignoringParentConverter(source.key,source.value)</span>
+<span class="fc" id="L429">            listener.sourceToTarget[source] = converted</span>
+<span class="fc" id="L430">        }</span>
+<span class="fc" id="L431">        (this as ObservableList&lt;TargetType&gt;).setAll(listener.sourceToTarget.values)</span>
+    } else {
+<span class="nc" id="L433">        clear()</span>
+<span class="nc" id="L434">        addAll(sourceMap.map{ignoringParentConverter(it.key, it.value) })</span>
+    }
+<span class="fc" id="L436">    sourceMap.removeListener(listener)</span>
+<span class="fc" id="L437">    sourceMap.addListener(listener)</span>
+<span class="fc" id="L438">    return listener</span>
+}
+
+
+/**
+ * Listens to changes on a list of SourceType and keeps the target list in sync by converting
+ * each object into the TargetType via the supplied converter.
+ */
+<span class="nc" id="L446">class ListConversionListener&lt;SourceType, TargetType&gt;(targetList: MutableList&lt;TargetType&gt;, val converter: (SourceType) -&gt; TargetType) : ListChangeListener&lt;SourceType&gt;, WeakListener {</span>
+<span class="nc" id="L447">    internal val targetRef: WeakReference&lt;MutableList&lt;TargetType&gt;&gt; = WeakReference(targetList)</span>
+
+    override fun onChanged(change: ListChangeListener.Change&lt;out SourceType&gt;) {
+<span class="nc" id="L450">        val list = targetRef.get()</span>
+<span class="nc bnc" id="L451" title="All 2 branches missed.">        if (list == null) {</span>
+<span class="nc" id="L452">            change.list.removeListener(this)</span>
+        } else {
+<span class="nc bnc" id="L454" title="All 2 branches missed.">            while (change.next()) {</span>
+<span class="nc bnc" id="L455" title="All 2 branches missed.">                if (change.wasPermutated()) {</span>
+<span class="nc" id="L456">                    list.subList(change.from, change.to).clear()</span>
+<span class="nc" id="L457">                    list.addAll(change.from, change.list.subList(change.from, change.to).map(converter))</span>
+                } else {
+<span class="nc bnc" id="L459" title="All 2 branches missed.">                    if (change.wasRemoved()) {</span>
+<span class="nc" id="L460">                        list.subList(change.from, change.from + change.removedSize).clear()</span>
+                    }
+<span class="nc bnc" id="L462" title="All 2 branches missed.">                    if (change.wasAdded()) {</span>
+<span class="nc" id="L463">                        list.addAll(change.from, change.addedSubList.map(converter))</span>
+                    }
+                }
+            }
+        }
+<span class="nc" id="L468">    }</span>
+
+<span class="nc bnc" id="L470" title="All 2 branches missed.">    override fun wasGarbageCollected() = targetRef.get() == null</span>
+
+<span class="nc bnc" id="L472" title="All 2 branches missed.">    override fun hashCode() = targetRef.get().hashCode()</span>
+
+    override fun equals(other: Any?): Boolean {
+<span class="nc bnc" id="L475" title="All 2 branches missed.">        if (this === other) {</span>
+<span class="nc" id="L476">            return true</span>
+        }
+
+<span class="nc bnc" id="L479" title="All 2 branches missed.">        val ourList = targetRef.get() ?: return false</span>
+
+<span class="nc bnc" id="L481" title="All 2 branches missed.">        if (other is ListConversionListener&lt;*, *&gt;) {</span>
+<span class="nc" id="L482">            val otherList = other.targetRef.get()</span>
+<span class="nc bnc" id="L483" title="All 2 branches missed.">            return ourList === otherList</span>
+        }
+<span class="nc" id="L485">        return false</span>
+    }
+}
+
+/**
+ * Listens to changes on a Map of SourceTypeKey to SourceTypeValue and keeps the target list in sync by converting
+ * each object into the TargetType via the supplied converter.
+ */
+<span class="fc" id="L493">class MapConversionListener&lt;SourceTypeKey, SourceTypeValue, TargetType&gt;(</span>
+        targetList: MutableList&lt;TargetType&gt;,
+<span class="nc" id="L495">        val converter: (SourceTypeKey, SourceTypeValue) -&gt; TargetType</span>
+) : MapChangeListener&lt;SourceTypeKey, SourceTypeValue&gt;, WeakListener {
+
+<span class="pc" id="L498">    internal val targetRef: WeakReference&lt;MutableList&lt;TargetType&gt;&gt; = WeakReference(targetList)</span>
+<span class="fc" id="L499">    internal val sourceToTarget = HashMap&lt;Map.Entry&lt;SourceTypeKey, SourceTypeValue&gt;, TargetType&gt;()</span>
+    override fun onChanged(change: MapChangeListener.Change&lt;out SourceTypeKey, out SourceTypeValue&gt;) {
+<span class="fc" id="L501">        val list = targetRef.get()</span>
+<span class="pc bpc" id="L502" title="1 of 2 branches missed.">        if (list == null) {</span>
+<span class="nc" id="L503">            change.map.removeListener(this)</span>
+        } else {
+<span class="fc bfc" id="L505" title="All 2 branches covered.">            if (change.wasRemoved()) {</span>
+<span class="fc" id="L506">                list.remove(converter(change.key, change.valueRemoved))</span>
+            }
+<span class="pc bpc" id="L508" title="1 of 2 branches missed.">            if (change.wasAdded()) {</span>
+<span class="fc" id="L509">                list.add(converter(change.key, change.valueAdded))</span>
+            }
+        }
+<span class="fc" id="L512">    }</span>
+
+<span class="nc bnc" id="L514" title="All 2 branches missed.">    override fun wasGarbageCollected() = targetRef.get() == null</span>
+
+<span class="nc bnc" id="L516" title="All 2 branches missed.">    override fun hashCode() = targetRef.get().hashCode()</span>
+
+    override fun equals(other: Any?): Boolean {
+<span class="nc bnc" id="L519" title="All 2 branches missed.">        if (this === other) {</span>
+<span class="nc" id="L520">            return true</span>
+        }
+
+<span class="nc bnc" id="L523" title="All 2 branches missed.">        val ourList = targetRef.get() ?: return false</span>
+
+<span class="nc bnc" id="L525" title="All 2 branches missed.">        if (other is MapConversionListener&lt;*, *, *&gt;) {</span>
+<span class="nc" id="L526">            val otherList = other.targetRef.get()</span>
+<span class="nc bnc" id="L527" title="All 2 branches missed.">            return ourList === otherList</span>
+        }
+<span class="nc" id="L529">        return false</span>
+    }
+}
+
+/**
+ * Listens to changes on a set of SourceType and keeps the target list in sync by converting
+ * each object into the TargetType via the supplied converter.
+ */
+<span class="nc" id="L537">class SetConversionListener&lt;SourceType, TargetType&gt;(targetList: MutableList&lt;TargetType&gt;, val converter: (SourceType) -&gt; TargetType) : SetChangeListener&lt;SourceType&gt;, WeakListener {</span>
+<span class="nc" id="L538">    internal val targetRef: WeakReference&lt;MutableList&lt;TargetType&gt;&gt; = WeakReference(targetList)</span>
+<span class="nc" id="L539">    internal val sourceToTarget = HashMap&lt;SourceType, TargetType&gt;()</span>
+
+    override fun onChanged(change: SetChangeListener.Change&lt;out SourceType&gt;) {
+<span class="nc" id="L542">        val list = targetRef.get()</span>
+<span class="nc bnc" id="L543" title="All 2 branches missed.">        if (list == null) {</span>
+<span class="nc" id="L544">            change.set.removeListener(this)</span>
+<span class="nc" id="L545">            sourceToTarget.clear()</span>
+        } else {
+<span class="nc bnc" id="L547" title="All 2 branches missed.">            if (change.wasRemoved()) {</span>
+<span class="nc" id="L548">                list.remove(sourceToTarget[change.elementRemoved])</span>
+<span class="nc" id="L549">                sourceToTarget.remove(change.elementRemoved)</span>
+            }
+<span class="nc bnc" id="L551" title="All 2 branches missed.">            if (change.wasAdded()) {</span>
+<span class="nc" id="L552">                val converted = converter(change.elementAdded)</span>
+<span class="nc" id="L553">                sourceToTarget[change.elementAdded] = converted</span>
+<span class="nc" id="L554">                list.add(converted)</span>
+            }
+        }
+<span class="nc" id="L557">    }</span>
+
+<span class="nc bnc" id="L559" title="All 2 branches missed.">    override fun wasGarbageCollected() = targetRef.get() == null</span>
+
+<span class="nc bnc" id="L561" title="All 2 branches missed.">    override fun hashCode() = targetRef.get().hashCode()</span>
+
+    override fun equals(other: Any?): Boolean {
+<span class="nc bnc" id="L564" title="All 2 branches missed.">        if (this === other) {</span>
+<span class="nc" id="L565">            return true</span>
+        }
+
+<span class="nc bnc" id="L568" title="All 2 branches missed.">        val ourList = targetRef.get() ?: return false</span>
+
+<span class="nc bnc" id="L570" title="All 2 branches missed.">        if (other is SetConversionListener&lt;*, *&gt;) {</span>
+<span class="nc" id="L571">            val otherList = other.targetRef.get()</span>
+<span class="nc bnc" id="L572" title="All 2 branches missed.">            return ourList === otherList</span>
+        }
+<span class="nc" id="L574">        return false</span>
+    }
+}
+
+fun &lt;T&gt; ObservableList&lt;T&gt;.invalidate() {
+<span class="nc bnc" id="L579" title="All 4 branches missed.">    if (isNotEmpty()) this[0] = this[0]</span>
+<span class="nc" id="L580">}</span>
+
+@Deprecated(&quot;Use `observableListOf()` instead.&quot;, ReplaceWith(&quot;observableListOf(entries)&quot;, &quot;tornadofx.observableListOf&quot;))
+<span class="nc" id="L583">fun &lt;T&gt; observableList(vararg entries: T) : ObservableList&lt;T&gt; = FXCollections.observableArrayList&lt;T&gt;(entries.toList())</span>
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>

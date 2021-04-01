@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ViewModelFacades.kt</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tornadofx2</a> &gt; <a href="index.source.html" class="el_package">tornadofx</a> &gt; <span class="el_source">ViewModelFacades.kt</span></div><h1>ViewModelFacades.kt</h1><pre class="source lang-java linenums">package tornadofx
+
+import javafx.beans.Observable
+import javafx.beans.property.*
+import javafx.beans.value.ObservableValue
+import javafx.collections.ObservableList
+import javafx.collections.ObservableMap
+import javafx.collections.ObservableSet
+
+interface BindingAware
+
+/**
+ * A property wrapper that will report it's ViewModel relation
+ * to a central location to make it possible for validators
+ * to retrieve the correct ValidationContext from the ViewModel
+ * this property is bound to.
+ */
+interface BindingAwareProperty&lt;T&gt; : BindingAware, Property&lt;T&gt; {
+    fun recordBinding(observableValue: ObservableValue&lt;*&gt;?) {
+<span class="nc bnc" id="L20" title="All 2 branches missed.">        if (observableValue is Observable) {</span>
+<span class="nc" id="L21">            ViewModel.propertyToFacade[observableValue] = this</span>
+<span class="nc bnc" id="L22" title="All 2 branches missed.">            ViewModel.propertyToViewModel[observableValue] = bean as ViewModel</span>
+        }
+<span class="nc" id="L24">    }</span>
+}
+
+<span class="nc" id="L27">class BindingAwareSimpleBooleanProperty(viewModel: ViewModel, name: String?) : SimpleBooleanProperty(viewModel, name), BindingAwareProperty&lt;Boolean&gt; {</span>
+
+    override fun bind(rawObservable: ObservableValue&lt;out Boolean&gt;?) {
+<span class="nc" id="L30">        super.bind(rawObservable)</span>
+<span class="nc" id="L31">        recordBinding(rawObservable)</span>
+<span class="nc" id="L32">    }</span>
+
+    override fun bindBidirectional(other: Property&lt;Boolean&gt;?) {
+<span class="nc" id="L35">        super.bindBidirectional(other)</span>
+<span class="nc" id="L36">        recordBinding(other)</span>
+<span class="nc" id="L37">    }</span>
+}
+
+<span class="pc" id="L40">class BindingAwareSimpleStringProperty(viewModel: ViewModel, name: String?) : SimpleStringProperty(viewModel, name), BindingAwareProperty&lt;String&gt; {</span>
+    override fun bind(rawObservable: ObservableValue&lt;out String&gt;?) {
+<span class="nc" id="L42">        super.bind(rawObservable)</span>
+<span class="nc" id="L43">        recordBinding(rawObservable)</span>
+<span class="nc" id="L44">    }</span>
+
+    override fun bindBidirectional(other: Property&lt;String&gt;?) {
+<span class="nc" id="L47">        super.bindBidirectional(other)</span>
+<span class="nc" id="L48">        recordBinding(other)</span>
+<span class="nc" id="L49">    }</span>
+}
+
+<span class="nc" id="L52">class BindingAwareSimpleObjectProperty&lt;T&gt;(viewModel: ViewModel, name: String?) : SimpleObjectProperty&lt;T&gt;(viewModel, name), BindingAwareProperty&lt;T&gt; {</span>
+    override fun bind(rawObservable: ObservableValue&lt;out T&gt;?) {
+<span class="nc" id="L54">        super.bind(rawObservable)</span>
+<span class="nc" id="L55">        recordBinding(rawObservable)</span>
+<span class="nc" id="L56">    }</span>
+
+    override fun bindBidirectional(other: Property&lt;T&gt;?) {
+<span class="nc" id="L59">        super.bindBidirectional(other)</span>
+<span class="nc" id="L60">        recordBinding(other)</span>
+<span class="nc" id="L61">    }</span>
+}
+
+<span class="nc" id="L64">class BindingAwareSimpleListProperty&lt;T&gt;(viewModel: ViewModel, name: String?) : SimpleListProperty&lt;T&gt;(viewModel, name) {</span>
+    override fun bind(newObservable: ObservableValue&lt;out ObservableList&lt;T&gt;&gt;?) {
+<span class="nc" id="L66">        super.bind(newObservable)</span>
+<span class="nc" id="L67">        recordBinding(newObservable)</span>
+<span class="nc" id="L68">    }</span>
+
+    override fun bindContentBidirectional(list: ObservableList&lt;T&gt;?) {
+<span class="nc" id="L71">        super.bindContentBidirectional(list)</span>
+<span class="nc" id="L72">        recordBinding(list)</span>
+<span class="nc" id="L73">    }</span>
+
+    fun recordBinding(observableValue: Observable?) {
+<span class="nc bnc" id="L76" title="All 2 branches missed.">        if (observableValue != null) {</span>
+<span class="nc" id="L77">            ViewModel.propertyToFacade[observableValue] = this</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">            ViewModel.propertyToViewModel[observableValue] = bean as ViewModel</span>
+        }
+<span class="nc" id="L80">    }</span>
+
+    /**
+     * Return a unique id for this object instead of the default hashCode which is dependent on the children.
+     * Without this override we wouldn't be able to identify the facade in our internal maps.
+     */
+<span class="nc" id="L86">    override fun hashCode() = System.identityHashCode(this)</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">    override fun equals(other: Any?) = this === other</span>
+}
+
+<span class="nc" id="L90">class BindingAwareSimpleSetProperty&lt;T&gt;(viewModel: ViewModel, name: String?) : SimpleSetProperty&lt;T&gt;(viewModel, name) {</span>
+    override fun bind(newObservable: ObservableValue&lt;out ObservableSet&lt;T&gt;&gt;?) {
+<span class="nc" id="L92">        super.bind(newObservable)</span>
+<span class="nc" id="L93">        recordBinding(newObservable)</span>
+<span class="nc" id="L94">    }</span>
+
+    override fun bindContentBidirectional(list: ObservableSet&lt;T&gt;?) {
+<span class="nc" id="L97">        super.bindContentBidirectional(list)</span>
+<span class="nc" id="L98">        recordBinding(list)</span>
+<span class="nc" id="L99">    }</span>
+
+    fun recordBinding(observableValue: Observable?) {
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        if (observableValue != null) {</span>
+<span class="nc" id="L103">            ViewModel.propertyToFacade[observableValue] = this</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">            ViewModel.propertyToViewModel[observableValue] = bean as ViewModel</span>
+        }
+<span class="nc" id="L106">    }</span>
+
+    /**
+     * Return a unique id for this object instead of the default hashCode which is dependent on the children.
+     * Without this override we wouldn't be able to identify the facade in our internal maps.
+     */
+<span class="nc" id="L112">    override fun hashCode() = System.identityHashCode(this)</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">    override fun equals(other: Any?) = this === other</span>
+}
+
+<span class="nc" id="L116">class BindingAwareSimpleMapProperty&lt;S, T&gt;(viewModel: ViewModel, name: String?) : SimpleMapProperty&lt;S, T&gt;(viewModel, name) {</span>
+    override fun bind(newObservable: ObservableValue&lt;out ObservableMap&lt;S, T&gt;&gt;?) {
+<span class="nc" id="L118">        super.bind(newObservable)</span>
+<span class="nc" id="L119">        recordBinding(newObservable)</span>
+<span class="nc" id="L120">    }</span>
+
+    override fun bindContentBidirectional(list: ObservableMap&lt;S, T&gt;?) {
+<span class="nc" id="L123">        super.bindContentBidirectional(list)</span>
+<span class="nc" id="L124">        recordBinding(list)</span>
+<span class="nc" id="L125">    }</span>
+
+    fun recordBinding(observableValue: Observable?) {
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        if (observableValue != null) {</span>
+<span class="nc" id="L129">            ViewModel.propertyToFacade[observableValue] = this</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">            ViewModel.propertyToViewModel[observableValue] = bean as ViewModel</span>
+        }
+<span class="nc" id="L132">    }</span>
+
+    /**
+     * Return a unique id for this object instead of the default hashCode which is dependent on the children.
+     * Without this override we wouldn't be able to identify the facade in our internal maps.
+     */
+<span class="nc" id="L138">    override fun hashCode() = System.identityHashCode(this)</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">    override fun equals(other: Any?) = this === other</span>
+}
+
+<span class="nc" id="L142">class BindingAwareSimpleFloatProperty(viewModel: ViewModel, name: String?) : SimpleFloatProperty(viewModel, name), BindingAwareProperty&lt;Number&gt; {</span>
+
+    override fun bind(rawObservable: ObservableValue&lt;out Number&gt;?) {
+<span class="nc" id="L145">        super.bind(rawObservable)</span>
+<span class="nc" id="L146">        recordBinding(rawObservable)</span>
+<span class="nc" id="L147">    }</span>
+
+    override fun bindBidirectional(other: Property&lt;Number&gt;?) {
+<span class="nc" id="L150">        super.bindBidirectional(other)</span>
+<span class="nc" id="L151">        recordBinding(other)</span>
+<span class="nc" id="L152">    }</span>
+}
+
+<span class="nc" id="L155">class BindingAwareSimpleDoubleProperty(viewModel: ViewModel, name: String?) : SimpleDoubleProperty(viewModel, name), BindingAwareProperty&lt;Number&gt; {</span>
+
+    override fun bind(rawObservable: ObservableValue&lt;out Number&gt;?) {
+<span class="nc" id="L158">        super.bind(rawObservable)</span>
+<span class="nc" id="L159">        recordBinding(rawObservable)</span>
+<span class="nc" id="L160">    }</span>
+
+    override fun bindBidirectional(other: Property&lt;Number&gt;?) {
+<span class="nc" id="L163">        super.bindBidirectional(other)</span>
+<span class="nc" id="L164">        recordBinding(other)</span>
+<span class="nc" id="L165">    }</span>
+}
+
+<span class="nc" id="L168">class BindingAwareSimpleLongProperty(viewModel: ViewModel, name: String?) : SimpleLongProperty(viewModel, name), BindingAwareProperty&lt;Number&gt; {</span>
+
+    override fun bind(rawObservable: ObservableValue&lt;out Number&gt;?) {
+<span class="nc" id="L171">        super.bind(rawObservable)</span>
+<span class="nc" id="L172">        recordBinding(rawObservable)</span>
+<span class="nc" id="L173">    }</span>
+
+    override fun bindBidirectional(other: Property&lt;Number&gt;?) {
+<span class="nc" id="L176">        super.bindBidirectional(other)</span>
+<span class="nc" id="L177">        recordBinding(other)</span>
+<span class="nc" id="L178">    }</span>
+}
+
+<span class="pc" id="L181">class BindingAwareSimpleIntegerProperty(viewModel: ViewModel, name: String?) : SimpleIntegerProperty(viewModel, name), BindingAwareProperty&lt;Number&gt; {</span>
+
+    override fun bind(rawObservable: ObservableValue&lt;out Number&gt;?) {
+<span class="nc" id="L184">        super.bind(rawObservable)</span>
+<span class="nc" id="L185">        recordBinding(rawObservable)</span>
+<span class="nc" id="L186">    }</span>
+
+    override fun bindBidirectional(other: Property&lt;Number&gt;?) {
+<span class="nc" id="L189">        super.bindBidirectional(other)</span>
+<span class="nc" id="L190">        recordBinding(other)</span>
+<span class="nc" id="L191">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.6.202009150832</span></div></body></html>
