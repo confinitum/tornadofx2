@@ -49,6 +49,7 @@ cache:
     - $HOME/.m2
 
 deploy:
+  skip_cleanup: true
   provider: pages
   token: $GITHUB_TOKEN
   local_dir: ./build/reports/jacoco/test/html
